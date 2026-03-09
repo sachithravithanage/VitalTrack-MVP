@@ -1,33 +1,34 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const PDFDocument = require("pdfkit"); // npm install pdfkit
+const { v4: uuidv4 } = require("uuid"); // npm install uuid
 
 admin.initializeApp();
+const firestore = admin.firestore();
+const adminStorage = admin.storage();
 
-exports.generateCaregiverCode = functions.https.onCall(
-    async (data, context) => {
-      if (!context.auth) {
-        throw new functions.https.HttpsError(
-            "unauthenticated",
-            "You must be logged in to generate a code.",
-        );
-      }
+function requireAuth(context) {
+  if (!context.auth || !context.auth.uid) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Authentication is required",
+    );
+  }
+  return context.auth.uid;
+}
 
-      const patientId = context.auth.uid;
+async function isCaregiverLinkedToPatient(caregiverId, patientId) {
+  const linkSnapshot = await firestore
+    .collection("patient_links")
+    .where("caregiverId", "==", caregiverId)
+    .where("patientId", "==", patientId)
+    .limit(1)
+    .get();
 
-      const secretCode = Math.floor(100000 + Math.random() * 900000).toString();
+  return !linkSnapshot.empty;
+}
 
-      const expirationDate = new Date();
-      expirationDate.setHours(expirationDate.getHours() + 24);
-
-      await admin.firestore().collection("linking_codes").doc(secretCode).set({
-        patientId: patientId,
-        expiresAt: expirationDate,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return {
-        code: secretCode,
-        message: "Code generated successfully!",
-      };
-    },
-);
+async function canAccessPatientData(uid, patientId) {
+  if (uid === patientId) return true;
+  return isCaregiverLinkedToPatient(uid, patientId);
+}
