@@ -1,5 +1,6 @@
-const functions = require("firebase-functions");
+const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 const PDFDocument = require("pdfkit"); // npm install pdfkit
 const { v4: uuidv4 } = require("uuid"); // npm install uuid
 
@@ -149,7 +150,7 @@ exports.submitSymptomLog = functions.https.onCall(async (data, context) => {
     musclePain: musclePain || null,
     urineColor: urineColor || null,
     dangerSigns: dangerSigns || false,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
     triage: "Green",
   });
 
@@ -183,7 +184,7 @@ exports.submitVoiceSymptomLog = functions.https.onCall(
       disease,
       voiceInput,
       dangerSigns: false,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       triage: "Green",
     });
 
@@ -232,7 +233,7 @@ exports.checkTriage = functions.firestore
         patientId: data.patientId,
         level: "RED",
         message: "Immediate hospital visit required",
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
       });
     }
 
@@ -366,12 +367,19 @@ exports.generatePDFReport = functions.https.onCall(async (data, context) => {
   });
 
   const fileName = `reports/${patientId}_${uuidv4()}.pdf`;
-  const file = adminStorage().bucket().file(fileName);
+  const file = adminStorage.bucket().file(fileName);
 
   await file.save(pdfBuffer, {
     contentType: "application/pdf",
     resumable: false,
   });
+
+  if (process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
+    const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+    const encodedFileName = encodeURIComponent(fileName);
+    const emulatorUrl = `http://${emulatorHost}/v0/b/${file.bucket.name}/o/${encodedFileName}?alt=media`;
+    return { downloadUrl: emulatorUrl };
+  }
 
   const [url] = await file.getSignedUrl({
     action: "read",
