@@ -238,3 +238,145 @@ exports.checkTriage = functions.firestore
 
     return null;
   });
+
+/////////////////////////////////////////
+// Emergency Push Notifications
+/////////////////////////////////////////
+exports.sendEmergencyNotification = functions.firestore
+  .document("alerts/{alertId}")
+  .onCreate(async (snap, context) => {
+    const alertData = snap.data();
+    const { patientId, message } = alertData;
+    if (!patientId) return null;
+
+    const patientDoc = await firestore.collection("users").doc(patientId).get();
+    const patientToken = patientDoc.data()?.fcmToken;
+
+    const caregiverLinks = await firestore
+      .collection("patient_links")
+      .where("patientId", "==", patientId)
+      .get();
+
+    const caregiverTokens = [];
+    caregiverLinks.forEach((linkDoc) => {
+      const caregiverId = linkDoc.data().caregiverId;
+      caregiverTokens.push(
+        firestore
+          .collection("users")
+          .doc(caregiverId)
+          .get()
+          .then((doc) => doc.data()?.fcmToken),
+      );
+    });
+
+    const allTokens = [];
+    if (patientToken) allTokens.push(patientToken);
+    const resolvedCaregiverTokens = await Promise.all(caregiverTokens);
+    resolvedCaregiverTokens.forEach((t) => {
+      if (t) allTokens.push(t);
+    });
+
+    if (allTokens.length === 0) return null;
+
+    const payload = {
+      notification: {
+        title: "VitalTrack Emergency Alert!",
+        body: message || "Immediate hospital visit required",
+        sound: "default",
+      },
+    };
+
+    try {
+      await admin.messaging().sendToDevice(allTokens, payload);
+      console.log("Push notifications sent successfully");
+    } catch (err) {
+      console.error("Error sending push notifications:", err);
+    }
+
+    return null;
+  });
+
+/////////////////////////////////////////
+// PDF Report Generation
+/////////////////////////////////////////
+exports.generatePDFReport = functions.https.onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const { patientId, startDate, endDate } = data;
+  if (!patientId || !startDate || !endDate) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing parameters",
+    );
+  }
+
+  const allowed = await canAccessPatientData(uid, patientId);
+  if (!allowed) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only the patient or linked caregiver can export reports",
+    );
+  }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const logsSnapshot = await firestore
+    .collection("symptom_logs")
+    .where("patientId", "==", patientId)
+    .where("timestamp", ">=", start)
+    .where("timestamp", "<=", end)
+    .orderBy("timestamp")
+    .get();
+
+  if (logsSnapshot.empty) {
+    throw new functions.https.HttpsError("not-found", "No logs found");
+  }
+
+  const doc = new PDFDocument();
+  const buffers = [];
+  doc.on("data", buffers.push.bind(buffers));
+  doc.on("end", () => {});
+
+  doc.fontSize(18).text("VitalTrack Health Report", { align: "center" });
+  doc.moveDown();
+
+  logsSnapshot.forEach((logDoc) => {
+    const log = logDoc.data();
+    doc
+      .fontSize(12)
+      .text(`Date: ${log.timestamp.toDate().toLocaleString()}`)
+      .text(`Disease: ${log.disease}`)
+      .text(`Temperature: ${log.temperature || "N/A"}`)
+      .text(`Fluid Intake: ${log.fluidIntake || "N/A"}`)
+      .text(`Urine Output: ${log.urineOutput || "N/A"}`)
+      .text(`Muscle Pain: ${log.musclePain || "N/A"}`)
+      .text(`Urine Color: ${log.urineColor || "N/A"}`)
+      .text(`Danger Signs: ${log.dangerSigns ? "Yes" : "No"}`)
+      .text(`Triage: ${log.triage}`)
+      .text(`Voice Notes: ${log.voiceInput || "N/A"}`)
+      .moveDown();
+  });
+
+  doc.end();
+
+  const pdfBuffer = await new Promise((resolve) => {
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+  });
+
+  const fileName = `reports/${patientId}_${uuidv4()}.pdf`;
+  const file = adminStorage().bucket().file(fileName);
+
+  await file.save(pdfBuffer, {
+    contentType: "application/pdf",
+    resumable: false,
+  });
+
+  const [url] = await file.getSignedUrl({
+    action: "read",
+    expires: Date.now() + 1000 * 60 * 60 * 24, // 24 hours
+  });
+
+  return { downloadUrl: url };
+});
