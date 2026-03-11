@@ -109,3 +109,132 @@ exports.linkCaregiverToPatient = functions.https.onCall(
     return { success: true, patientId };
   },
 );
+
+/////////////////////////////////////////
+// Submit Symptom Log (Normal)
+/////////////////////////////////////////
+exports.submitSymptomLog = functions.https.onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const {
+    patientId,
+    disease,
+    temperature,
+    fluidIntake,
+    urineOutput,
+    musclePain,
+    urineColor,
+    dangerSigns,
+  } = data;
+  if (!patientId || !disease) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Missing required fields",
+    );
+  }
+
+  const allowed = await canAccessPatientData(uid, patientId);
+  if (!allowed) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only the patient or linked caregiver can submit logs",
+    );
+  }
+
+  const logRef = await firestore.collection("symptom_logs").add({
+    patientId,
+    disease,
+    temperature: temperature || null,
+    fluidIntake: fluidIntake || null,
+    urineOutput: urineOutput || null,
+    musclePain: musclePain || null,
+    urineColor: urineColor || null,
+    dangerSigns: dangerSigns || false,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    triage: "Green",
+  });
+
+  return { success: true, logId: logRef.id };
+});
+
+/////////////////////////////////////////
+// Submit Voice-to-Text Symptom Log
+/////////////////////////////////////////
+exports.submitVoiceSymptomLog = functions.https.onCall(
+  async (data, context) => {
+    const uid = requireAuth(context);
+    const { patientId, disease, voiceInput } = data;
+    if (!patientId || !disease || !voiceInput) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing required fields",
+      );
+    }
+
+    const allowed = await canAccessPatientData(uid, patientId);
+    if (!allowed) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only the patient or linked caregiver can submit voice logs",
+      );
+    }
+
+    const logRef = await firestore.collection("symptom_logs").add({
+      patientId,
+      disease,
+      voiceInput,
+      dangerSigns: false,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      triage: "Green",
+    });
+
+    // Optional: auto-detect danger signs from keywords
+    const dangerKeywords = ["bleeding", "severe pain", "jaundice", "hospital"];
+    const detectedDanger = dangerKeywords.some((word) =>
+      voiceInput.toLowerCase().includes(word),
+    );
+    if (detectedDanger) {
+      await logRef.update({ dangerSigns: true });
+    }
+
+    return { success: true, logId: logRef.id };
+  },
+);
+
+/////////////////////////////////////////
+// Automatic Triage
+/////////////////////////////////////////
+exports.checkTriage = functions.firestore
+  .document("symptom_logs/{logId}")
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    let triage = "Green";
+
+    if (data.disease === "dengue") {
+      if (data.dangerSigns || data.temperature > 40 || data.urineOutput < 300)
+        triage = "Red";
+      else if (data.temperature >= 39 || data.urineOutput < 400)
+        triage = "Yellow";
+    } else if (data.disease === "rat_fever") {
+      if (
+        data.dangerSigns ||
+        data.musclePain === "severe" ||
+        data.urineColor === "dark"
+      )
+        triage = "Red";
+      else if (data.musclePain === "moderate" || data.urineColor === "brownish")
+        triage = "Yellow";
+    }
+
+    await snap.ref.update({ triage });
+
+    if (triage === "Red") {
+      await firestore.collection("alerts").add({
+        patientId: data.patientId,
+        level: "RED",
+        message: "Immediate hospital visit required",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    return null;
+  });
