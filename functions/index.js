@@ -32,3 +32,80 @@ async function canAccessPatientData(uid, patientId) {
   if (uid === patientId) return true;
   return isCaregiverLinkedToPatient(uid, patientId);
 }
+
+/////////////////////////////////////////
+// Generate Caregiver Code
+/////////////////////////////////////////
+exports.generateCaregiverCode = functions.https.onCall(
+  async (data, context) => {
+    const uid = requireAuth(context);
+    const { patientId } = data;
+    if (!patientId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing patientId",
+      );
+    }
+
+    if (uid !== patientId) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only the patient can generate their caregiver code",
+      );
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await firestore
+      .collection("users")
+      .doc(patientId)
+      .update({ caregiverCode: code });
+    return { caregiverCode: code };
+  },
+);
+
+/////////////////////////////////////////
+// Link Caregiver to Patient
+/////////////////////////////////////////
+exports.linkCaregiverToPatient = functions.https.onCall(
+  async (data, context) => {
+    const uid = requireAuth(context);
+    const { caregiverId, code } = data;
+    if (!caregiverId || !code) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing caregiverId or code",
+      );
+    }
+
+    if (uid !== caregiverId) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Authenticated user must match caregiverId",
+      );
+    }
+
+    const patientSnapshot = await firestore
+      .collection("users")
+      .where("caregiverCode", "==", code)
+      .limit(1)
+      .get();
+
+    if (patientSnapshot.empty) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Invalid caregiver code",
+      );
+    }
+
+    const patientDoc = patientSnapshot.docs[0];
+    const patientId = patientDoc.id;
+
+    await firestore.collection("patient_links").add({ patientId, caregiverId });
+    await firestore
+      .collection("users")
+      .doc(caregiverId)
+      .update({ linkedPatient: patientId });
+
+    return { success: true, patientId };
+  },
+);
