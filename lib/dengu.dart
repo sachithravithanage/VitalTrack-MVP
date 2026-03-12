@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+class DengueDashboardScreen extends StatelessWidget {
+  const DengueDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +18,7 @@ class DashboardScreen extends StatelessWidget {
                 height: 300,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.teal.withOpacity(0.05),
+                  color: Colors.teal.withValues(alpha: 0.05),
                 ),
               ),
             ),
@@ -54,7 +54,7 @@ class DashboardScreen extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF14B8A6).withOpacity(0.4),
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.4),
               blurRadius: 15,
               offset: const Offset(0, 8),
             )
@@ -110,7 +110,7 @@ class DashboardScreen extends StatelessWidget {
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 8,
                   )
                 ],
@@ -148,7 +148,7 @@ class DashboardScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -331,7 +331,7 @@ class DashboardScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -450,7 +450,7 @@ class DashboardScreen extends StatelessWidget {
                 left: BorderSide(color: const Color(0xFF14B8A6), width: 4)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 8,
               )
             ],

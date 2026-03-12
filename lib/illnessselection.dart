@@ -1,35 +1,4 @@
 import 'package:flutter/material.dart';
-// Ensure these filenames match your actual file names (lowercase)
-import 'dengu.dart';
-import 'leptospirosis.dart';
-
-void main() {
-  runApp(const VitalTrackApp());
-}
-
-class VitalTrackApp extends StatelessWidget {
-  const VitalTrackApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'VitalTrack',
-      theme: ThemeData(
-        useMaterial3: true,
-        // Using Nunito to match your design requirements
-        fontFamily: 'Nunito',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D9C8D),
-          primary: const Color(0xFF2D9C8D),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF0F7FF),
-      ),
-      // The app starts at the Selection Screen
-      home: const SelectionScreen(),
-    );
-  }
-}
 
 class SelectionScreen extends StatefulWidget {
   const SelectionScreen({super.key});
@@ -39,12 +8,13 @@ class SelectionScreen extends StatefulWidget {
 }
 
 class _SelectionScreenState extends State<SelectionScreen> {
-  // Logic: Track which condition is selected (default to dengue)
+  // 1. Feature: State Management for selection
   String selectedCondition = 'dengue';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 2. Feature: Soft Gradient Background
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
@@ -61,7 +31,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 40),
-                // Feature: Header Text with Primary Span
+                // 3. Feature: Header Text with Primary Span
                 RichText(
                   text: const TextSpan(
                     style: TextStyle(
@@ -90,7 +60,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // Card 1: Leptospirosis
+                // 4. Feature: Selectable Condition Cards
                 _buildConditionCard(
                   id: 'lepto',
                   title: 'Leptospirosis',
@@ -100,8 +70,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
                   gradient: const [Color(0xFFFFF7ED), Color(0xFFFFEDD5)],
                 ),
                 const SizedBox(height: 16),
-
-                // Card 2: Dengue
                 _buildConditionCard(
                   id: 'dengue',
                   title: 'Dengue',
@@ -113,7 +81,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
 
                 const Spacer(),
 
-                // Feature: Gradient "Continue" Button
+                // 5. Feature: Gradient Action Button
                 Container(
                   width: double.infinity,
                   height: 60,
@@ -133,18 +101,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                   ),
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Logic: Navigate based on choice
-                      if (selectedCondition == 'dengue') {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const DengueDashboardScreen())
-                        );
-                      } else {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const LeptoDashboardScreen())
-                        );
-                      }
+                      // Navigate to specific dashboard based on selectedCondition
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
@@ -199,6 +156,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
         ),
         child: Row(
           children: [
+            // Icon Container
             Container(
               width: 64,
               height: 64,
@@ -209,6 +167,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
               child: Icon(icon, color: iconColor, size: 32),
             ),
             const SizedBox(width: 16),
+            // Text Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,6 +184,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 ],
               ),
             ),
+            // 6. Feature: Selection Indicator (The Checkmark)
             if (isSelected)
               Container(
                 padding: const EdgeInsets.all(4),
