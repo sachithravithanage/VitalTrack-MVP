@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 // Ensure these filenames match your actual file names (lowercase)
 import 'dengu.dart';
 import 'leptospirosis.dart';
+import 'empty_dashboard.dart'; // Added the new import
 
 void main() {
   runApp(const VitalTrackApp());
@@ -17,7 +18,6 @@ class VitalTrackApp extends StatelessWidget {
       title: 'VitalTrack',
       theme: ThemeData(
         useMaterial3: true,
-        // Using Nunito to match your design requirements
         fontFamily: 'Nunito',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF2D9C8D),
@@ -25,8 +25,8 @@ class VitalTrackApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF0F7FF),
       ),
-      // The app starts at the Selection Screen
-      home: const SelectionScreen(),
+      // App now starts at the Empty Dashboard after login
+      home: const EmptyDashboardScreen(),
     );
   }
 }
