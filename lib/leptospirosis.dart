@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'leptospirosis_health_data_history.dart';
+import 'activity_log.dart';
 
 class LeptoDashboardScreen extends StatelessWidget {
   const LeptoDashboardScreen({super.key});
@@ -7,71 +8,65 @@ class LeptoDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background soft gradient
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 250,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFF0FDFA), Color(0xFFEFF6FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE0F2FE), Color(0xFFF8FAFC)],
+            stops: [0.0, 0.4],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 24),
+                _buildPrimaryStatusCard(),
+                const SizedBox(height: 24),
+                _buildVitalsGrid(context),
+                const SizedBox(height: 24),
+                const Text(
+                  'Alerts',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                 ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(48),
-                  bottomRight: Radius.circular(48),
-                ),
-              ),
+                const SizedBox(height: 12),
+                _buildAlertBanner(),
+              ],
             ),
           ),
-          // Main Scrollable Content
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 100),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 24),
-                  _buildPrimaryStatusCard(),
-                  const SizedBox(height: 24),
-                  _buildSectionTitle(),
-                  const SizedBox(height: 16),
-                  _buildVitalsGrid(),
-                  const SizedBox(height: 20),
-                  _buildAlertBanner(),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'Welcome back,',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 14, fontWeight: FontWeight.w600),
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Padding(
+                padding: EdgeInsets.only(right: 12.0, top: 4.0),
+                child: Icon(Icons.arrow_back, color: Color(0xFF1E293B), size: 26),
+              ),
             ),
-            SizedBox(height: 4),
-            Text(
-              'Anushka',
-              style: TextStyle(color: Color(0xFF1E293B), fontSize: 24, fontWeight: FontWeight.w900),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Good Morning,', style: TextStyle(color: Color(0xFF1E293B), fontSize: 26, fontWeight: FontWeight.w800, height: 1.2)),
+                Text('Anushka', style: TextStyle(color: Color(0xFF1E293B), fontSize: 26, fontWeight: FontWeight.w800, height: 1.2)),
+              ],
             ),
           ],
         ),
@@ -79,30 +74,19 @@ class LeptoDashboardScreen extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 56, height: 56,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8),
-                ],
-                image: const DecorationImage(
-                  image: NetworkImage('https://i.pravatar.cc/150?img=5'), // Placeholder image
-                  fit: BoxFit.cover,
-                ),
+                shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+                image: const DecorationImage(image: NetworkImage('https://i.pravatar.cc/150?img=5'), fit: BoxFit.cover),
               ),
             ),
             Positioned(
-              bottom: -2,
-              right: -2,
+              bottom: 0, left: -8,
               child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.verified, size: 14, color: Color(0xFF0D9488)),
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
+                child: const Icon(Icons.eco, size: 16, color: Color(0xFF34D399)),
               ),
             ),
           ],
@@ -113,38 +97,23 @@ class LeptoDashboardScreen extends StatelessWidget {
 
   Widget _buildPrimaryStatusCard() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          )
-        ],
+        color: Colors.white, borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 60, height: 60,
                 decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
-                    ]
+                  gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Icon(Icons.pest_control, color: Colors.white, size: 28),
+                child: const Icon(Icons.pets, color: Colors.white, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -155,12 +124,11 @@ class LeptoDashboardScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF14B8A6), shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
+                        const Text('Status: ', style: TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFF0FDFA), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFCCFBF1))),
-                          child: const Text('Monitoring Active', style: TextStyle(color: Color(0xFF0D9488), fontWeight: FontWeight.bold, fontSize: 12)),
+                          decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
+                          child: const Text('Stable', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
                       ],
                     )
@@ -168,183 +136,165 @@ class LeptoDashboardScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(color: const Color(0xFFF8FAFC), shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
-                child: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                width: 36, height: 36,
+                decoration: const BoxDecoration(color: Color(0xFFF8FAFC), shape: BoxShape.circle),
+                child: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8), size: 20),
               )
             ],
           ),
           const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: const LinearProgressIndicator(
+              value: 0.4, minHeight: 6,
+              backgroundColor: Color(0xFFF1F5F9),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVitalsGrid(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricCard(
+                context: context, tabName: 'Temperature', // Correct mapping
+                icon: Icons.thermostat, iconColor: const Color(0xFFEF4444), iconBg: const Color(0xFFFEF2F2),
+                label: 'Temperature', value: '98.6°F', unit: '',
+                progressColor: const Color(0xFFEF4444), progressValue: 0.7,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildMetricCard(
+                context: context, tabName: 'Blood Pressure', // Correct mapping
+                icon: Icons.favorite_border, iconColor: const Color(0xFFF43F5E), iconBg: const Color(0xFFFFF1F2),
+                label: 'Blood Pressure', value: '120/80', unit: 'MMHG',
+                progressColor: const Color(0xFFF43F5E), progressValue: 0.6,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildSymptomCard(context)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildMetricCard(
+                context: context, tabName: 'Urine Output', // Correct mapping
+                icon: Icons.water_drop, iconColor: const Color(0xFFA855F7), iconBg: const Color(0xFFFAF5FF),
+                label: 'Urine Output', value: '850 ml', unit: '',
+                progressColor: const Color(0xFFA855F7), progressValue: 0.8,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricCard({
+    required BuildContext context, required String tabName,
+    required IconData icon, required Color iconColor, required Color iconBg,
+    required String label, required String value, required String unit,
+    required Color progressColor, required double progressValue,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => HealthDataHistoryScreen(initialTab: tabName)));
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Risk Level', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
-                    SizedBox(height: 2),
-                    Text('Moderate', style: TextStyle(fontSize: 14, color: Color(0xFFD97706), fontWeight: FontWeight.bold)),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(icon, color: iconColor, size: 20),
                 ),
-                Container(height: 30, width: 1, color: Colors.grey.shade300),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Next Check', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
-                    SizedBox(height: 2),
-                    Text('4 Hours', style: TextStyle(fontSize: 14, color: Color(0xFF334155), fontWeight: FontWeight.bold)),
-                  ],
-                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: const LinearProgressIndicator(
-              value: 0.65,
-              minHeight: 8,
-              backgroundColor: Color(0xFFF1F5F9),
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
+            const SizedBox(height: 16),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+            if (unit.isNotEmpty)
+              Text(unit, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progressValue, minHeight: 4,
+                backgroundColor: iconBg, valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('RECOVERY PROGRESS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5)),
-              Text('65%', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-            ],
-          )
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSectionTitle() {
-    return Row(
-      children: const [
-        Icon(Icons.monitor_heart, color: Color(0xFF14B8A6), size: 24),
-        SizedBox(width: 8),
-        Text('Vitals & Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-      ],
-    );
-  }
-
-  Widget _buildVitalsGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 0.85,
-      children: [
-        _buildVitalCard(
-          icon: Icons.favorite,
-          iconColors: const [Color(0xFFFB7185), Color(0xFFEF4444)],
-          title: 'BLOOD PRESSURE',
-          value: '120/80',
-          unit: 'mmHg',
-          indicator: _buildProgressBar(const Color(0xFFEF4444), const Color(0xFFFFE4E6), 0.75),
+  Widget _buildSymptomCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthDataHistoryScreen(initialTab: 'Symptoms'))); // Correct mapping
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
         ),
-        _buildVitalCard(
-          icon: Icons.assignment_late,
-          iconColors: const [Color(0xFFA78BFA), Color(0xFF8B5CF6)],
-          title: 'SYMPTOMS',
-          value: '3',
-          unit: 'Logged',
-          indicator: _buildDotsIndicator(const Color(0xFF8B5CF6)),
-        ),
-        _buildVitalCard(
-          icon: Icons.water_drop,
-          iconColors: const [Color(0xFFFCD34D), Color(0xFFFACC15)],
-          title: 'URINE OUTPUT',
-          value: '850',
-          unit: 'ml',
-          indicator: _buildProgressBar(const Color(0xFFFACC15), const Color(0xFFFEF3C7), 0.6),
-        ),
-        _buildVitalCard(
-          icon: Icons.local_drink,
-          iconColors: const [Color(0xFF22D3EE), Color(0xFF06B6D4)],
-          title: 'FLUID INTAKE',
-          value: '1.2',
-          unit: 'L',
-          indicator: _buildProgressBar(const Color(0xFF06B6D4), const Color(0xFFCFFAFE), 0.8),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVitalCard({
-    required IconData icon,
-    required List<Color> iconColors,
-    required String title,
-    required String value,
-    required String unit,
-    required Widget indicator,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: iconColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.checklist, color: Color(0xFF3B82F6), size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Symptom\nChecklist', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 0.5)),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
-              const SizedBox(width: 4),
-              Text(unit, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          indicator,
-        ],
+            const SizedBox(height: 12),
+            const Text('3/5', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+            const Text('Logged', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+            const SizedBox(height: 16),
+            _buildBulletPoint('Yellow Eyes'),
+            const SizedBox(height: 6),
+            _buildBulletPoint('Muscle Pain'),
+            const SizedBox(height: 6),
+            _buildBulletPoint('Vomiting'),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildProgressBar(Color activeColor, Color bgColor, double progress) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: LinearProgressIndicator(
-        value: progress,
-        minHeight: 6,
-        backgroundColor: bgColor,
-        valueColor: AlwaysStoppedAnimation<Color>(activeColor),
-      ),
-    );
-  }
-
-  Widget _buildDotsIndicator(Color baseColor) {
+  Widget _buildBulletPoint(String text) {
     return Row(
       children: [
-        Container(width: 14, height: 14, decoration: BoxDecoration(color: baseColor.withValues(alpha: 0.3), shape: BoxShape.circle)),
-        Transform.translate(offset: const Offset(-6, 0), child: Container(width: 14, height: 14, decoration: BoxDecoration(color: baseColor.withValues(alpha: 0.6), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
-        Transform.translate(offset: const Offset(-12, 0), child: Container(width: 14, height: 14, decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
+        Container(width: 4, height: 4, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
       ],
     );
   }
@@ -353,34 +303,37 @@ class LeptoDashboardScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFEF3C7)),
+        color: Colors.white, borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(color: Color(0xFFFEF3C7), shape: BoxShape.circle),
-            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706)),
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(color: Color(0xFFFFFBEB), shape: BoxShape.circle),
+            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Low Hydration Alert', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
-                SizedBox(height: 2),
-                Text('Your intake is below target for this hour.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              children: [
+                const Text('Low Hydration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    value: 0.5, minHeight: 4,
+                    backgroundColor: Color(0xFFFEF3C7), valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+                  ),
+                ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFFEF3C7))),
-            child: const Text('Details', style: TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold, fontSize: 12)),
-          )
+          const SizedBox(width: 16),
+          const Text('1 hr ago', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w500)),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, color: Color(0xFF94A3B8), size: 16),
         ],
       ),
     );
@@ -388,24 +341,21 @@ class LeptoDashboardScreen extends StatelessWidget {
 
   Widget _buildFloatingActionButton() {
     return Container(
-      width: 64,
-      height: 64,
+      width: 64, height: 64,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(colors: [Color(0xFF2DD4BF), Color(0xFF0D9488)], begin: Alignment.topRight, end: Alignment.bottomLeft),
-        boxShadow: [BoxShadow(color: const Color(0xFF0D9488).withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 8))],
+        shape: BoxShape.circle, color: const Color(0xFF14B8A6),
+        boxShadow: [BoxShadow(color: const Color(0xFF14B8A6).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))],
         border: Border.all(color: Colors.white, width: 4),
       ),
       child: FloatingActionButton(
         onPressed: () {},
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: Colors.transparent, elevation: 0,
         child: const Icon(Icons.add, size: 32, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildBottomNavigationBar() {
+  Widget _buildBottomNavigationBar(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -413,20 +363,23 @@ class LeptoDashboardScreen extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, -5))],
       ),
       child: BottomAppBar(
-        color: Colors.transparent,
-        elevation: 0,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 12,
+        color: Colors.transparent, elevation: 0,
+        shape: const CircularNotchedRectangle(), notchMargin: 12,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNavItem(icon: Icons.home, label: 'Home', isActive: true),
-              _buildNavItem(icon: Icons.assignment_outlined, label: 'Log', isActive: false),
-              const SizedBox(width: 48), // Space for FAB
-              _buildNavItem(icon: Icons.map_outlined, label: 'Map', isActive: false),
-              _buildNavItem(icon: Icons.person_outline, label: 'Profile', isActive: false),
+              _buildNavItem(icon: Icons.home, label: 'Home', isActive: true, onTap: () {}),
+              _buildNavItem(
+                icon: Icons.assignment_outlined, label: 'Log', isActive: false,
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ActivityLogScreen()));
+                },
+              ),
+              const SizedBox(width: 48),
+              _buildNavItem(icon: Icons.map_outlined, label: 'Map', isActive: false, onTap: () {}),
+              _buildNavItem(icon: Icons.person_outline, label: 'Profile', isActive: false, onTap: () {}),
             ],
           ),
         ),
@@ -434,15 +387,14 @@ class LeptoDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem({required IconData icon, required String label, required bool isActive}) {
-    final color = isActive ? const Color(0xFF0D9488) : const Color(0xFF94A3B8);
+  Widget _buildNavItem({required IconData icon, required String label, required bool isActive, required VoidCallback onTap}) {
+    final color = isActive ? const Color(0xFF10B981) : const Color(0xFF9CA3AF);
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 28),
+          Icon(icon, color: color, size: 26),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: isActive ? FontWeight.bold : FontWeight.w500)),
         ],

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'health_data_history.dart';
+import 'dengue_health_data_history.dart';
 import 'activity_log.dart'; // Import the new Activity Log screen
 
 class DengueDashboardScreen extends StatelessWidget {
