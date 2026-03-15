@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'complete_profile_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({super.key});
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -247,8 +248,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         suffixIcon: GestureDetector(
                           onTap: () {
                             setState(() {
-                              obscureConfirmPassword =
-                                  !obscureConfirmPassword;
+                              obscureConfirmPassword = !obscureConfirmPassword;
                             });
                           },
                           child: Icon(
@@ -285,7 +285,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     onPressed: () {
-                      // Handle sign up
+                      // 1. Check if ANY field is empty
+                      if (nameController.text.trim().isEmpty ||
+                          emailController.text.trim().isEmpty ||
+                          passwordController.text.trim().isEmpty ||
+                          confirmPasswordController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Please fill in all fields.'),
+                              backgroundColor: Colors.red),
+                        );
+                        return; // Stop here!
+                      }
+
+                      // 2. Check if passwords match
+                      if (passwordController.text !=
+                          confirmPasswordController.text) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Passwords do not match.'),
+                              backgroundColor: Colors.red),
+                        );
+                        return; // Stop here!
+                      }
+
+                      // 3. If everything is filled out correctly, go to the next screen!
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CompleteProfileScreen(),
+                        ),
+                      );
                     },
                     child: const Text(
                       'Sign Up',

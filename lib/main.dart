@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'screens/language_selection_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'screens/splash_screen.dart'; // Changed import
 
 void main() {
   runApp(const VitalTrackApp());
 }
 
 class VitalTrackApp extends StatelessWidget {
-  const VitalTrackApp({Key? key}) : super(key: key);
+  const VitalTrackApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,11 +17,12 @@ class VitalTrackApp extends StatelessWidget {
       theme: ThemeData(
         primaryColor: const Color(0xFF20B5A0),
         useMaterial3: true,
+        textTheme: GoogleFonts.nunitoTextTheme(), // Apply font globally
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF20B5A0),
         ),
       ),
-      home: const LanguageSelectionScreen(),
+      home: const SplashScreen(), // Changed home to SplashScreen
     );
   }
 }

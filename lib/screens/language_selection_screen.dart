@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'login_screen.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
-  const LanguageSelectionScreen({Key? key}) : super(key: key);
+  const LanguageSelectionScreen({super.key});
 
   @override
   State<LanguageSelectionScreen> createState() =>
@@ -141,7 +141,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   }
 
   Widget _buildLanguageOption(String language, String selected) {
-    bool isSelected = language == selected;
+    final bool isSelected = language == selected;
     return GestureDetector(
       onTap: () {
         setState(() {
