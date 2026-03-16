@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'lepto_health_data_provider.dart'; // Ensure filename is correct
 import 'leptospirosis_health_data_history.dart';
 import 'activity_log.dart';
 
@@ -7,6 +9,10 @@ class LeptoDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Watch the Lepto provider for dynamic updates
+    final provider = context.watch<LeptoHealthDataProvider>();
+    final metrics = provider.metricsData;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -27,7 +33,7 @@ class LeptoDashboardScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _buildPrimaryStatusCard(),
                 const SizedBox(height: 24),
-                _buildVitalsGrid(context),
+                _buildVitalsGrid(context, metrics),
                 const SizedBox(height: 24),
                 const Text(
                   'Alerts',
@@ -70,26 +76,13 @@ class LeptoDashboardScreen extends StatelessWidget {
             ),
           ],
         ),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 56, height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
-                image: const DecorationImage(image: NetworkImage('https://i.pravatar.cc/150?img=5'), fit: BoxFit.cover),
-              ),
-            ),
-            Positioned(
-              bottom: 0, left: -8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Color(0xFFE0F2FE), shape: BoxShape.circle),
-                child: const Icon(Icons.eco, size: 16, color: Color(0xFF34D399)),
-              ),
-            ),
-          ],
+        Container(
+          width: 56, height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+            image: const DecorationImage(image: NetworkImage('https://i.pravatar.cc/150?img=5'), fit: BoxFit.cover),
+          ),
         ),
       ],
     );
@@ -110,36 +103,22 @@ class LeptoDashboardScreen extends StatelessWidget {
               Container(
                 width: 60, height: 60,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Icon(Icons.pets, color: Colors.white, size: 32),
               ),
               const SizedBox(width: 16),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Leptospirosis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Text('Status: ', style: TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
-                          child: const Text('Stable', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                      ],
-                    )
+                    Text('Leptospirosis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                    SizedBox(height: 4),
+                    Text('Status: Stable', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
               ),
-              Container(
-                width: 36, height: 36,
-                decoration: const BoxDecoration(color: Color(0xFFF8FAFC), shape: BoxShape.circle),
-                child: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8), size: 20),
-              )
             ],
           ),
           const SizedBox(height: 20),
@@ -156,25 +135,25 @@ class LeptoDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVitalsGrid(BuildContext context) {
+  Widget _buildVitalsGrid(BuildContext context, Map<String, LeptoMetricConfig> metrics) {
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: _buildMetricCard(
-                context: context, tabName: 'Temperature', // Correct mapping
+                context: context, tabName: 'Temperature',
                 icon: Icons.thermostat, iconColor: const Color(0xFFEF4444), iconBg: const Color(0xFFFEF2F2),
-                label: 'Temperature', value: '98.6°F', unit: '',
+                label: 'Temperature', value: '${metrics['Temperature']!.currentValue}°F', unit: '',
                 progressColor: const Color(0xFFEF4444), progressValue: 0.7,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: _buildMetricCard(
-                context: context, tabName: 'Blood Pressure', // Correct mapping
+                context: context, tabName: 'Blood Pressure',
                 icon: Icons.favorite_border, iconColor: const Color(0xFFF43F5E), iconBg: const Color(0xFFFFF1F2),
-                label: 'Blood Pressure', value: '120/80', unit: 'MMHG',
+                label: 'Blood Pressure', value: metrics['Blood Pressure']!.currentValue, unit: 'MMHG',
                 progressColor: const Color(0xFFF43F5E), progressValue: 0.6,
               ),
             ),
@@ -184,13 +163,13 @@ class LeptoDashboardScreen extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _buildSymptomCard(context)),
+            Expanded(child: _buildSymptomCard(context, metrics['Symptoms']!)),
             const SizedBox(width: 16),
             Expanded(
               child: _buildMetricCard(
-                context: context, tabName: 'Urine Output', // Correct mapping
+                context: context, tabName: 'Urine Output',
                 icon: Icons.water_drop, iconColor: const Color(0xFFA855F7), iconBg: const Color(0xFFFAF5FF),
-                label: 'Urine Output', value: '850 ml', unit: '',
+                label: 'Urine Output', value: metrics['Urine Output']!.currentValue, unit: metrics['Urine Output']!.unit,
                 progressColor: const Color(0xFFA855F7), progressValue: 0.8,
               ),
             ),
@@ -208,7 +187,7 @@ class LeptoDashboardScreen extends StatelessWidget {
   }) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => HealthDataHistoryScreen(initialTab: tabName)));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => LeptoHealthDataHistoryScreen(initialTab: tabName)));
       },
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -226,12 +205,12 @@ class LeptoDashboardScreen extends StatelessWidget {
                   decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
                   child: Icon(icon, color: iconColor, size: 20),
                 ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+                const SizedBox(width: 8),
+                Expanded(child: Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
               ],
             ),
             const SizedBox(height: 16),
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+            Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
             if (unit.isNotEmpty)
               Text(unit, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
             const SizedBox(height: 16),
@@ -248,10 +227,13 @@ class LeptoDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSymptomCard(BuildContext context) {
+  Widget _buildSymptomCard(BuildContext context, LeptoMetricConfig data) {
+    // Get list of symptoms that were checked in the history screen
+    final recentLogged = data.history.isNotEmpty ? data.history.first['val'] : "None";
+
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const HealthDataHistoryScreen(initialTab: 'Symptoms'))); // Correct mapping
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const LeptoHealthDataHistoryScreen(initialTab: 'Symptoms')));
       },
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -263,39 +245,29 @@ class LeptoDashboardScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(12)),
                   child: const Icon(Icons.checklist, color: Color(0xFF3B82F6), size: 20),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(child: Text('Symptom\nChecklist', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Symptoms', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
               ],
             ),
             const SizedBox(height: 12),
-            const Text('3/5', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
-            const Text('Logged', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-            const SizedBox(height: 16),
-            _buildBulletPoint('Yellow Eyes'),
-            const SizedBox(height: 6),
-            _buildBulletPoint('Muscle Pain'),
-            const SizedBox(height: 6),
-            _buildBulletPoint('Vomiting'),
+            Text(data.currentValue, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+            const Text('Logged', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+            const SizedBox(height: 12),
+            Text(
+              "Latest: $recentLogged",
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF94A3B8)),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildBulletPoint(String text) {
-    return Row(
-      children: [
-        Container(width: 4, height: 4, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-      ],
     );
   }
 
@@ -314,25 +286,16 @@ class LeptoDashboardScreen extends StatelessWidget {
             child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 20),
           ),
           const SizedBox(width: 16),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Low Hydration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: const LinearProgressIndicator(
-                    value: 0.5, minHeight: 4,
-                    backgroundColor: Color(0xFFFEF3C7), valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
-                  ),
-                ),
+                Text('Monitor Urine Output', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
+                SizedBox(height: 4),
+                Text('Kidney function is vital.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          const Text('1 hr ago', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w500)),
-          const SizedBox(width: 8),
           const Icon(Icons.chevron_right, color: Color(0xFF94A3B8), size: 16),
         ],
       ),

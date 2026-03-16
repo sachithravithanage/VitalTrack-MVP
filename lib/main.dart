@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Added Provider import
+import 'package:provider/provider.dart';
 
-// Ensure these filenames match your actual file names (lowercase)
+// Data Providers
+import 'health_data_provider.dart';
+import 'lepto_health_data_provider.dart'; // Added Lepto provider import
+
+// Screens
 import 'dengu.dart';
 import 'leptospirosis.dart';
 import 'empty_dashboard.dart';
-import 'health_data_provider.dart'; // Added HealthDataProvider import
 
 void main() {
-  // Wrap the entire app in a MultiProvider so all screens can access the data!
   runApp(
     MultiProvider(
       providers: [
+        // This provider manages Dengue data
         ChangeNotifierProvider(create: (_) => HealthDataProvider()),
+
+        // This provider manages Leptospirosis data (FIXES THE RED ERROR)
+        ChangeNotifierProvider(create: (_) => LeptoHealthDataProvider()),
       ],
       child: const VitalTrackApp(),
     ),
@@ -36,7 +42,7 @@ class VitalTrackApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF0F7FF),
       ),
-      // App now starts at the Empty Dashboard after login
+      // Starts the app at the Empty Dashboard
       home: const EmptyDashboardScreen(),
     );
   }
@@ -50,7 +56,6 @@ class SelectionScreen extends StatefulWidget {
 }
 
 class _SelectionScreenState extends State<SelectionScreen> {
-  // Logic: Track which condition is selected (default to dengue)
   String selectedCondition = 'dengue';
 
   @override
@@ -72,7 +77,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 40),
-                // Feature: Header Text with Primary Span
                 RichText(
                   text: const TextSpan(
                     style: TextStyle(
@@ -124,7 +128,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
 
                 const Spacer(),
 
-                // Feature: Gradient "Continue" Button
                 Container(
                   width: double.infinity,
                   height: 60,
@@ -144,7 +147,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
                   ),
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Logic: Navigate based on choice
                       if (selectedCondition == 'dengue') {
                         Navigator.push(
                             context,
