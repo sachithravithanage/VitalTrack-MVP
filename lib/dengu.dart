@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'health_data_provider.dart'; // Import the provider
 import 'dengue_health_data_history.dart';
-import 'activity_log.dart'; // Import the new Activity Log screen
+import 'activity_log.dart';
 
 class DengueDashboardScreen extends StatelessWidget {
   const DengueDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 1. THIS IS THE MAGIC LINE: Watch the provider for live updates!
+    final metrics = context.watch<HealthDataProvider>().metricsData;
+
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -32,7 +37,8 @@ class DengueDashboardScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   _buildDengueStatusCard(),
                   const SizedBox(height: 24),
-                  _buildVitalsGrid(context),
+                  // 2. Pass the live metrics to your grid
+                  _buildVitalsGrid(context, metrics),
                   const SizedBox(height: 24),
                   _buildRecentAlerts(),
                 ],
@@ -43,7 +49,7 @@ class DengueDashboardScreen extends StatelessWidget {
       ),
       floatingActionButton: _buildFloatingActionButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomNavigationBar(context), // Passed context here
+      bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
 
@@ -168,15 +174,36 @@ class DengueDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVitalsGrid(BuildContext context) {
+  // 3. UPDATED TO USE LIVE DATA FROM THE PROVIDER
+  Widget _buildVitalsGrid(BuildContext context, Map<String, MetricConfig> metrics) {
     return GridView.count(
       crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.1,
       children: [
-        _buildMetricCard(context: context, tabName: 'Temperature', icon: Icons.thermostat, iconColors: const [Color(0xFFFF6B6B), Color(0xFFEE5253)], value: '98.6', unit: '°F', label: 'Temperature', badgeText: 'Now', badgeColor: const Color(0xFFF1F5F9), badgeTextColor: const Color(0xFF64748B)),
-        _buildMetricCard(context: context, tabName: 'Platelets', icon: Icons.bubble_chart, iconColors: const [Color(0xFFA29BFE), Color(0xFF6C5CE7)], value: '150', unit: 'k', label: 'Platelets', badgeText: 'Low', badgeColor: const Color(0xFFFFF1F2), badgeTextColor: const Color(0xFFE11D48)),
-        _buildMetricCard(context: context, tabName: 'Fluid Intake', icon: Icons.local_drink, iconColors: const [Color(0xFF48DBFB), Color(0xFF0ABDE3)], value: '2.1', unit: 'L', label: 'Fluid Intake', badgeText: 'Good', badgeColor: const Color(0xFFF0FDFA), badgeTextColor: const Color(0xFF0D9488)),
-        _buildMetricCard(context: context, tabName: 'Urine Output', icon: Icons.water_drop, iconColors: const [Color(0xFFFECA57), Color(0xFFFF9F43)], value: '800', unit: 'ml', label: 'Urine Output', badgeText: '--', badgeColor: const Color(0xFFF1F5F9), badgeTextColor: const Color(0xFF64748B)),
+        _buildMetricCard(
+            context: context, tabName: 'Temperature', icon: Icons.thermostat, iconColors: const [Color(0xFFFF6B6B), Color(0xFFEE5253)],
+            value: metrics['Temperature']!.currentValue, // Live Value
+            unit: metrics['Temperature']!.unit,          // Live Unit
+            label: 'Temperature', badgeText: 'Now', badgeColor: const Color(0xFFF1F5F9), badgeTextColor: const Color(0xFF64748B)
+        ),
+        _buildMetricCard(
+            context: context, tabName: 'Platelets', icon: Icons.bubble_chart, iconColors: const [Color(0xFFA29BFE), Color(0xFF6C5CE7)],
+            value: metrics['Platelets']!.currentValue,   // Live Value
+            unit: metrics['Platelets']!.unit,            // Live Unit
+            label: 'Platelets', badgeText: 'Low', badgeColor: const Color(0xFFFFF1F2), badgeTextColor: const Color(0xFFE11D48)
+        ),
+        _buildMetricCard(
+            context: context, tabName: 'Fluid Intake', icon: Icons.local_drink, iconColors: const [Color(0xFF48DBFB), Color(0xFF0ABDE3)],
+            value: metrics['Fluid Intake']!.currentValue, // Live Value
+            unit: metrics['Fluid Intake']!.unit,          // Live Unit
+            label: 'Fluid Intake', badgeText: 'Good', badgeColor: const Color(0xFFF0FDFA), badgeTextColor: const Color(0xFF0D9488)
+        ),
+        _buildMetricCard(
+            context: context, tabName: 'Urine Output', icon: Icons.water_drop, iconColors: const [Color(0xFFFECA57), Color(0xFFFF9F43)],
+            value: metrics['Urine Output']!.currentValue, // Live Value
+            unit: metrics['Urine Output']!.unit,          // Live Unit
+            label: 'Urine Output', badgeText: '--', badgeColor: const Color(0xFFF1F5F9), badgeTextColor: const Color(0xFF64748B)
+        ),
       ],
     );
   }
@@ -214,7 +241,8 @@ class DengueDashboardScreen extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+                // 4. Wrap text in Flexible to prevent overflow on long numbers
+                Flexible(child: Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1E293B)), overflow: TextOverflow.ellipsis)),
                 const SizedBox(width: 2),
                 Text(unit, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8)))
               ],
@@ -291,7 +319,6 @@ class DengueDashboardScreen extends StatelessWidget {
     );
   }
 
-  // --- UPDATED BOTTOM NAVIGATION BAR ---
   Widget _buildBottomNavigationBar(BuildContext context) {
     return BottomAppBar(
       color: Colors.white,
@@ -309,7 +336,6 @@ class DengueDashboardScreen extends StatelessWidget {
             _buildNavItem(
                 icon: Icons.assignment, label: 'Log', isActive: false,
                 onTap: () {
-                  // Navigate to Activity Log Screen
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ActivityLogScreen()));
                 }
             ),

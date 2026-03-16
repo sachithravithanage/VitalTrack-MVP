@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Added Provider import
+
 // Ensure these filenames match your actual file names (lowercase)
 import 'dengu.dart';
 import 'leptospirosis.dart';
-import 'empty_dashboard.dart'; // Added the new import
+import 'empty_dashboard.dart';
+import 'health_data_provider.dart'; // Added HealthDataProvider import
 
 void main() {
-  runApp(const VitalTrackApp());
+  // Wrap the entire app in a MultiProvider so all screens can access the data!
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => HealthDataProvider()),
+      ],
+      child: const VitalTrackApp(),
+    ),
+  );
 }
 
 class VitalTrackApp extends StatelessWidget {
