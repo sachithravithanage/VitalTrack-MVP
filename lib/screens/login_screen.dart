@@ -31,6 +31,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
+        // ==========================================
+        // THIS FIXES THE WHITE BOX AT THE BOTTOM!
+        // ==========================================
+        height: MediaQuery.of(context).size.height,
+        width: double.infinity,
+        // ==========================================
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,

@@ -13,11 +13,9 @@ class CompleteProfileScreen extends StatefulWidget {
 
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   // Controllers for text fields
-  final TextEditingController nameController = TextEditingController(
-      text: 'Kapuge Arachchige Asindi Thatasarani Rathnayaka');
+  final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController dobController =
-      TextEditingController(text: '1992/06/05');
+  final TextEditingController dobController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
 
   String selectedGender = 'Male';
@@ -117,7 +115,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             // Date of Birth Field
             _buildLabel('Date of Birth'),
             _buildTextField(
-                dobController, 'MM/DD/YYYY', Icons.calendar_today_outlined),
+                dobController, 'YYYY/DD/MM', Icons.calendar_today_outlined),
 
             // Gender Selection
             _buildLabel('Gender'),
