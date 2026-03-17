@@ -1,36 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../globals.dart';
 
-class TemperatureHistoryScreen extends StatelessWidget {
+class TemperatureHistoryScreen extends StatefulWidget {
   const TemperatureHistoryScreen({super.key});
 
   @override
+  State<TemperatureHistoryScreen> createState() =>
+      _TemperatureHistoryScreenState();
+}
+
+class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
+  double _currentTemp = 98.6;
+  final TextEditingController _notesController = TextEditingController();
+
+  // NEW: State to track if a voice note is recorded for the current entry
+  bool _hasRecordedVoice = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _saveEntry() {
+    String formattedTemp = '${_currentTemp.toStringAsFixed(1)}°F';
+    bool isHighFever = _currentTemp >= 100.4;
+    String status = isHighFever ? 'HIGH FEVER' : 'STABLE';
+
+    final now = DateTime.now();
+    int hour = now.hour;
+    final minute = now.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    if (hour == 0) hour = 12;
+    String timeStr = "Today, $hour:$minute $period";
+
+    setState(() {
+      // NEW: Save the notes and voice note status into the global history!
+      globalTempHistory.insert(
+          0,
+          HealthRecord(
+            formattedTemp,
+            timeStr,
+            status,
+            isHighFever,
+            notes: _notesController.text.trim(),
+            hasVoiceNote: _hasRecordedVoice,
+          ));
+
+      // Clear the form for the next entry
+      _notesController.clear();
+      _hasRecordedVoice = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Temperature entry saved successfully!'),
+          backgroundColor: Color(0xFF14B8A6)),
+    );
+  }
+
+  List<double> _getTrendData() {
+    List<double> chartData = List.filled(7, 98.6);
+    if (globalTempHistory.isNotEmpty) {
+      var recentRecords = globalTempHistory.take(7).toList().reversed.toList();
+      int startIndex = 7 - recentRecords.length;
+      for (int i = 0; i < recentRecords.length; i++) {
+        String rawVal = recentRecords[i].value.replaceAll('°F', '').trim();
+        chartData[startIndex + i] = double.tryParse(rawVal) ?? 98.6;
+      }
+      for (int i = 0; i < startIndex; i++) {
+        chartData[i] = chartData[startIndex];
+      }
+    }
+    return chartData;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final latestRecord = globalTempHistory.isNotEmpty
+        ? globalTempHistory.first
+        : HealthRecord("--", "No data yet", "NONE", false);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Color(0xFF1E293B), size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Temperature History',
-          style: GoogleFonts.nunito(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E293B)),
-        ),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: Color(0xFF1E293B), size: 18),
+            onPressed: () => Navigator.pop(context)),
+        title: Text('Temperature History',
+            style: GoogleFonts.nunito(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B))),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.download_for_offline_outlined,
-                color: Color(0xFF64748B)),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -41,15 +108,14 @@ class TemperatureHistoryScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ]),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -63,58 +129,147 @@ class TemperatureHistoryScreen extends StatelessWidget {
                               color: const Color(0xFF64748B),
                               letterSpacing: 1)),
                       const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text('98.6',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF0F172A))),
-                          Text('°F',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF94A3B8))),
-                        ],
-                      ),
+                      Text(latestRecord.value,
+                          style: GoogleFonts.nunito(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF0F172A))),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                  color: Color(0xFF10B981),
-                                  shape: BoxShape.circle)),
-                          const SizedBox(width: 6),
-                          Text('Stable',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF10B981))),
-                        ],
-                      ),
+                      if (globalTempHistory.isNotEmpty)
+                        Row(
+                          children: [
+                            Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                    color: latestRecord.isAlert
+                                        ? const Color(0xFFEF4444)
+                                        : const Color(0xFF10B981),
+                                    shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Text(latestRecord.status,
+                                style: GoogleFonts.nunito(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: latestRecord.isAlert
+                                        ? const Color(0xFFEF4444)
+                                        : const Color(0xFF10B981))),
+                          ],
+                        )
+                      else
+                        Text('Record an entry below',
+                            style: GoogleFonts.nunito(
+                                fontSize: 14, color: const Color(0xFF94A3B8))),
                     ],
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Column(
-                      children: [
-                        Text('Sarah Jenkins',
-                            style: GoogleFonts.nunito(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF0F766E))),
-                        Text('Updated 5m ago',
-                            style: GoogleFonts.nunito(
-                                fontSize: 9, color: const Color(0xFF14B8A6))),
-                      ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Data Entry Form
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('New Temperature Entry',
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0F172A))),
+                      Text('${_currentTemp.toStringAsFixed(1)} °F',
+                          style: GoogleFonts.nunito(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFEA580C))),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFFEA580C),
+                        inactiveTrackColor: Colors.grey.shade200,
+                        thumbColor: Colors.white),
+                    child: Slider(
+                        value: _currentTemp,
+                        min: 95.0,
+                        max: 105.0,
+                        onChanged: (value) =>
+                            setState(() => _currentTemp = value)),
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF14B8A6),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                      onPressed: _saveEntry,
+                      icon: const Icon(Icons.save, color: Colors.white),
+                      label: Text('Save Entry',
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
+                    ),
+                  ),
+                  const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Divider(color: Color(0xFFF1F5F9))),
+
+                  TextField(
+                    controller: _notesController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                        hintText: 'Add additional notes here...',
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // NEW: Interactive Voice Note Button Simulator
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                          backgroundColor: _hasRecordedVoice
+                              ? const Color(0xFFE6FFFA)
+                              : const Color(0xFFF8FAFC),
+                          side: BorderSide(
+                              color: _hasRecordedVoice
+                                  ? const Color(0xFF14B8A6)
+                                  : Colors.grey.shade200),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                      onPressed: () {
+                        setState(() {
+                          _hasRecordedVoice =
+                              !_hasRecordedVoice; // Toggle recording state
+                        });
+                      },
+                      icon: Icon(_hasRecordedVoice ? Icons.mic : Icons.mic_none,
+                          color: const Color(0xFF14B8A6)),
+                      label: Text(
+                          _hasRecordedVoice
+                              ? 'Voice Note Attached (Tap to remove)'
+                              : 'Record Voice Note',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0F172A))),
                     ),
                   ),
                 ],
@@ -122,40 +277,39 @@ class TemperatureHistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 7-Day Trend Chart
+            // Dynamic Point-to-Point Trend Chart
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ]),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('7-Day Trend',
+                  Text('7-DAY TREND',
                       style: GoogleFonts.nunito(
-                          fontSize: 18,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B))),
-                  const SizedBox(height: 24),
-                  // The Custom Canvas Chart!
+                          letterSpacing: 1,
+                          color: const Color(0xFF0F172A))),
+                  const SizedBox(height: 32),
                   SizedBox(
                     height: 150,
                     width: double.infinity,
                     child: CustomPaint(
-                      painter: TrendChartPainter(
+                      painter: AngularTrendChartPainter(
+                          dataPoints: _getTrendData(),
                           lineColor: const Color(0xFFEF4444),
                           fillColor: const Color(0xFFFEF2F2)),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // X-Axis Labels
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
@@ -172,113 +326,148 @@ class TemperatureHistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Daily Logs
+            // Dynamic Recent History List
             Text('Daily Logs',
                 style: GoogleFonts.nunito(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
-            _buildDailyLogItem(
-                temp: '102.1°F',
-                time: 'Today, 02:30 PM',
-                status: 'HIGH FEVER',
-                isHigh: true),
-            _buildDailyLogItem(
-                temp: '98.6°F',
-                time: 'Yesterday, 09:00 AM',
-                status: 'STABLE',
-                isHigh: false),
-            _buildDailyLogItem(
-                temp: '98.4°F',
-                time: 'Oct 24, 08:15 PM',
-                status: 'STABLE',
-                isHigh: false),
+
+            if (globalTempHistory.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text(
+                      "No entries yet. Save an entry above to see history.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.nunito(color: Colors.grey)),
+                ),
+              )
+            else
+              ...globalTempHistory.map((record) => _buildDailyLogItem(record)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDailyLogItem(
-      {required String temp,
-      required String time,
-      required String status,
-      required bool isHigh}) {
+  // NEW: Updated Log Item to display notes and voice note indicators!
+  Widget _buildDailyLogItem(HealthRecord record) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: isHigh
-                      ? const Color(0xFFFEF2F2)
-                      : const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(Icons.thermostat,
-                    color: isHigh
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981)),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(temp,
-                      style: GoogleFonts.nunito(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B))),
-                  Text(time,
-                      style: GoogleFonts.nunito(
-                          fontSize: 12, color: const Color(0xFF64748B))),
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                        color: record.isAlert
+                            ? const Color(0xFFFEF2F2)
+                            : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(16)),
+                    child: Icon(Icons.thermostat,
+                        color: record.isAlert
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF10B981)),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(record.value,
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1E293B))),
+                      Text(record.time,
+                          style: GoogleFonts.nunito(
+                              fontSize: 12, color: const Color(0xFF64748B))),
+                    ],
+                  ),
                 ],
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                    color: record.isAlert
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Text(record.status,
+                    style: GoogleFonts.nunito(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: record.isAlert
+                            ? const Color(0xFFB91C1C)
+                            : const Color(0xFF059669))),
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5),
-              borderRadius: BorderRadius.circular(12),
+
+          // NEW: Details Section for Notes and Voice Notes
+          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(color: Color(0xFFF1F5F9), height: 1),
             ),
-            child: Text(status,
-                style: GoogleFonts.nunito(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isHigh
-                        ? const Color(0xFFB91C1C)
-                        : const Color(0xFF059669))),
-          ),
+            if (record.notes.isNotEmpty)
+              Text('Note: "${record.notes}"',
+                  style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: const Color(0xFF475569),
+                      fontStyle: FontStyle.italic)),
+            if (record.notes.isNotEmpty && record.hasVoiceNote)
+              const SizedBox(height: 8),
+            if (record.hasVoiceNote)
+              Row(
+                children: [
+                  const Icon(Icons.play_circle_fill,
+                      size: 16, color: Color(0xFF14B8A6)),
+                  const SizedBox(width: 6),
+                  Text('Voice note attached',
+                      style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF14B8A6))),
+                ],
+              ),
+          ]
         ],
       ),
     );
   }
 }
 
-// This handles the exact lines, curves, and gradients from your HTML Canvas!
-class TrendChartPainter extends CustomPainter {
+// ----------------------------------------------------
+// THE DYNAMIC CHART PAINTER
+// ----------------------------------------------------
+class AngularTrendChartPainter extends CustomPainter {
   final Color lineColor;
   final Color fillColor;
+  final List<double> dataPoints;
 
-  TrendChartPainter({required this.lineColor, required this.fillColor});
+  AngularTrendChartPainter(
+      {required this.lineColor,
+      required this.fillColor,
+      required this.dataPoints});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -286,7 +475,8 @@ class TrendChartPainter extends CustomPainter {
       ..color = lineColor
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
@@ -296,16 +486,19 @@ class TrendChartPainter extends CustomPainter {
       ).createShader(Rect.fromLTRB(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
-    // Coordinates mimicking the HTML canvas points
-    final points = [
-      Offset(0, size.height * 0.8),
-      Offset(size.width * 0.16, size.height * 0.75),
-      Offset(size.width * 0.33, size.height * 0.85),
-      Offset(size.width * 0.5, size.height * 0.2), // The spike!
-      Offset(size.width * 0.66, size.height * 0.45),
-      Offset(size.width * 0.83, size.height * 0.75),
-      Offset(size.width, size.height * 0.82),
-    ];
+    double minTemp = 96.0;
+    double maxTemp = 104.0;
+    double range = maxTemp - minTemp;
+
+    List<Offset> points = [];
+
+    for (int i = 0; i < 7; i++) {
+      double x = size.width * (i / 6);
+      double temp = dataPoints[i].clamp(minTemp, maxTemp);
+      double normalizedY = 1.0 - ((temp - minTemp) / range);
+      double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
+      points.add(Offset(x, y));
+    }
 
     final path = Path();
     path.moveTo(points[0].dx, points[0].dy);
@@ -313,17 +506,14 @@ class TrendChartPainter extends CustomPainter {
       path.lineTo(points[i].dx, points[i].dy);
     }
 
-    // Draw fill underneath the line
     final fillPath = Path.from(path);
     fillPath.lineTo(size.width, size.height);
     fillPath.lineTo(0, size.height);
     fillPath.close();
-    canvas.drawPath(fillPath, fillPaint);
 
-    // Draw line
+    canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
-    // Draw the tiny dots on the data points
     final dotPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
@@ -339,5 +529,5 @@ class TrendChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

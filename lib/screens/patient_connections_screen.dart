@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// We will build these two files in the next step!
 import 'dengue_patient_history_screen.dart';
 import 'leptospirosis_patient_history_screen.dart';
 
@@ -37,30 +36,24 @@ class PatientConnectionsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(24.0),
         children: [
+          // PATIENT 1: MATCHING THE DASHBOARD
           _buildPatientCard(
             context,
-            'Sarah Jenkins',
+            'Amila Perera',
             'DENGUE',
             '2 hours ago',
-            const Color(0xFF0EA5E9),
+            const Color(0xFF147B85), // Teal
             'dengue', // Route identifier
           ),
           const SizedBox(height: 16),
+
+          // PATIENT 2: MATCHING THE DASHBOARD
           _buildPatientCard(
             context,
-            'Michael Chen',
+            'Saman Kumara',
             'LEPTOSPIROSIS',
-            '5 hours ago',
-            const Color(0xFF0EA5E9),
-            'lepto', // Route identifier
-          ),
-          const SizedBox(height: 16),
-          _buildPatientCard(
-            context,
-            'Emma Thompson',
-            'LEPTOSPIROSIS',
-            '5 hours ago',
-            const Color(0xFF0EA5E9),
+            '1 hour ago',
+            Colors.orange, // Orange
             'lepto', // Route identifier
           ),
         ],
@@ -105,15 +98,15 @@ class PatientConnectionsScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Placeholder Avatar
+            // Avatar
             Container(
               width: 50,
               height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFF94A3B8),
+              decoration: BoxDecoration(
+                color: diagnosisColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.person, color: Colors.white),
+              child: Icon(Icons.person, color: diagnosisColor),
             ),
             const SizedBox(width: 16),
             Expanded(

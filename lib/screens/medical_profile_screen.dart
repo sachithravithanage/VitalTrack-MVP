@@ -81,12 +81,10 @@ class _MedicalProfileScreenState extends State<MedicalProfileScreen> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(
-                    0xFFE65C00), // Orange from the logo in this screen
+                color: const Color(0xFF20B5A0), // Switched back to Teal
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.monitor_heart,
-                  color: Colors.white, size: 18),
+              child: const Icon(Icons.favorite, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 8),
             Text(

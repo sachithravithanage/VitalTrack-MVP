@@ -1,382 +1,258 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../globals.dart';
-import 'patient_connections_screen.dart';
-import 'login_screen.dart';
+
+// Import your new screens and login screen
+import 'personal_information_screen.dart';
+import 'privacy_security_screen.dart';
+import 'login_screen.dart'; // Make sure this matches your login file name!
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // Magic function to calculate age from YYYY/MM/DD
-  String _calculateAge(String dobString) {
-    if (dobString.isEmpty) return '33'; // Default fallback
-    try {
-      List<String> parts = dobString.split('/');
-      if (parts.length == 3) {
-        DateTime dob = DateTime(
-            int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-        DateTime today = DateTime.now();
-        int age = today.year - dob.year;
-        if (today.month < dob.month ||
-            (today.month == dob.month && today.day < dob.day)) {
-          age--;
-        }
-        return age.toString();
-      }
-    } catch (e) {
-      return '33'; // Fallback if they typed it weirdly
-    }
-    return '33';
+  // The Sign Out Logic that clears everything (UPDATED TO HARD RESET)
+  void _handleSignOut(BuildContext context) {
+    // 1. Clear all personal information
+    globalUserName = '';
+    globalUserRole = 'Patient';
+    globalUserDOB = '';
+    globalUserWeight = '';
+    globalUserBloodType = '';
+
+    // 2. Clear all Dengue records (HARD RESET WITH [])
+    globalTempHistory = [];
+    globalPlateletHistory = [];
+    globalFluidHistory = [];
+    globalUrineHistory = [];
+
+    // 3. Clear all Leptospirosis records (HARD RESET WITH [])
+    globalLeptoTempHistory = [];
+    globalLeptoUrineHistory = [];
+    globalBPHistory = [];
+    globalSymptomsHistory = [];
+
+    // 4. Navigate back to Login and completely clear the app history
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (Route<dynamic> route) =>
+          false, // This prevents the user from hitting the "back" button to return
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Safely get the details, fallback to default if empty
-    String displayName = globalUserName.isNotEmpty
-        ? globalUserName
-        : 'Kapuge Arachchige Asindi Thatasarani Rathnayaka';
-    String displayAge =
-        _calculateAge(globalUserDOB.isNotEmpty ? globalUserDOB : '1992/06/05');
-    String displayBlood =
-        globalUserBloodType.isNotEmpty ? globalUserBloodType : 'O+';
-    String displayWeight =
-        globalUserWeight.isNotEmpty ? '${globalUserWeight}kg' : '72kg';
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-                color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.arrow_back_ios_new,
-                color: Color(0xFF1E293B), size: 16),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
-          'Profile',
+          'My Profile',
           style: GoogleFonts.nunito(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF147B85)),
+              color: const Color(0xFF1E293B)),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                  color: Colors.white, shape: BoxShape.circle),
-              child: const Icon(Icons.settings,
-                  color: Color(0xFF1E293B), size: 18),
-            ),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
+        automaticallyImplyLeading:
+            false, // Hides the back button since this is a main tab
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Top Profile Card
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4))
-                ],
-              ),
+            // Simple Header
+            Center(
               child: Column(
                 children: [
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: const Color(0xFFF0F7FF), width: 4),
-                          color: const Color(0xFFFDE68A),
-                        ),
-                        child: const Icon(Icons.person,
-                            size: 60, color: Colors.white),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                            color: Color(0xFF147B85), shape: BoxShape.circle),
-                        child: const Icon(Icons.edit,
-                            color: Colors.white, size: 14),
-                      ),
-                    ],
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6FFFA),
+                      shape: BoxShape.circle,
+                      border:
+                          Border.all(color: const Color(0xFF14B8A6), width: 3),
+                    ),
+                    child: const Icon(Icons.person,
+                        size: 40, color: Color(0xFF14B8A6)),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    displayName,
-                    textAlign: TextAlign.center,
+                    globalUserName.isEmpty ? 'Guest User' : globalUserName,
                     style: GoogleFonts.nunito(
                         fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1E293B)),
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0F172A)),
                   ),
-                  const SizedBox(height: 4),
                   Text(
-                    'ID: 199215707162',
+                    globalUserRole,
                     style: GoogleFonts.nunito(
-                        fontSize: 14, color: const Color(0xFF64748B)),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF64748B)),
                   ),
-                  const SizedBox(height: 24),
-                  // Dynamic Stats Row
-                  // Dynamic Stats Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStatBadge('AGE', displayAge),
-                      _buildStatBadge('BLOOD', displayBlood),
-                      _buildStatBadge('WEIGHT', displayWeight),
-                    ],
-                  ),
-
-                  // CARETAKER LINKING CODE (Only shows if role is Caretaker)
-                  if (globalUserRole == 'Caretaker') ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color:
-                            const Color(0xFFF0FDF4), // Light green background
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: const Color(0xFF10B981).withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Your Linking Code',
-                                  style: GoogleFonts.nunito(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF047857))),
-                              Text('774291', // Hardcoded mockup code
-                                  style: GoogleFonts.nunito(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                      color: const Color(0xFF059669),
-                                      letterSpacing: 4)),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy,
-                                color: Color(0xFF10B981)),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(const SnackBar(
-                                content:
-                                    Text('Linking Code copied to clipboard!'),
-                                backgroundColor: Color(0xFF10B981),
-                                behavior: SnackBarBehavior.floating,
-                              ));
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
+            const SizedBox(height: 40),
 
-            const SizedBox(height: 24),
-
-            // Menu Options Card
+            // Settings Options Menu
             Container(
-              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 20,
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
                       offset: const Offset(0, 4))
                 ],
               ),
               child: Column(
                 children: [
-                  _buildMenuItem(Icons.person_outline, 'Personal Information',
-                      const Color(0xFF0EA5E9), const Color(0xFFE0F2FE), () {}),
+                  // Button 1: Personal Information
+                  _buildMenuButton(
+                    context,
+                    icon: Icons.person_outline,
+                    title: 'Personal Information',
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  const PersonalInformationScreen()));
+                    },
+                  ),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  if (globalUserRole == 'Caretaker') ...[
-                    _buildMenuItem(
-                      Icons.watch_outlined,
-                      'Patients Connections',
-                      const Color(0xFF10B981),
-                      const Color(0xFFD1FAE5),
-                      () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    const PatientConnectionsScreen()));
-                      },
-                      subtitle: '1 Patients Connected',
-                    ),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  ],
-                  _buildMenuItem(Icons.lock_outline, 'Privacy & Security',
-                      const Color(0xFFA855F7), const Color(0xFFF3E8FF), () {}),
+
+                  // Button 2: Privacy & Security
+                  _buildMenuButton(
+                    context,
+                    icon: Icons.shield_outlined,
+                    title: 'Privacy & Security',
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  const PrivacySecurityScreen()));
+                    },
+                  ),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  _buildMenuItem(Icons.help_outline, 'Help Center',
-                      const Color(0xFF14B8A6), const Color(0xFFCCFBF1), () {}),
+
+                  // Button 3: Settings/Preferences (Placeholder)
+                  _buildMenuButton(
+                    context,
+                    icon: Icons.settings_outlined,
+                    title: 'App Preferences',
+                    onTap: () {
+                      // You can add a preferences screen later if you want
+                    },
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
 
-            // Sign Out Button
+            // Log Out Button
             SizedBox(
               width: double.infinity,
-              height: 60,
-              child: ElevatedButton(
+              height: 55,
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
+                  backgroundColor: const Color(0xFFFEF2F2),
+                  foregroundColor: const Color(0xFFEF4444),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  ),
                 ),
                 onPressed: () {
-                  // Navigate to the Login Screen and clear the history so they can't hit "Back"
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const LoginScreen()),
-                    (route) => false,
-                  );
+                  // Show a quick confirmation dialog before logging out
+                  _showLogoutConfirmation(context);
                 },
-                child: Text(
-                  'Sign Out',
-                  style: GoogleFonts.nunito(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFFEF4444)),
-                ),
+                icon: const Icon(Icons.logout),
+                label: Text('Log Out',
+                    style: GoogleFonts.nunito(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        height: 70,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.pop(context), // Goes back to the Dashboard
-              child: _buildNavItem(Icons.home, 'Home', false),
-            ),
-            _buildNavItem(Icons.assignment, 'Log', false),
-            _buildNavItem(Icons.location_on, 'Map', false),
-            _buildNavItem(Icons.person, 'Profile', true), // <-- ACTIVE (Teal)
+
+            const SizedBox(height: 100), // Padding for bottom navigation bar
           ],
         ),
       ),
     );
   }
 
-  // ADDED: Helper widget to draw the navigation icons
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          color: isActive ? const Color(0xFF26A69A) : Colors.grey.shade400,
-        ),
-        Text(
-          label,
-          style: GoogleFonts.publicSans(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: isActive ? const Color(0xFF26A69A) : Colors.grey.shade400,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatBadge(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(20)),
-      child: Column(
-        children: [
-          Text(label,
-              style: GoogleFonts.nunito(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF64748B),
-                  letterSpacing: 1)),
-          const SizedBox(height: 4),
-          Text(value,
-              style: GoogleFonts.nunito(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF147B85))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String title, Color iconColor,
-      Color bgColor, VoidCallback onTap,
-      {String? subtitle}) {
+  // Reusable widget for the menu items
+  Widget _buildMenuButton(BuildContext context,
+      {required IconData icon,
+      required String title,
+      required VoidCallback onTap}) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-        child: Icon(icon, color: iconColor, size: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: const Color(0xFF14B8A6), size: 20),
       ),
-      title: Text(title,
-          style: GoogleFonts.nunito(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1E293B))),
-      subtitle: subtitle != null
-          ? Text(subtitle,
-              style: GoogleFonts.nunito(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF10B981)))
-          : null,
+      title: Text(
+        title,
+        style: GoogleFonts.nunito(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF1E293B)),
+      ),
       trailing: const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
       onTap: onTap,
+    );
+  }
+
+  // A nice popup to confirm logging out
+  void _showLogoutConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Log Out',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
+          content: Text(
+              'Are you sure you want to log out? Your session data will be cleared.',
+              style: GoogleFonts.nunito(color: const Color(0xFF475569))),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext), // Close dialog
+              child: Text('Cancel',
+                  style: GoogleFonts.nunito(
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                Navigator.pop(dialogContext); // Close dialog
+                _handleSignOut(context); // Trigger the actual sign-out logic
+              },
+              child: Text('Log Out',
+                  style: GoogleFonts.nunito(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

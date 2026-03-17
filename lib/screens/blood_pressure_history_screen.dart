@@ -1,36 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../globals.dart';
 
-class BloodPressureHistoryScreen extends StatelessWidget {
+class BloodPressureHistoryScreen extends StatefulWidget {
   const BloodPressureHistoryScreen({super.key});
 
   @override
+  State<BloodPressureHistoryScreen> createState() =>
+      _BloodPressureHistoryScreenState();
+}
+
+class _BloodPressureHistoryScreenState
+    extends State<BloodPressureHistoryScreen> {
+  double _systolic = 120.0;
+  double _diastolic = 80.0;
+  final TextEditingController _notesController = TextEditingController();
+  bool _hasRecordedVoice = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _saveEntry() {
+    String formattedVal = '${_systolic.toInt()}/${_diastolic.toInt()} mmHg';
+
+    // BP Logic (High if Sys > 130 or Dia > 85)
+    bool isAlert = _systolic > 130 || _diastolic > 85;
+    String status = isAlert ? 'ELEVATED' : 'NORMAL';
+
+    final now = DateTime.now();
+    int hour = now.hour;
+    final minute = now.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    if (hour == 0) hour = 12;
+    String timeStr = "Today, $hour:$minute $period";
+
+    setState(() {
+      globalBPHistory.insert(
+          0,
+          HealthRecord(
+            formattedVal,
+            timeStr,
+            status,
+            isAlert,
+            notes: _notesController.text.trim(),
+            hasVoiceNote: _hasRecordedVoice,
+          ));
+
+      _notesController.clear();
+      _hasRecordedVoice = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Blood pressure saved successfully!'),
+          backgroundColor: Color(0xFF14B8A6)),
+    );
+  }
+
+  // Returns two lists: [systolicData, diastolicData]
+  List<List<double>> _getDualTrendData() {
+    List<double> sysData = List.filled(7, 120.0);
+    List<double> diaData = List.filled(7, 80.0);
+
+    if (globalBPHistory.isNotEmpty) {
+      var recentRecords = globalBPHistory.take(7).toList().reversed.toList();
+      int startIndex = 7 - recentRecords.length;
+      for (int i = 0; i < recentRecords.length; i++) {
+        // Parse "120/80 mmHg"
+        String rawVal = recentRecords[i].value.replaceAll(' mmHg', '').trim();
+        List<String> parts = rawVal.split('/');
+        if (parts.length == 2) {
+          sysData[startIndex + i] = double.tryParse(parts[0]) ?? 120.0;
+          diaData[startIndex + i] = double.tryParse(parts[1]) ?? 80.0;
+        }
+      }
+      for (int i = 0; i < startIndex; i++) {
+        sysData[i] = sysData[startIndex];
+        diaData[i] = diaData[startIndex];
+      }
+    }
+    return [sysData, diaData];
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final latestRecord = globalBPHistory.isNotEmpty
+        ? globalBPHistory.first
+        : HealthRecord("--/--", "No data yet", "NONE", false);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Color(0xFF1E293B), size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Blood Pressure History',
-          style: GoogleFonts.nunito(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E293B)),
-        ),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: Color(0xFF1E293B), size: 18),
+            onPressed: () => Navigator.pop(context)),
+        title: Text('Health Data History',
+            style: GoogleFonts.nunito(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B))),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.download_for_offline_outlined,
-                color: Color(0xFF64748B)),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -41,22 +117,21 @@ class BloodPressureHistoryScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ]),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('CURRENT BLOOD PRESSURE',
+                      Text('LATEST BLOOD PRESSURE',
                           style: GoogleFonts.nunito(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -67,54 +142,197 @@ class BloodPressureHistoryScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text('120/80',
+                          Text(latestRecord.value.replaceAll(' mmHg', ''),
                               style: GoogleFonts.nunito(
-                                  fontSize: 40,
+                                  fontSize: 32,
                                   fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF0F172A))),
-                          Text(' mmHg',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF94A3B8))),
+                                  color: const Color(0xFFEA580C))),
+                          if (latestRecord.value != "--/--")
+                            Text(' mmHg',
+                                style: GoogleFonts.nunito(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF64748B))),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                  color: Color(0xFF10B981),
-                                  shape: BoxShape.circle)),
-                          const SizedBox(width: 6),
-                          Text('Stable',
-                              style: GoogleFonts.nunito(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF10B981))),
-                        ],
-                      ),
+                      if (globalBPHistory.isNotEmpty)
+                        Row(
+                          children: [
+                            Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                    color: latestRecord.isAlert
+                                        ? const Color(0xFFEF4444)
+                                        : const Color(0xFF10B981),
+                                    shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Text(latestRecord.status,
+                                style: GoogleFonts.nunito(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: latestRecord.isAlert
+                                        ? const Color(0xFFEF4444)
+                                        : const Color(0xFF10B981))),
+                          ],
+                        )
+                      else
+                        Text('Goal: 120/80',
+                            style: GoogleFonts.nunito(
+                                fontSize: 14, color: const Color(0xFF94A3B8))),
                     ],
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    width: 60,
+                    height: 60,
                     decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Column(
-                      children: [
-                        Text('Sarah Jenkins',
-                            style: GoogleFonts.nunito(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF0F766E))),
-                        Text('Updated 5m ago',
-                            style: GoogleFonts.nunito(
-                                fontSize: 9, color: const Color(0xFF14B8A6))),
-                      ],
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(16)),
+                    child: const Icon(Icons.favorite,
+                        color: Color(0xFFEA580C), size: 32),
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Data Entry Form
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('New Blood Pressure Entry',
+                      style: GoogleFonts.nunito(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A))),
+                  const SizedBox(height: 24),
+
+                  // Systolic Slider
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Systolic (Top)',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey)),
+                      Text('${_systolic.toInt()} mmHg',
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFEA580C))),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFFEA580C),
+                        inactiveTrackColor: Colors.grey.shade200,
+                        thumbColor: Colors.white),
+                    child: Slider(
+                        value: _systolic,
+                        min: 80.0,
+                        max: 200.0,
+                        onChanged: (value) =>
+                            setState(() => _systolic = value)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Diastolic Slider
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Diastolic (Bottom)',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey)),
+                      Text('${_diastolic.toInt()} mmHg',
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFF97316))),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFFF97316),
+                        inactiveTrackColor: Colors.grey.shade200,
+                        thumbColor: Colors.white),
+                    child: Slider(
+                        value: _diastolic,
+                        min: 50.0,
+                        max: 130.0,
+                        onChanged: (value) =>
+                            setState(() => _diastolic = value)),
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF14B8A6),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                      onPressed: _saveEntry,
+                      icon: const Icon(Icons.save, color: Colors.white),
+                      label: Text('Save Entry',
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
+                    ),
+                  ),
+                  const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Divider(color: Color(0xFFF1F5F9))),
+
+                  TextField(
+                    controller: _notesController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                        hintText: 'How are you feeling?',
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Voice Note Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                          backgroundColor: _hasRecordedVoice
+                              ? const Color(0xFFE6FFFA)
+                              : const Color(0xFFF8FAFC),
+                          side: BorderSide(
+                              color: _hasRecordedVoice
+                                  ? const Color(0xFF14B8A6)
+                                  : Colors.grey.shade200),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                      onPressed: () => setState(
+                          () => _hasRecordedVoice = !_hasRecordedVoice),
+                      icon: Icon(_hasRecordedVoice ? Icons.mic : Icons.mic_none,
+                          color: const Color(0xFF14B8A6)),
+                      label: Text(
+                          _hasRecordedVoice
+                              ? 'Voice Note Attached'
+                              : 'Record Voice Note',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0F172A))),
                     ),
                   ),
                 ],
@@ -122,189 +340,251 @@ class BloodPressureHistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 7-Day Trend Chart
+            // Dynamic Dual Line Chart
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ]),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('7-Day Trend',
-                      style: GoogleFonts.nunito(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B))),
-                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('7-DAY TREND',
+                          style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                              color: const Color(0xFF0F172A))),
+                      Row(
+                        children: [
+                          Container(
+                              width: 8,
+                              height: 8,
+                              color: const Color(0xFFEA580C)),
+                          const SizedBox(width: 4),
+                          Text('Sys',
+                              style: GoogleFonts.nunito(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey)),
+                          const SizedBox(width: 8),
+                          Container(
+                              width: 8,
+                              height: 8,
+                              color: const Color(0xFFFBBF24)),
+                          const SizedBox(width: 4),
+                          Text('Dia',
+                              style: GoogleFonts.nunito(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey)),
+                        ],
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 32),
                   SizedBox(
                     height: 150,
                     width: double.infinity,
                     child: CustomPaint(
-                      painter: BPChartPainter(
-                          lineColor: const Color(0xFFEF4444),
-                          fillColor: const Color(0xFFFEF2F2)),
+                      painter: DualLineChartPainter(
+                        dataPoints: _getDualTrendData(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-                        .map((day) {
-                      return Text(day,
-                          style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF94A3B8)));
-                    }).toList(),
+                        .map((day) => Text(day,
+                            style: GoogleFonts.nunito(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF94A3B8))))
+                        .toList(),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
-            // Daily Logs
-            Text('Daily Logs',
+            // Logs
+            Text('Recent History',
                 style: GoogleFonts.nunito(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
-            // Note: Keeping "HIGH FEVER" status text exactly as it appears in your UI design mockup!
-            _buildDailyLogItem(
-                bp: '140/90',
-                time: 'Today, 02:30 PM',
-                status: 'HIGH FEVER',
-                isHigh: true),
-            _buildDailyLogItem(
-                bp: '118/75',
-                time: 'Yesterday, 09:00 AM',
-                status: 'STABLE',
-                isHigh: false),
-            _buildDailyLogItem(
-                bp: '120/80',
-                time: 'Oct 24, 08:15 PM',
-                status: 'STABLE',
-                isHigh: false),
+
+            if (globalBPHistory.isEmpty)
+              Center(
+                  child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text("No entries yet.",
+                          style: GoogleFonts.nunito(color: Colors.grey))))
+            else
+              ...globalBPHistory.map((record) => _buildDailyLogItem(record)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDailyLogItem(
-      {required String bp,
-      required String time,
-      required String status,
-      required bool isHigh}) {
+  Widget _buildDailyLogItem(HealthRecord record) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: isHigh
-                      ? const Color(0xFFFEF2F2)
-                      : const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(Icons.favorite_border,
-                    color: isHigh
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981)),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(bp,
-                      style: GoogleFonts.nunito(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B))),
-                  Text(time,
-                      style: GoogleFonts.nunito(
-                          fontSize: 12, color: const Color(0xFF64748B))),
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                        color: record.isAlert
+                            ? const Color(0xFFFEF2F2)
+                            : const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(16)),
+                    child: Icon(Icons.favorite,
+                        color: record.isAlert
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFFEF4444)),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(record.value,
+                          style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1E293B))),
+                      Text(record.time,
+                          style: GoogleFonts.nunito(
+                              fontSize: 12, color: const Color(0xFF64748B))),
+                    ],
+                  ),
                 ],
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                    color: record.isAlert
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Text(record.status,
+                    style: GoogleFonts.nunito(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: record.isAlert
+                            ? const Color(0xFFB91C1C)
+                            : const Color(0xFF059669))),
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(status,
-                style: GoogleFonts.nunito(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isHigh
-                        ? const Color(0xFFB91C1C)
-                        : const Color(0xFF059669))),
-          ),
+          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+            const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(color: Color(0xFFF1F5F9), height: 1)),
+            if (record.notes.isNotEmpty)
+              Text('Note: "${record.notes}"',
+                  style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: const Color(0xFF475569),
+                      fontStyle: FontStyle.italic)),
+            if (record.notes.isNotEmpty && record.hasVoiceNote)
+              const SizedBox(height: 8),
+            if (record.hasVoiceNote)
+              Row(children: [
+                const Icon(Icons.play_circle_fill,
+                    size: 16, color: Color(0xFF14B8A6)),
+                const SizedBox(width: 6),
+                Text('Voice note attached',
+                    style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF14B8A6)))
+              ]),
+          ]
         ],
       ),
     );
   }
 }
 
-class BPChartPainter extends CustomPainter {
-  final Color lineColor;
-  final Color fillColor;
+// ----------------------------------------------------
+// THE NEW DUAL LINE CHART PAINTER
+// ----------------------------------------------------
+class DualLineChartPainter extends CustomPainter {
+  final List<List<double>> dataPoints; // [sysData, diaData]
 
-  BPChartPainter({required this.lineColor, required this.fillColor});
+  DualLineChartPainter({required this.dataPoints});
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty || dataPoints[0].isEmpty) return;
+
+    double minY = 40.0;
+    double maxY = 220.0;
+    double range = maxY - minY;
+
+    List<Offset> sysPoints = [];
+    List<Offset> diaPoints = [];
+
+    // Calculate Coordinates
+    for (int i = 0; i < 7; i++) {
+      double x = size.width * (i / 6);
+
+      double sysVal = dataPoints[0][i].clamp(minY, maxY);
+      double sysY = size.height * 0.1 +
+          (size.height * 0.8 * (1.0 - ((sysVal - minY) / range)));
+      sysPoints.add(Offset(x, sysY));
+
+      double diaVal = dataPoints[1][i].clamp(minY, maxY);
+      double diaY = size.height * 0.1 +
+          (size.height * 0.8 * (1.0 - ((diaVal - minY) / range)));
+      diaPoints.add(Offset(x, diaY));
+    }
+
+    _drawLine(canvas, size, sysPoints,
+        const Color(0xFFEA580C)); // Orange for Systolic
+    _drawLine(canvas, size, diaPoints,
+        const Color(0xFFFBBF24)); // Yellow for Diastolic
+  }
+
+  void _drawLine(
+      Canvas canvas, Size size, List<Offset> points, Color lineColor) {
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0.0)],
-      ).createShader(Rect.fromLTRB(0, 0, size.width, size.height))
-      ..style = PaintingStyle.fill;
-
-    // Adjusted coordinates matching your BP trend graph
-    final points = [
-      Offset(0, size.height * 0.8),
-      Offset(size.width * 0.16, size.height * 0.75),
-      Offset(size.width * 0.33, size.height * 0.85),
-      Offset(size.width * 0.45, size.height * 0.35), // Spike
-      Offset(size.width * 0.6, size.height * 0.5),
-      Offset(size.width * 0.75, size.height * 0.85),
-      Offset(size.width * 0.85, size.height * 0.8),
-      Offset(size.width, size.height * 0.8),
-    ];
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final path = Path();
     path.moveTo(points[0].dx, points[0].dy);
@@ -312,13 +592,9 @@ class BPChartPainter extends CustomPainter {
       path.lineTo(points[i].dx, points[i].dy);
     }
 
-    final fillPath = Path.from(path);
-    fillPath.lineTo(size.width, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
-    canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
+    // Draw dots
     final dotPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
@@ -327,22 +603,12 @@ class BPChartPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
-    // Only draw dots at the primary nodes (matching your 7 day points)
-    final nodePoints = [
-      points[0],
-      points[1],
-      points[2],
-      points[3],
-      points[5],
-      points[6],
-      points[7]
-    ];
-    for (var point in nodePoints) {
-      canvas.drawCircle(point, 3, dotPaint);
-      canvas.drawCircle(point, 3, dotBorderPaint);
+    for (var point in points) {
+      canvas.drawCircle(point, 4, dotPaint);
+      canvas.drawCircle(point, 4, dotBorderPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

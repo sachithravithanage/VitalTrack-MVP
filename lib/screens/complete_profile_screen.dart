@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'medical_profile_screen.dart';
 import '../globals.dart';
+import 'dashboard_no_data_screen.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -51,8 +52,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 color: const Color(0xFF20B5A0),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.monitor_heart,
-                  color: Colors.white, size: 18),
+              child: const Icon(Icons.favorite, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 8),
             Text(
@@ -189,13 +189,28 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   globalUserName = nameController.text;
                   globalUserRole = selectedRole;
                   globalUserDOB = dobController.text;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          MedicalProfileScreen(userRole: selectedRole),
-                    ),
-                  );
+
+                  // THE FORK IN THE ROAD:
+                  if (selectedRole == 'Patient') {
+                    // Patients go to fill out their medical details
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MedicalProfileScreen(userRole: 'Patient'),
+                      ),
+                    );
+                  } else {
+                    // Caretakers skip medical details and go straight to their Dashboard
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DashboardNoDataScreen(),
+                      ),
+                      (route) =>
+                          false, // Clears the stack so they can't hit 'back'
+                    );
+                  }
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

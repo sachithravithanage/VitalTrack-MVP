@@ -14,11 +14,19 @@ class SplashScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
-            // Logo Icon (Heart Rate)
-            const Icon(
-              Icons.monitor_heart,
-              size: 100,
-              color: Color(0xFF20B5A0),
+            // New Unified App Logo
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFF20B5A0),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.favorite,
+                size: 50,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 20),
             // Title
