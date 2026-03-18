@@ -1,0 +1,75 @@
+enum AppLanguage { english, sinhala }
+
+enum UserRole { patient, caregiver }
+
+enum LoginMethod { number4n, email }
+
+enum DiseaseType { dengue, ratFever }
+
+enum TimelineFilter { last24h, last3Days, last7Days }
+
+class RecordEntry {
+  RecordEntry({
+    required this.patientId,
+    required this.disease,
+    required this.createdAt,
+    required this.values,
+    required this.notes,
+    required this.createdBy,
+  });
+
+  final String patientId;
+  final DiseaseType disease;
+  final DateTime createdAt;
+  final Map<String, String> values;
+  final String notes;
+  final String createdBy;
+}
+
+class PatientSummary {
+  PatientSummary({
+    required this.id,
+    required this.name,
+    required this.disease,
+    this.linkCode,
+  });
+
+  final String id;
+  final String name;
+  final DiseaseType disease;
+  String? linkCode;
+}
+
+class UserProfileData {
+  UserProfileData({
+    required this.id,
+    required this.role,
+    required this.name,
+    required this.phone,
+    this.email,
+    this.emailVerified = false,
+  });
+
+  final String id;
+  final UserRole role;
+  String name;
+  String phone;
+  String? email;
+  bool emailVerified;
+}
+
+class HotspotResponse {
+  HotspotResponse({
+    required this.subject,
+    required this.hometown,
+    required this.workplace,
+    required this.places,
+    required this.createdAt,
+  });
+
+  final String subject;
+  final String hometown;
+  final String workplace;
+  final String places;
+  final DateTime createdAt;
+}
