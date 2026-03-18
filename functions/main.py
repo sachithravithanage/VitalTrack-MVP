@@ -1,60 +1,60 @@
 from firebase_functions import firestore_fn, https_fn
 from firebase_admin import initialize_app, firestore
-from google.cloud.firestore import Increment
 import json
 
-# Wakes up the Firebase admin privileges so we can edit the database
+# This specific import is the "magic fix" for the Increment error
+from google.cloud import firestore as google_firestore
+
+# Initialize the Firebase Admin SDK
 initialize_app()
 
-# === FUNCTION 1: The Heatmap Background Engine ===
+# === 1. THE UNIVERSAL PATIENT LISTENER ===
+# This function watches 'patient_logs' and updates the correct disease scoreboard
 @firestore_fn.on_document_created(document="patient_logs/{logId}")
-def update_dengue_heatmap(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]) -> None:
-
-    # If there is no data, stop the function
+def process_new_patient_log(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]) -> None:
     if event.data is None:
         return
 
-    # Grab the data from the newly submitted log
+    # Pull data from the new document
     patient_data = event.data.to_dict()
-    disease = patient_data.get("disease")
+    disease = patient_data.get("disease")  # e.g., "Dengue" or "Leptospirosis"
     district = patient_data.get("district")
 
-    # Check if the disease is Dengue and a district was provided
-    if disease == "Dengue" and district:
+    if not disease or not district:
+        print("Log ignored: Missing disease or district fields.")
+        return
 
-        # Connect to your Firestore database
-        db = firestore.client()
+    db = firestore.client()
+    # Path: heatmap_statistics -> [Disease Name]
+    stats_ref = db.collection("heatmap_statistics").document(disease)
+    
+    # Use google_firestore.Increment to safely add 1 to the district count
+    stats_ref.set({
+        district: google_firestore.Increment(1)
+    }, merge=True)
+    
+    print(f"Verified: 1 case of {disease} added to {district} scoreboard.")
 
-        # Point directly to your Dengue scoreboard
-        stats_ref = db.collection("heatmap_statistics").document("Dengue")
-
-        # Increment that specific district's tally by exactly 1
-        stats_ref.set({
-            district: Increment(1)
-        }, merge=True)
-
-        print(f"Successfully added 1 to {district} for Dengue!")
-
-
-# === FUNCTION 2: The Postman API Endpoint ===
+# === 2. DENGUE POSTMAN API ===
 @https_fn.on_request()
 def get_dengue_data(req: https_fn.Request) -> https_fn.Response:
-    """An API endpoint that Postman can call to fetch data."""
     db = firestore.client()
-    logs = db.collection("patient_logs").stream()
+    doc = db.collection("heatmap_statistics").document("Dengue").get()
     
-    # Gather all the patient data
-    patient_list = []
-    for doc in logs:
-        patient_list.append(doc.to_dict())
-        
-    # Send it back to Postman as JSON
+    data = doc.to_dict() if doc.exists else {}
     return https_fn.Response(
-        response=json.dumps({
-            "status": "success", 
-            "total_patients": len(patient_list), 
-            "data": patient_list
-        }),
-        status=200,
-        headers={"Content-Type": "application/json"}
+        json.dumps({"status": "success", "disease": "Dengue", "data": data}),
+        status=200, mimetype="application/json"
+    )
+
+# === 3. LEPTOSPIROSIS POSTMAN API ===
+@https_fn.on_request()
+def get_lepto_data(req: https_fn.Request) -> https_fn.Response:
+    db = firestore.client()
+    doc = db.collection("heatmap_statistics").document("Leptospirosis").get()
+    
+    data = doc.to_dict() if doc.exists else {}
+    return https_fn.Response(
+        json.dumps({"status": "success", "disease": "Leptospirosis", "data": data}),
+        status=200, mimetype="application/json"
     )
