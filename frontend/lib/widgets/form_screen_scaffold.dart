@@ -19,7 +19,13 @@ class FormScreenScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFE7ECF6)),
+        ),
+      ),
       body: ResponsiveContent(
         maxWidth: maxWidth,
         scrollable: scrollable,

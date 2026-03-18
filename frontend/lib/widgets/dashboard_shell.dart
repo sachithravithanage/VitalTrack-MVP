@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/ui.dart';
 
 class DashboardDestination {
-  const DashboardDestination({
-    required this.icon,
-    required this.label,
-  });
+  const DashboardDestination({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -33,7 +30,37 @@ class AdaptiveDashboardShell extends StatelessWidget {
     final bool wide = isWide(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        titleSpacing: 12,
+        title: Row(
+          children: <Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/images/vitaltrack_logo_symbol.png',
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const Icon(Icons.monitor_heart),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        actions: <Widget>[
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.search_rounded)),
+          const SizedBox(width: 4),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFE7ECF6)),
+        ),
+      ),
       body: wide
           ? Row(
               children: <Widget>[
@@ -57,17 +84,23 @@ class AdaptiveDashboardShell extends StatelessWidget {
           : pages[selectedIndex],
       bottomNavigationBar: wide
           ? null
-          : NavigationBar(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              destinations: destinations
-                  .map(
-                    (DashboardDestination d) => NavigationDestination(
-                      icon: Icon(d.icon),
-                      label: d.label,
-                    ),
-                  )
-                  .toList(),
+          : DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Color(0xFFE7ECF6))),
+              ),
+              child: NavigationBar(
+                height: 72,
+                selectedIndex: selectedIndex,
+                onDestinationSelected: onDestinationSelected,
+                destinations: destinations
+                    .map(
+                      (DashboardDestination d) => NavigationDestination(
+                        icon: Icon(d.icon),
+                        label: d.label,
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
     );
   }

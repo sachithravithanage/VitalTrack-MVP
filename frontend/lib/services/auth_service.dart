@@ -168,6 +168,36 @@ class AuthService {
     }
   }
 
+  /// Request email verification OTP for the currently stored profile email
+  Future<Map<String, dynamic>> verifyEmail() async {
+    try {
+      return await _apiClient.verifyEmail();
+    } catch (e) {
+      print("Error requesting email verification: $e");
+      rethrow;
+    }
+  }
+
+  /// Confirm email verification OTP
+  Future<Map<String, dynamic>> confirmEmailVerification({
+    required String otp,
+  }) async {
+    try {
+      final response = await _apiClient.confirmEmailVerification(otp: otp);
+
+      final currentUser = _storage.getCurrentUser();
+      if (currentUser != null) {
+        currentUser['emailVerified'] = true;
+        await _storage.saveCurrentUser(currentUser);
+      }
+
+      return response;
+    } catch (e) {
+      print("Error confirming email verification: $e");
+      rethrow;
+    }
+  }
+
   /// Get current user from local storage
   Map<String, dynamic>? getCurrentUser() {
     return _storage.getCurrentUser();

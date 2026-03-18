@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../app/models.dart';
@@ -10,22 +11,113 @@ import '../widgets/action_buttons.dart';
 import '../widgets/input_sections.dart';
 import 'auth.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late TextEditingController nameController;
+  late TextEditingController phoneController;
+  late TextEditingController emailController;
+  late TextEditingController codeController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers without accessing AppScope (inherited widgets)
+    // AppScope will be accessed in didChangeDependencies
+    nameController = TextEditingController();
+    phoneController = TextEditingController();
+    emailController = TextEditingController();
+    codeController = TextEditingController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Now we can safely access AppScope in didChangeDependencies
+    final currentUser = AppScope.of(context).currentUser;
+    if (currentUser != null) {
+      nameController.text = currentUser.name;
+      phoneController.text = currentUser.phone;
+      emailController.text = currentUser.email ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
+    codeController.dispose();
+    super.dispose();
+  }
+
+  void _showLinkPatientDialog(BuildContext context, AppState app) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(app.t('enter_patient_code')),
+          content: TextField(
+            controller: codeController,
+            decoration: InputDecoration(
+              labelText: app.t('patient_code'),
+              hintText: '000000',
+            ),
+            maxLength: 6,
+            keyboardType: TextInputType.number,
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(app.t('cancel')),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final String code = codeController.text.trim();
+                if (code.isEmpty || code.length != 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(app.t('invalid_code'))),
+                  );
+                  return;
+                }
+
+                try {
+                  await app.attachPatientToCaregiver(code: code);
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                  codeController.clear();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(app.t('patient_linked'))),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${app.t('error')}: $e')),
+                  );
+                }
+              },
+              child: Text(app.t('link')),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
-    final user = app.currentUser!;
-    final TextEditingController nameController = TextEditingController(
-      text: user.name,
-    );
-    final TextEditingController phoneController = TextEditingController(
-      text: user.phone,
-    );
-    final TextEditingController emailController = TextEditingController(
-      text: user.email ?? '',
-    );
+    final user = app.currentUser;
+
+    if (user == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     final List<PatientSummary> linked = app.caregiverPatients(user.id);
 
     return ResponsiveListView(
@@ -66,17 +158,17 @@ class ProfileScreen extends StatelessWidget {
             }
 
             try {
-              await authService.sendOtp(
-                credential: emailCredential,
-                type: 'email',
-              );
+              await authService.updateProfile(email: emailCredential);
+              await authService.verifyEmail();
             } catch (e) {
               if (!context.mounted) return;
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Failed to send OTP: $e')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${app.t('email_otp_send_failed')} $e')),
+              );
               return;
             }
+
+            if (!context.mounted) return;
 
             final bool verified =
                 await Navigator.of(context).push<bool>(
@@ -85,17 +177,22 @@ class ProfileScreen extends StatelessWidget {
                       title: app.t('email_verification'),
                       subtitle: app.t('enter_email_otp'),
                       credential: emailCredential,
+                      onVerifyOtp: (String otp) {
+                        return authService.confirmEmailVerification(otp: otp);
+                      },
                     ),
                   ),
                 ) ??
                 false;
+
+            if (!context.mounted) return;
+
             if (verified) {
+              user.email = emailCredential;
               app.markEmailVerified();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(app.t('email_verified'))),
-                );
-              }
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(app.t('email_verified'))));
             }
           },
           child: Text(
@@ -126,19 +223,43 @@ class ProfileScreen extends StatelessWidget {
           FilledButton.tonal(
             onPressed: () async {
               final String code = await app.generateCaregiverCode();
+              if (!context.mounted) return;
               showDialog<void>(
                 context: context,
                 builder: (BuildContext context) {
                   return AlertDialog(
                     title: Text(app.t('caregiver_code')),
-                    content: Text(
-                      code,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          code,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          app.t('share_this_code_with_caregiver'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                     actions: <Widget>[
+                      TextButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: code));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(app.t('code_copied'))),
+                          );
+                        },
+                        icon: const Icon(Icons.copy),
+                        label: Text(app.t('copy')),
+                      ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(app.t('close')),
@@ -162,7 +283,47 @@ class ProfileScreen extends StatelessWidget {
               subtitle: app.t('generate_6_digit_code'),
             )
           else
-            Text(linked.map((PatientSummary p) => p.name).join(', ')),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  linked.map((PatientSummary p) => p.name).join(', '),
+                ),
+              ),
+            ),
+        ] else if (user.role == UserRole.caregiver) ...<Widget>[
+          const SizedBox(height: 14),
+          Text(
+            app.t('link_to_patient'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          UiSpace.xs,
+          FilledButton.tonal(
+            onPressed: () {
+              _showLinkPatientDialog(context, app);
+            },
+            child: Text(app.t('enter_patient_code')),
+          ),
+          UiSpace.xs,
+          Text(
+            app.t('my_patients'),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          if (linked.isEmpty)
+            EmptyStateCard(
+              icon: Icons.person_outline,
+              title: app.t('no_patients_yet'),
+              subtitle: app.t('enter_patient_code'),
+            )
+          else
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  linked.map((PatientSummary p) => p.name).join(', '),
+                ),
+              ),
+            ),
         ],
         UiSpace.sm,
         OutlinedButton(
@@ -209,7 +370,13 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
   @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
-    final String defaultSubject = app.currentUser!.name;
+    final currentUser = app.currentUser;
+
+    if (currentUser == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+
+    final String defaultSubject = currentUser.name;
     final List<HotspotResponse> history = app.hotspotResponsesForSubject(
       defaultSubject,
     );
@@ -228,7 +395,8 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
           height: 180,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: Colors.teal.withValues(alpha: 0.12),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            border: Border.all(color: const Color(0xFFD9E2F2)),
           ),
           child: Center(
             child: Text(

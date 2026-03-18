@@ -11,7 +11,11 @@ import '../widgets/selection_controls.dart';
 import '../services/index.dart';
 import 'root_router.dart';
 
-String _friendlyAuthError(Object error, {required String fallback}) {
+String _friendlyAuthError(
+  Object error, {
+  required AppState app,
+  required String fallback,
+}) {
   if (error is DioException) {
     final Object? responseData = error.response?.data;
     if (responseData is Map<String, dynamic>) {
@@ -22,13 +26,13 @@ String _friendlyAuthError(Object error, {required String fallback}) {
 
         if (code == 'EMAIL_ALREADY_EXISTS' ||
             message.toLowerCase().contains('email already')) {
-          return 'This email is already registered. Please log in or use a different email.';
+          return app.t('email_exists_error');
         }
 
         if (code == 'PHONE_ALREADY_EXISTS' ||
             message.toLowerCase().contains('phone') &&
                 message.toLowerCase().contains('already')) {
-          return 'This phone number is already registered. Please log in or use a different phone number.';
+          return app.t('phone_exists_error');
         }
 
         if (message.isNotEmpty) {
@@ -40,16 +44,16 @@ String _friendlyAuthError(Object error, {required String fallback}) {
 
   final String raw = error.toString().toLowerCase();
   if (raw.contains('email already')) {
-    return 'This email is already registered. Please log in or use a different email.';
+    return app.t('email_exists_error');
   }
   if (raw.contains('phone') && raw.contains('already')) {
-    return 'This phone number is already registered. Please log in or use a different phone number.';
+    return app.t('phone_exists_error');
   }
   if (raw.contains('invalid otp')) {
-    return 'Invalid OTP. Please check the code and try again.';
+    return app.t('invalid_otp_error');
   }
   if (raw.contains('otp has expired') || raw.contains('otp not found')) {
-    return 'OTP expired or not found. Please request a new OTP.';
+    return app.t('otp_expired_error');
   }
   return fallback;
 }
@@ -80,21 +84,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
     return FormScreenScaffold(
-      title: 'Login',
+      title: app.t('login'),
       maxWidth: 560,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const _AuthHeaderCard(
-              title: 'Login',
-              subtitle: 'Use your mobile number or email to continue',
+            _AuthHeaderCard(
+              title: app.t('login'),
+              subtitle: app.t('login_subtitle'),
             ),
             UiSpace.sm,
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: SegmentedInputSection<UserRole>(
                   label: app.t('login_as'),
                   selected: _role,
@@ -117,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
             UiSpace.md,
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
@@ -145,6 +149,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? TextInputType.emailAddress
                           : TextInputType.phone,
                       decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          _method == LoginMethod.email
+                              ? Icons.alternate_email_rounded
+                              : Icons.phone_outlined,
+                        ),
                         labelText: _method == LoginMethod.email
                             ? app.t('email')
                             : app.t('n4_number'),
@@ -164,7 +173,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
-                      decoration: InputDecoration(labelText: app.t('password')),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        labelText: app.t('password'),
+                      ),
                       validator: (String? value) {
                         if (value == null || value.length < 6) {
                           return app.t('password_min');
@@ -198,7 +210,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (!context.mounted) return;
                   final String friendly = _friendlyAuthError(
                     e,
-                    fallback: 'Failed to send OTP. Please try again.',
+                    app: app,
+                    fallback: app.t('send_otp_failed'),
                   );
                   ScaffoldMessenger.of(
                     context,
@@ -286,21 +299,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
     return FormScreenScaffold(
-      title: 'SignUp',
+      title: app.t('signup'),
       maxWidth: 560,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const _AuthHeaderCard(
-              title: 'SignUp',
-              subtitle: 'Create your account in a few simple steps',
+            _AuthHeaderCard(
+              title: app.t('signup'),
+              subtitle: app.t('signup_subtitle'),
             ),
             UiSpace.sm,
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: SegmentedInputSection<UserRole>(
                   label: app.t('login_as'),
                   selected: _role,
@@ -322,13 +335,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
             UiSpace.sm,
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     TextFormField(
                       controller: _nameController,
-                      decoration: InputDecoration(labelText: app.t('name')),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        labelText: app.t('name'),
+                      ),
                       validator: (String? value) =>
                           (value == null || value.trim().isEmpty)
                           ? app.t('required_field')
@@ -339,6 +355,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.phone_outlined),
                         labelText: app.t('phone_number_lk'),
                       ),
                       validator: (String? value) {
@@ -356,6 +373,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.alternate_email_rounded),
                         labelText: '${app.t('email')} (${app.t('optional')})',
                       ),
                       validator: (String? value) {
@@ -368,7 +386,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
-                      decoration: InputDecoration(labelText: app.t('password')),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        labelText: app.t('password'),
+                      ),
                       validator: (String? value) {
                         if (value == null || value.length < 6) {
                           return app.t('password_min');
@@ -381,6 +402,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       controller: _confirmController,
                       obscureText: true,
                       decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
                         labelText: app.t('re_enter_password'),
                       ),
                       validator: (String? value) {
@@ -410,7 +432,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   if (!context.mounted) return;
                   final String friendly = _friendlyAuthError(
                     e,
-                    fallback: 'Failed to send OTP. Please try again.',
+                    app: app,
+                    fallback: app.t('send_otp_failed'),
                   );
                   ScaffoldMessenger.of(
                     context,
@@ -465,6 +488,7 @@ class OtpVerificationScreen extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.credential,
+    this.onVerifyOtp,
     this.onVerifiedSuccess,
     this.navigateToDashboardOnSuccess = false,
   });
@@ -472,6 +496,7 @@ class OtpVerificationScreen extends StatefulWidget {
   final String title;
   final String subtitle;
   final String credential;
+  final Future<void> Function(String otp)? onVerifyOtp;
   final Future<void> Function()? onVerifiedSuccess;
   final bool navigateToDashboardOnSuccess;
 
@@ -518,10 +543,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               if (_otpController.text.trim().length == 6) {
                 setState(() => _verifying = true);
                 try {
-                  await authService.verifyOtp(
-                    credential: widget.credential,
-                    otp: _otpController.text.trim(),
-                  );
+                  if (widget.onVerifyOtp != null) {
+                    await widget.onVerifyOtp!(_otpController.text.trim());
+                  } else {
+                    await authService.verifyOtp(
+                      credential: widget.credential,
+                      otp: _otpController.text.trim(),
+                    );
+                  }
 
                   if (widget.onVerifiedSuccess != null) {
                     await widget.onVerifiedSuccess!();
@@ -544,7 +573,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   if (!context.mounted) return;
                   final String friendly = _friendlyAuthError(
                     e,
-                    fallback: 'OTP verification failed. Please try again.',
+                    app: app,
+                    fallback: app.t('otp_verify_failed'),
                   );
                   ScaffoldMessenger.of(
                     context,
@@ -572,17 +602,18 @@ class _AuthHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           children: <Widget>[
             ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: 52,
                 height: 52,
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
                 alignment: Alignment.center,
                 child: Image.asset(
                   'assets/images/vitaltrack_logo_symbol.png',
@@ -591,7 +622,7 @@ class _AuthHeaderCard extends StatelessWidget {
                   fit: BoxFit.contain,
                   errorBuilder: (_, _, _) => Icon(
                     Icons.monitor_heart,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ),
@@ -601,9 +632,19 @@ class _AuthHeaderCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF667085),
+                    ),
+                  ),
                 ],
               ),
             ),

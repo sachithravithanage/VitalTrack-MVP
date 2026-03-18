@@ -22,7 +22,8 @@
     "jsonwebtoken": "^9.0.2",
     "bcryptjs": "^2.4.3",
     "validator": "^13.11.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "@sendgrid/mail": "^7.7.0"
   },
   "devDependencies": {
     "firebase-functions-test": "^3.1.0",

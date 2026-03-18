@@ -8,6 +8,7 @@ import {
   NotFoundError,
   ConflictError,
 } from "../utils/errors.js";
+import * as emailService from "./emailService.js";
 
 const LINK_CODE_EXPIRY_HOURS = 7 * 24; // 7 days
 
@@ -66,6 +67,14 @@ export async function useLinkCode(code, caregiverId) {
 
   const patient = patientDoc.data();
 
+  // Get caregiver info
+  const caregiverDoc = await db.collection("users").doc(caregiverId).get();
+  if (!caregiverDoc.exists) {
+    throw new NotFoundError("Caregiver not found");
+  }
+
+  const caregiver = caregiverDoc.data();
+
   // Check if already linked
   const existingLink = await db
     .collection("relationships")
@@ -98,8 +107,11 @@ export async function useLinkCode(code, caregiverId) {
     });
 
   // Update caregiver's linked patients
-  const caregiverDoc = await db.collection("caregivers").doc(caregiverId).get();
-  if (!caregiverDoc.exists) {
+  const existingCaregiverDoc = await db
+    .collection("caregivers")
+    .doc(caregiverId)
+    .get();
+  if (!existingCaregiverDoc.exists) {
     // Create caregiver doc if doesn't exist
     await db
       .collection("caregivers")
@@ -123,6 +135,20 @@ export async function useLinkCode(code, caregiverId) {
     usedBy: caregiverId,
     usedAt: new Date(),
   });
+
+  // Send email notification to patient if they have an email
+  if (patient.email) {
+    try {
+      await emailService.sendCaregiverLinkingEmail(
+        patient.email,
+        patient.name,
+        caregiver.name,
+      );
+    } catch (emailError) {
+      console.error("Failed to send caregiver linking email:", emailError);
+      // Don't fail the linking process if email fails
+    }
+  }
 
   return {
     patientId,
@@ -207,6 +233,28 @@ export async function getCaregiverPatients(caregiverId) {
 }
 
 /**
+ * Check whether a caregiver is actively linked to a patient
+ */
+export async function isCaregiverLinkedToPatient(patientId, caregiverId) {
+  if (!patientId || !caregiverId) {
+    return false;
+  }
+
+  const relationshipId = `${patientId}-${caregiverId}`;
+  const relationshipDoc = await db
+    .collection("relationships")
+    .doc(relationshipId)
+    .get();
+
+  if (!relationshipDoc.exists) {
+    return false;
+  }
+
+  const relationship = relationshipDoc.data();
+  return relationship.status === "active";
+}
+
+/**
  * Remove patient-caregiver relationship
  */
 export async function removeRelationship(patientId, caregiverId) {
@@ -247,5 +295,6 @@ export default {
   useLinkCode,
   getPatientCaregivers,
   getCaregiverPatients,
+  isCaregiverLinkedToPatient,
   removeRelationship,
 };

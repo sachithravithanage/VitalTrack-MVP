@@ -61,6 +61,9 @@ class AppState extends ChangeNotifier {
           emailVerified: userData['emailVerified'] == true,
         );
         notifyListeners();
+
+        // Reload user data after successful login
+        await reloadUserData();
       }
     } catch (e) {
       print('Login error: $e');
@@ -118,6 +121,28 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Reload user data after login (records, patients/caregivers, hotspots)
+  Future<void> reloadUserData() async {
+    try {
+      if (currentUser == null) return;
+
+      // Load patient records
+      await loadPatientRecords(currentUser!.id);
+
+      // Load relationships based on role
+      if (currentUser!.role == UserRole.caregiver) {
+        // Caregivers: load their patients
+        await loadCaregiverPatients();
+      }
+
+      // Load hotspot data
+      await loadPatientHotspots(currentUser!.id);
+    } catch (e) {
+      print('Error reloading user data: $e');
+      // Don't rethrow - this is optional data
+    }
+  }
+
   /// Update user profile
   Future<void> updateProfile({
     required String name,
@@ -166,6 +191,7 @@ class AppState extends ChangeNotifier {
 
   /// Add a new medical record via backend
   Future<void> addRecord({
+    String? patientId,
     required String disease,
     required String temperature,
     String? fluidIntake,
@@ -177,7 +203,10 @@ class AppState extends ChangeNotifier {
     try {
       if (currentUser == null) throw Exception('User not logged in');
 
+      final String targetPatientId = patientId ?? currentUser!.id;
+
       final response = await recordService.createRecord(
+        patientId: targetPatientId,
         disease: disease,
         temperature: temperature,
         fluidIntake: fluidIntake,
@@ -194,7 +223,7 @@ class AppState extends ChangeNotifier {
             ? DiseaseType.ratFever
             : DiseaseType.dengue;
         final record = RecordEntry(
-          patientId: currentUser!.id,
+          patientId: targetPatientId,
           disease: diseaseEnum,
           createdAt: DateTime.now(),
           values: {
@@ -213,7 +242,7 @@ class AppState extends ChangeNotifier {
         );
 
         final list = _recordsByPatient.putIfAbsent(
-          currentUser!.id,
+          targetPatientId,
           () => <RecordEntry>[],
         );
         list.add(record);
@@ -258,9 +287,9 @@ class AppState extends ChangeNotifier {
               'urineOutput': recordData['urineOutput']?.toString() ?? '',
               'urineColor': recordData['urineColor']?.toString() ?? '',
               if (recordData['symptoms'] is Map)
-                ...Map<String, String>.from(
-                  recordData['symptoms'] as Map,
-                ).cast<String, String>(),
+                ...(recordData['symptoms'] as Map).map(
+                  (key, value) => MapEntry(key.toString(), value.toString()),
+                ),
             },
             notes: recordData['notes']?.toString() ?? '',
             createdBy: recordData['createdBy'] ?? '',

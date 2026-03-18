@@ -150,10 +150,11 @@ class ApiClient {
     String? email,
   }) async {
     try {
-      final response = await _dio.put(
-        '/users/profile',
-        data: {'name': ?name, 'phone': ?phone, 'email': ?email},
-      );
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (phone != null) data['phone'] = phone;
+      if (email != null) data['email'] = email;
+      final response = await _dio.put('/users/profile', data: data);
       return _unwrapResponse(response.data);
     } catch (e) {
       rethrow;
@@ -189,6 +190,7 @@ class ApiClient {
 
   /// Create medical record
   Future<Map<String, dynamic>> createRecord({
+    String? patientId,
     required String disease,
     required String temperature,
     String? fluidIntake,
@@ -198,18 +200,17 @@ class ApiClient {
     String? notes,
   }) async {
     try {
-      final response = await _dio.post(
-        '/records',
-        data: {
-          'disease': disease,
-          'temperature': temperature,
-          'fluidIntake': ?fluidIntake,
-          'urineOutput': ?urineOutput,
-          'urineColor': ?urineColor,
-          'symptoms': ?symptoms,
-          'notes': ?notes,
-        },
-      );
+      final Map<String, dynamic> data = <String, dynamic>{
+        'patientId': patientId,
+        'disease': disease,
+        'temperature': temperature,
+      };
+      if (fluidIntake != null) data['fluidIntake'] = fluidIntake;
+      if (urineOutput != null) data['urineOutput'] = urineOutput;
+      if (urineColor != null) data['urineColor'] = urineColor;
+      if (symptoms != null) data['symptoms'] = symptoms;
+      if (notes != null) data['notes'] = notes;
+      final response = await _dio.post('/records', data: data);
       return _unwrapResponse(response.data);
     } catch (e) {
       rethrow;
@@ -223,14 +224,11 @@ class ApiClient {
     String? patientId,
   }) async {
     try {
-      final response = await _dio.get(
-        '/records',
-        queryParameters: {
-          'disease': ?disease,
-          'timelineFilter': ?timelineFilter,
-          'patientId': ?patientId,
-        },
-      );
+      final Map<String, dynamic> query = <String, dynamic>{};
+      if (disease != null) query['disease'] = disease;
+      if (timelineFilter != null) query['timelineFilter'] = timelineFilter;
+      if (patientId != null) query['patientId'] = patientId;
+      final response = await _dio.get('/records', queryParameters: query);
       return _unwrapResponse(response.data);
     } catch (e) {
       rethrow;
@@ -243,9 +241,11 @@ class ApiClient {
     String? timelineFilter,
   }) async {
     try {
+      final Map<String, dynamic> query = <String, dynamic>{};
+      if (timelineFilter != null) query['timelineFilter'] = timelineFilter;
       final response = await _dio.get(
         '/records/stats/$patientId',
-        queryParameters: {'timelineFilter': ?timelineFilter},
+        queryParameters: query,
       );
       return _unwrapResponse(response.data);
     } catch (e) {
@@ -258,9 +258,11 @@ class ApiClient {
     String? timelineFilter,
   }) async {
     try {
+      final Map<String, dynamic> query = <String, dynamic>{};
+      if (timelineFilter != null) query['timelineFilter'] = timelineFilter;
       final response = await _dio.get(
         '/records/export/pdf',
-        queryParameters: {'timelineFilter': ?timelineFilter},
+        queryParameters: query,
       );
       return _unwrapResponse(response.data);
     } catch (e) {
@@ -286,9 +288,11 @@ class ApiClient {
     String? disease,
   }) async {
     try {
+      final data = {'code': code};
+      if (disease != null) data['disease'] = disease;
       final response = await _dio.post(
         '/relationships/add-patient',
-        data: {'code': code, 'disease': ?disease},
+        data: data,
       );
       return _unwrapResponse(response.data);
     } catch (e) {
@@ -359,17 +363,15 @@ class ApiClient {
     Map<String, double>? coordinates,
   }) async {
     try {
-      final response = await _dio.post(
-        '/hotspot/submit',
-        data: {
-          'subject': subject,
-          'hometown': hometown,
-          'workplace': workplace,
-          'places': ?places,
-          'disease': ?disease,
-          'coordinates': ?coordinates,
-        },
-      );
+      final data = <String, dynamic>{
+        'subject': subject,
+        'hometown': hometown,
+        'workplace': workplace,
+      };
+      if (places != null) data['places'] = places;
+      if (disease != null) data['disease'] = disease;
+      if (coordinates != null) data['coordinates'] = coordinates;
+      final response = await _dio.post('/hotspot/submit', data: data);
       return _unwrapResponse(response.data);
     } catch (e) {
       rethrow;
@@ -391,9 +393,11 @@ class ApiClient {
   /// Get heatmap data
   Future<Map<String, dynamic>> getHeatmapData({String? disease}) async {
     try {
+      final params = <String, dynamic>{};
+      if (disease != null) params['disease'] = disease;
       final response = await _dio.get(
         '/hotspot/heatmap/data',
-        queryParameters: {'disease': ?disease},
+        queryParameters: params,
       );
       return _unwrapResponse(response.data);
     } catch (e) {

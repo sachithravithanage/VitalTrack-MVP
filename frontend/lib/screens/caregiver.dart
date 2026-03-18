@@ -36,6 +36,14 @@ class CaregiverPatientsScreen extends StatelessWidget {
             );
           },
         ),
+        UiSpace.xs,
+        Text(
+          '${patients.length} ${app.t('patients')}',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: const Color(0xFF667085),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         UiSpace.sm,
         if (patients.isEmpty)
           EmptyStateCard(
@@ -45,15 +53,65 @@ class CaregiverPatientsScreen extends StatelessWidget {
           )
         else
           ...patients.map((PatientSummary patient) {
+            final String diseaseLabel = patient.disease == DiseaseType.dengue
+                ? app.t('dengue')
+                : app.t('rat_fever');
             return Card(
               child: ListTile(
-                title: Text(patient.name),
-                subtitle: Text(
-                  patient.disease == DiseaseType.dengue
-                      ? app.t('dengue')
-                      : app.t('rat_fever'),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
+                  child: Text(
+                    patient.name.isNotEmpty
+                        ? patient.name[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                title: Text(patient.name),
+                subtitle: Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        diseaseLabel,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                trailing: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -131,7 +189,16 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 controller: _codeController,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
-                decoration: InputDecoration(labelText: app.t('caregiver_code')),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  labelText: app.t('caregiver_code'),
+                  counterText: '',
+                  hintText: '000000',
+                ),
                 validator: (String? value) {
                   if (value == null || value.trim().length != 6) {
                     return app.t('invalid_code');
@@ -170,16 +237,26 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
             BusyFilledButton(
               isBusy: _saving,
               label: app.t('confirm'),
-              onPressed: () {
+              onPressed: () async {
                 if (_formKey.currentState?.validate() != true) return;
                 setState(() => _saving = true);
 
                 if (_useCode) {
                   final String code = _codeController.text.trim();
-                  app.attachPatientToCaregiver(
-                    code: code,
-                    disease: _disease.toString().split('.').last,
-                  );
+                  try {
+                    await app.attachPatientToCaregiver(
+                      code: code,
+                      disease: _disease.toString().split('.').last,
+                    );
+                    await app.loadCaregiverPatients();
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${app.t('error')}: $e')),
+                    );
+                    setState(() => _saving = false);
+                    return;
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -189,6 +266,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                   setState(() => _saving = false);
                   return;
                 }
+
+                if (!context.mounted) return;
 
                 ScaffoldMessenger.of(
                   context,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app/models.dart';
 import '../app/scope.dart';
@@ -33,7 +32,27 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
         UiSpace.sm,
         Card(
           child: ListTile(
+            leading: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.12),
+              ),
+              child: Icon(
+                Icons.water_drop_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
             title: Text(app.t('dengue')),
+            subtitle: Text(
+              app.t('add_record'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: const Color(0xFF667085)),
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -50,7 +69,27 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
         ),
         Card(
           child: ListTile(
+            leading: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.12),
+              ),
+              child: Icon(
+                Icons.bug_report_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
             title: Text(app.t('rat_fever')),
+            subtitle: Text(
+              app.t('add_record'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: const Color(0xFF667085)),
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -158,20 +197,26 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
               ),
             if (!isDengue) UiSpace.sm,
             if (!isDengue)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _bodyPain,
-                title: Text(app.t('body_pain')),
-                onChanged: (bool? value) =>
-                    setState(() => _bodyPain = value ?? false),
+              Card(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: CheckboxListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  value: _bodyPain,
+                  title: Text(app.t('body_pain')),
+                  onChanged: (bool? value) =>
+                      setState(() => _bodyPain = value ?? false),
+                ),
               ),
             if (!isDengue)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _vomiting,
-                title: Text(app.t('vomiting')),
-                onChanged: (bool? value) =>
-                    setState(() => _vomiting = value ?? false),
+              Card(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                child: CheckboxListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  value: _vomiting,
+                  title: Text(app.t('vomiting')),
+                  onChanged: (bool? value) =>
+                      setState(() => _vomiting = value ?? false),
+                ),
               ),
             TextFormField(
               controller: _notesController,
@@ -185,10 +230,11 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 final isDengue = widget.disease == DiseaseType.dengue;
                 final Map<String, bool> symptoms = <String, bool>{};
                 if (!isDengue) {
-                  symptoms['body_pain'] = _bodyPain;
+                  symptoms['bodyPain'] = _bodyPain;
                   symptoms['vomiting'] = _vomiting;
                 }
                 app.addRecord(
+                  patientId: widget.patientId,
                   disease: widget.disease == DiseaseType.dengue
                       ? 'dengue'
                       : 'ratFever',
@@ -236,6 +282,46 @@ class RecordsListScreen extends StatefulWidget {
 class _RecordsListScreenState extends State<RecordsListScreen> {
   TimelineFilter _filter = TimelineFilter.last24h;
   bool _exporting = false;
+  bool _loadingRecords = false;
+  bool _didInitialLoad = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didInitialLoad) return;
+    _didInitialLoad = true;
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    final AppState app = AppScope.of(context);
+    try {
+      if (mounted) setState(() => _loadingRecords = true);
+      await app.loadPatientRecords(widget.patientId, filter: _filter);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    } finally {
+      if (mounted) setState(() => _loadingRecords = false);
+    }
+  }
+
+  Future<void> _onFilterChanged(TimelineFilter value) async {
+    if (_filter == value) return;
+    setState(() => _filter = value);
+    await _loadRecords();
+  }
+
+  String _prettyLabel(String key) {
+    final normalized = key.replaceAllMapped(
+      RegExp(r'([a-z])([A-Z])'),
+      (m) => '${m.group(1)} ${m.group(2)}',
+    );
+    if (normalized.isEmpty) return key;
+    return normalized[0].toUpperCase() + normalized.substring(1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +350,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
           label24h: app.t('last_24h'),
           label3d: app.t('last_3_days'),
           label7d: app.t('last_7_days'),
-          onChanged: (TimelineFilter value) => setState(() => _filter = value),
+          onChanged: _onFilterChanged,
         ),
         UiSpace.sm,
         if (widget.canAddFromHere)
@@ -283,7 +369,21 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             child: Text(app.t('add_record')),
           ),
         if (widget.canAddFromHere) UiSpace.xs,
-        if (records.isEmpty)
+        if (_loadingRecords)
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const CircularProgressIndicator(),
+                const SizedBox(height: 10),
+                Text(
+                  app.t('refreshing'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          )
+        else if (records.isEmpty)
           EmptyStateCard(
             icon: Icons.inbox_outlined,
             title: app.t('no_records'),
@@ -296,18 +396,32 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             ).format(record.createdAt);
             return Card(
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      '${record.disease == DiseaseType.dengue ? app.t('dengue') : app.t('rat_fever')} • $ts',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      record.disease == DiseaseType.dengue
+                          ? app.t('dengue')
+                          : app.t('rat_fever'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
+                    Text(
+                      ts,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF667085),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     ...record.values.entries.map(
-                      (MapEntry<String, String> e) =>
-                          Text('${e.key}: ${e.value}'),
+                      (MapEntry<String, String> e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text('${_prettyLabel(e.key)}: ${e.value}'),
+                      ),
                     ),
                     if (record.notes.isNotEmpty) const SizedBox(height: 4),
                     if (record.notes.isNotEmpty)
@@ -338,42 +452,38 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
     AppState app,
     List<RecordEntry> records,
   ) async {
-    final pw.Document pdf = pw.Document();
-    pdf.addPage(
-      pw.MultiPage(
-        build: (pw.Context context) {
-          return <pw.Widget>[
-            pw.Text('VitalTrack Records', style: pw.TextStyle(fontSize: 20)),
-            pw.SizedBox(height: 12),
-            ...records.map((RecordEntry record) {
-              final String timestamp = DateFormat(
-                'yyyy-MM-dd hh:mm a',
-              ).format(record.createdAt);
-              return pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 10),
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(border: pw.Border.all()),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: <pw.Widget>[
-                    pw.Text(
-                      '${record.disease == DiseaseType.dengue ? app.t('dengue') : app.t('rat_fever')} - $timestamp',
-                    ),
-                    ...record.values.entries.map(
-                      (MapEntry<String, String> e) =>
-                          pw.Text('${e.key}: ${e.value}'),
-                    ),
-                    if (record.notes.isNotEmpty)
-                      pw.Text('${app.t('additional_notes')}: ${record.notes}'),
-                  ],
-                ),
-              );
-            }),
-          ];
-        },
-      ),
-    );
+    try {
+      // Call backend API to generate and download PDF
+      final String pdfUrl = await app.exportRecordsPdf(filter: _filter);
 
-    await Printing.layoutPdf(onLayout: (format) => pdf.save());
+      if (pdfUrl.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(app.t('export_failed'))));
+        return;
+      }
+
+      // Open PDF URL in browser/default app
+      // This will download on web and open in PDF viewer on mobile
+      final Uri uri = Uri.parse(pdfUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(app.t('pdf_downloaded'))));
+      } else {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(app.t('cannot_open_pdf'))));
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    }
   }
 }

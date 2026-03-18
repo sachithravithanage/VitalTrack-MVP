@@ -47,6 +47,7 @@ dependencies:
   # HTTP and Networking
   http: ^1.1.0
   dio: ^5.3.0
+  url_launcher: ^6.2.0
 
   # State Management & Collections
   uuid: ^4.0.0

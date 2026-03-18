@@ -1,5 +1,6 @@
 import express from "express";
 import * as authService from "../services/authService.js";
+import * as emailService from "../services/emailService.js";
 import { verifyFirebaseToken } from "../middleware/auth.js";
 import {
   validateEmail,
@@ -86,9 +87,18 @@ router.post("/send-otp", async (req, res) => {
 
     const otp = await authService.createOTP(normalizedCredential, type);
 
-    // In production, send via SMS or Email provider
-    // For now, just log it
-    console.log(`OTP for ${normalizedCredential}: ${otp}`);
+    // Send OTP via email or SMS
+    if (type === "email") {
+      try {
+        await emailService.sendOtpEmail(normalizedCredential, otp, "email");
+      } catch (emailError) {
+        console.error("Failed to send email:", emailError);
+        // Continue anyway, return OTP in dev mode
+      }
+    } else {
+      // For SMS, you would integrate with Twilio or similar
+      console.log(`SMS OTP for ${normalizedCredential}: ${otp}`);
+    }
 
     res.json({
       success: true,

@@ -1,8 +1,28 @@
 const Map<String, Map<String, String>>
 localized = <String, Map<String, String>>{
   'select_language': {'en': 'Select Language', 'si': 'භාෂාව තෝරන්න'},
+  'select_language_subtitle': {
+    'en': 'Choose your preferred app language',
+    'si': 'ඔබ කැමති යෙදුම් භාෂාව තෝරන්න',
+  },
+  'language_english_title': {'en': 'English', 'si': 'English'},
+  'language_english_subtitle': {'en': 'ENGLISH', 'si': 'ENGLISH'},
+  'language_sinhala_title': {'en': 'සිංහල', 'si': 'සිංහල'},
+  'language_sinhala_subtitle': {'en': 'SINHALA', 'si': 'SINHALA'},
+  'splash_tagline': {
+    'en': 'Track your health, secure your life',
+    'si': 'ඔබේ සෞඛ්‍යය නිරීක්ෂණය කර ජීවිතය සුරක්ෂිත කරගන්න',
+  },
   'login': {'en': 'Login', 'si': 'පිවිසීම'},
   'signup': {'en': 'SignUp', 'si': 'ලියාපදිංචි වීම'},
+  'login_subtitle': {
+    'en': 'Use your mobile number or email to continue',
+    'si': 'ඉදිරියට යාම සඳහා ජංගම අංකය හෝ ඊමේල් භාවිතා කරන්න',
+  },
+  'signup_subtitle': {
+    'en': 'Create your account in a few simple steps',
+    'si': 'සරල පියවර කිහිපයකින් ඔබගේ ගිණුම සාදන්න',
+  },
   'login_as': {'en': 'Login as', 'si': 'පිවිසෙන්න'},
   'patient': {'en': 'Patient', 'si': 'රෝගියා'},
   'caregiver': {'en': 'Caregiver', 'si': 'භාරකරු'},
@@ -39,6 +59,38 @@ localized = <String, Map<String, String>>{
   'enter_valid_otp': {
     'en': 'Enter valid 6 digit OTP',
     'si': 'වලංගු 6 ඉලක්කම් OTP ඇතුල් කරන්න',
+  },
+  'send_otp_failed': {
+    'en': 'Failed to send OTP. Please try again.',
+    'si': 'OTP යැවීමට අසමත් විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+  },
+  'otp_verify_failed': {
+    'en': 'OTP verification failed. Please try again.',
+    'si': 'OTP තහවුරු කිරීම අසාර්ථකයි. කරුණාකර නැවත උත්සාහ කරන්න.',
+  },
+  'email_exists_error': {
+    'en':
+        'This email is already registered. Please log in or use a different email.',
+    'si':
+        'මෙම ඊමේල් ලිපිනය දැනටමත් ලියාපදිංචි වී ඇත. කරුණාකර පිවිසෙන්න හෝ වෙනත් ඊමේල් එකක් භාවිතා කරන්න.',
+  },
+  'phone_exists_error': {
+    'en':
+        'This phone number is already registered. Please log in or use a different phone number.',
+    'si':
+        'මෙම දුරකථන අංකය දැනටමත් ලියාපදිංචි වී ඇත. කරුණාකර පිවිසෙන්න හෝ වෙනත් අංකයක් භාවිතා කරන්න.',
+  },
+  'invalid_otp_error': {
+    'en': 'Invalid OTP. Please check the code and try again.',
+    'si': 'වලංගු නොවන OTP. කේතය පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
+  },
+  'otp_expired_error': {
+    'en': 'OTP expired or not found. Please request a new OTP.',
+    'si': 'OTP කල් ඉකුත් වී ඇත හෝ සොයාගත නොහැක. කරුණාකර නව OTP එකක් ඉල්ලන්න.',
+  },
+  'email_otp_send_failed': {
+    'en': 'Failed to send OTP to email.',
+    'si': 'ඊමේල් වෙත OTP යැවීමට අසමත් විය.',
   },
   'name': {'en': 'Name', 'si': 'නම'},
   'phone_number_lk': {'en': 'Mobile Number', 'si': 'ජංගම දුරකථන අංකය'},
@@ -148,4 +200,38 @@ localized = <String, Map<String, String>>{
   'confirm': {'en': 'Confirm', 'si': 'තහවුරු කරන්න'},
   'yes': {'en': 'Yes', 'si': 'ඔව්'},
   'no': {'en': 'No', 'si': 'නැහැ'},
+  'share_this_code_with_caregiver': {
+    'en': 'Share this code with your caregiver',
+    'si': 'මෙම කේතය ඔබගේ භාරකරුට බෙදා දෙන්න',
+  },
+  'code_copied': {
+    'en': 'Code copied to clipboard',
+    'si': 'කේතය පසුරු පුවරුවට පිටපත් කරන ලදි',
+  },
+  'copy': {'en': 'Copy', 'si': 'පිටපත් කරන්න'},
+  'link_to_patient': {'en': 'Link to Patient', 'si': 'රෝගියා වෙත සම්බන්ධ වන්න'},
+  'enter_patient_code': {
+    'en': 'Enter Patient Code',
+    'si': 'රෝගියාගේ කේතය ඇතුල් කරන්න',
+  },
+  'patient_code': {'en': 'Patient Code', 'si': 'රෝගියාගේ කේතය'},
+  'my_patients': {'en': 'My Patients', 'si': 'මගේ රෝගීන්'},
+  'no_patients_yet': {'en': 'No patients yet', 'si': 'තවම රෝගීන් නැත'},
+  'patient_linked': {
+    'en': 'Patient linked successfully',
+    'si': 'රෝගියා සफලයෙන් සම්බන්ධ වුණි',
+  },
+  'cancel': {'en': 'Cancel', 'si': 'අවලංගු කරන්න'},
+  'link': {'en': 'Link', 'si': 'සම්බන්ධ කරන්න'},
+  'error': {'en': 'Error', 'si': 'දෝෂය'},
+  'export_failed': {'en': 'Failed to export PDF', 'si': 'PDF අපනයනය අසාර්ථකයි'},
+  'refreshing': {'en': 'Refreshing...', 'si': 'යාවත්කාලීන වෙමින්...'},
+  'pdf_downloaded': {
+    'en': 'PDF downloaded successfully',
+    'si': 'PDF සफලයෙන් බාගත කරන ලදි',
+  },
+  'cannot_open_pdf': {
+    'en': 'Cannot open PDF. Please try again.',
+    'si': 'PDF විවෘත කළ නොහැක. කරුණාකර නැවත උත්සාහ කරන්න.',
+  },
 };

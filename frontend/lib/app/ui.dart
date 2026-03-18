@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 class UiSpace {
   static const SizedBox xxs = SizedBox(height: 6);
-  static const SizedBox xs = SizedBox(height: 8);
-  static const SizedBox sm = SizedBox(height: 12);
-  static const SizedBox md = SizedBox(height: 16);
+  static const SizedBox xs = SizedBox(height: 10);
+  static const SizedBox sm = SizedBox(height: 14);
+  static const SizedBox md = SizedBox(height: 18);
 }
 
 bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 900;
@@ -15,10 +15,10 @@ TextScaler adaptiveTextScaler(BuildContext context) {
   final double widthFactor = width < 360
       ? 0.95
       : width < 600
-          ? 1.0
-          : width < 900
-              ? 1.03
-              : 1.08;
+      ? 1.0
+      : width < 900
+      ? 1.03
+      : 1.08;
   return TextScaler.linear((userScale * widthFactor).clamp(0.95, 1.8));
 }
 
@@ -41,7 +41,7 @@ class ResponsiveContent extends StatelessWidget {
     super.key,
     required this.child,
     this.maxWidth = 760,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(18),
     this.scrollable = false,
   });
 
@@ -70,7 +70,7 @@ class ResponsiveListView extends StatelessWidget {
     super.key,
     required this.children,
     this.maxWidth = 760,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(18),
   });
 
   final List<Widget> children;
@@ -115,20 +115,25 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool compact = MediaQuery.sizeOf(context).width < 380;
+    final ThemeData theme = Theme.of(context);
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
+      color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           children: <Widget>[
-            CircleAvatar(
-              radius: compact ? 20 : 22,
-              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+            Container(
+              width: compact ? 40 : 44,
+              height: compact ? 40 : 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+              ),
               child: Icon(
                 icon,
                 size: compact ? 20 : 22,
-                color: Theme.of(context).colorScheme.primary,
+                color: theme.colorScheme.primary,
               ),
             ),
             SizedBox(width: compact ? 10 : 12),
@@ -136,9 +141,19 @@ class SectionHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF667085),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -164,16 +179,23 @@ class EmptyStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool compact = MediaQuery.sizeOf(context).width < 380;
+    final ThemeData theme = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           children: <Widget>[
-            Icon(icon, size: compact ? 34 : 38, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              icon,
+              size: compact ? 34 : 38,
+              color: theme.colorScheme.primary,
+            ),
             UiSpace.xs,
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
               textAlign: TextAlign.center,
             ),
             UiSpace.xxs,

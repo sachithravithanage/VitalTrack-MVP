@@ -3,8 +3,13 @@ import * as recordService from "../services/recordService.js";
 import * as pdfService from "../services/pdfService.js";
 import * as notificationService from "../services/notificationService.js";
 import * as authService from "../services/authService.js";
+import * as relationshipService from "../services/relationshipService.js";
 import { verifyFirebaseToken, requireRole } from "../middleware/auth.js";
-import { handleError } from "../utils/errors.js";
+import {
+  handleError,
+  ValidationError,
+  AuthenticationError,
+} from "../utils/errors.js";
 
 const router = express.Router();
 
@@ -15,9 +20,10 @@ router.use(verifyFirebaseToken);
  * POST /api/v1/records
  * Create a new medical record
  */
-router.post("/", requireRole("patient"), async (req, res) => {
+router.post("/", requireRole("patient", "caregiver"), async (req, res) => {
   try {
     const {
+      patientId,
       disease,
       temperature,
       fluidIntake,
@@ -34,7 +40,28 @@ router.post("/", requireRole("patient"), async (req, res) => {
       });
     }
 
-    const record = await recordService.createRecord(req.user.uid, {
+    let targetPatientId = req.user.uid;
+
+    if (req.userRole === "caregiver") {
+      if (!patientId) {
+        throw new ValidationError("Patient ID is required for caregivers");
+      }
+
+      const isLinked = await relationshipService.isCaregiverLinkedToPatient(
+        patientId,
+        req.user.uid,
+      );
+
+      if (!isLinked) {
+        throw new AuthenticationError(
+          "Caregiver is not linked to this patient",
+        );
+      }
+
+      targetPatientId = patientId;
+    }
+
+    const record = await recordService.createRecord(targetPatientId, {
       disease,
       temperature,
       fluidIntake,
@@ -45,12 +72,13 @@ router.post("/", requireRole("patient"), async (req, res) => {
       headache: symptoms?.headache || false,
       rash: symptoms?.rash || false,
       notes,
+      createdBy: req.user.uid,
     });
 
     // Send notification to caregivers
-    const userProfile = await authService.getUserProfile(req.user.uid);
+    const userProfile = await authService.getUserProfile(targetPatientId);
     await notificationService.notifyNewRecord(
-      req.user.uid,
+      targetPatientId,
       userProfile.name,
       disease,
     );
@@ -58,7 +86,7 @@ router.post("/", requireRole("patient"), async (req, res) => {
     // Check for high temperature alert
     if (temperature && parseFloat(temperature) > 38.5) {
       await notificationService.notifyHighTemperature(
-        req.user.uid,
+        targetPatientId,
         userProfile.name,
         temperature,
       );
@@ -83,8 +111,26 @@ router.get("/", requireRole("patient", "caregiver"), async (req, res) => {
 
     // Patients can only view their own records
     // Caregivers can view linked patients' records
-    const targetPatientId =
-      req.userRole === "patient" ? req.user.uid : patientId;
+    let targetPatientId = req.user.uid;
+
+    if (req.userRole === "caregiver") {
+      if (!patientId) {
+        throw new ValidationError("Patient ID is required for caregivers");
+      }
+
+      const isLinked = await relationshipService.isCaregiverLinkedToPatient(
+        patientId,
+        req.user.uid,
+      );
+
+      if (!isLinked) {
+        throw new AuthenticationError(
+          "Caregiver is not linked to this patient",
+        );
+      }
+
+      targetPatientId = patientId;
+    }
 
     const records = await recordService.listRecords(targetPatientId, {
       disease,
@@ -106,7 +152,23 @@ router.get("/", requireRole("patient", "caregiver"), async (req, res) => {
  */
 router.get("/:recordId", verifyFirebaseToken, async (req, res) => {
   try {
+    const userProfile = await authService.getUserProfile(req.user.uid);
     const record = await recordService.getRecord(req.params.recordId);
+
+    if (userProfile.role === "patient" && record.patientId !== req.user.uid) {
+      throw new AuthenticationError("Not authorized to access this record");
+    }
+
+    if (userProfile.role === "caregiver") {
+      const isLinked = await relationshipService.isCaregiverLinkedToPatient(
+        record.patientId,
+        req.user.uid,
+      );
+
+      if (!isLinked) {
+        throw new AuthenticationError("Not authorized to access this record");
+      }
+    }
 
     res.json({
       success: true,
@@ -174,6 +236,27 @@ router.delete("/:recordId", requireRole("patient"), async (req, res) => {
 router.get("/stats/:patientId", verifyFirebaseToken, async (req, res) => {
   try {
     const { timelineFilter } = req.query;
+    const userProfile = await authService.getUserProfile(req.user.uid);
+
+    if (
+      userProfile.role === "patient" &&
+      req.params.patientId !== req.user.uid
+    ) {
+      throw new AuthenticationError("Not authorized to view these statistics");
+    }
+
+    if (userProfile.role === "caregiver") {
+      const isLinked = await relationshipService.isCaregiverLinkedToPatient(
+        req.params.patientId,
+        req.user.uid,
+      );
+
+      if (!isLinked) {
+        throw new AuthenticationError(
+          "Not authorized to view these statistics",
+        );
+      }
+    }
 
     const stats = await recordService.getRecordStats(
       req.params.patientId,

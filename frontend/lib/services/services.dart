@@ -6,6 +6,7 @@ class RecordService {
 
   /// Create a new medical record
   Future<Map<String, dynamic>> createRecord({
+    String? patientId,
     required String disease,
     required String temperature,
     String? fluidIntake,
@@ -16,6 +17,7 @@ class RecordService {
   }) async {
     try {
       final response = await _apiClient.createRecord(
+        patientId: patientId,
         disease: disease,
         temperature: temperature,
         fluidIntake: fluidIntake,

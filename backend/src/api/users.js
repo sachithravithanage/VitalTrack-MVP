@@ -1,5 +1,6 @@
 import express from "express";
 import * as authService from "../services/authService.js";
+import * as emailService from "../services/emailService.js";
 import { verifyFirebaseToken } from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 import {
@@ -94,8 +95,13 @@ router.post("/verify-email", async (req, res) => {
 
     const otp = await authService.createOTP(userProfile.email, "email");
 
-    // In production, send via email provider
-    console.log(`Email verification OTP for ${userProfile.email}: ${otp}`);
+    // Send OTP via email
+    try {
+      await emailService.sendOtpEmail(userProfile.email, otp, "email");
+    } catch (emailError) {
+      console.error("Failed to send verification email:", emailError);
+      // Continue anyway, return OTP in dev mode
+    }
 
     res.json({
       success: true,

@@ -317,6 +317,7 @@ export async function updateUserProfile(uid, updates) {
 
   // Validate updates
   const validUpdates = {};
+  const currentProfile = await getUserProfile(uid);
 
   if (name !== undefined) {
     validUpdates.name = name;
@@ -338,10 +339,12 @@ export async function updateUserProfile(uid, updates) {
   }
 
   if (email !== undefined) {
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     // Check if email is already in use
     const emailQuery = await db
       .collection("users")
-      .where("email", "==", email)
+      .where("email", "==", normalizedEmail)
       .where("uid", "!=", uid)
       .get();
 
@@ -349,7 +352,12 @@ export async function updateUserProfile(uid, updates) {
       throw new ConflictError("Email already in use");
     }
 
-    validUpdates.email = email;
+    validUpdates.email = normalizedEmail;
+
+    if (currentProfile.email !== normalizedEmail) {
+      validUpdates.emailVerified = false;
+      await auth.updateUser(uid, { email: normalizedEmail });
+    }
   }
 
   validUpdates.updatedAt = new Date();
@@ -365,6 +373,8 @@ export async function updateUserProfile(uid, updates) {
  * Mark email as verified
  */
 export async function markEmailVerified(uid) {
+  await auth.updateUser(uid, { emailVerified: true });
+
   await db.collection("users").doc(uid).update({
     emailVerified: true,
     updatedAt: new Date(),
