@@ -76,11 +76,13 @@ class RecordService {
   Future<Map<String, dynamic>> exportRecordsPdf({
     String? timelineFilter,
     String? patientId,
+    String? stepUpToken,
   }) async {
     try {
       final response = await _apiClient.exportRecordsPdf(
         timelineFilter: timelineFilter,
         patientId: patientId,
+        stepUpToken: stepUpToken,
       );
       return response;
     } catch (e) {
@@ -105,15 +107,30 @@ class RelationshipService {
     }
   }
 
+  /// Generate a link code for patient with step-up token
+  Future<String> generateLinkCodeSecured({required String stepUpToken}) async {
+    try {
+      final response = await _apiClient.generateLinkCodeSecured(
+        stepUpToken: stepUpToken,
+      );
+      return response['code'] as String? ?? '';
+    } catch (e) {
+      debugPrint("Error generating secured link code: $e");
+      rethrow;
+    }
+  }
+
   /// Add a patient using link code (caregiver action)
   Future<Map<String, dynamic>> addPatient({
     required String code,
     String? disease,
+    String? stepUpToken,
   }) async {
     try {
       final response = await _apiClient.addPatient(
         code: code,
         disease: disease,
+        stepUpToken: stepUpToken,
       );
       return response;
     } catch (e) {
@@ -126,11 +143,13 @@ class RelationshipService {
   Future<Map<String, dynamic>> createPatient({
     required String name,
     required String disease,
+    String? stepUpToken,
   }) async {
     try {
       final response = await _apiClient.createPatient(
         name: name,
         disease: disease,
+        stepUpToken: stepUpToken,
       );
       return response;
     } catch (e) {

@@ -62,6 +62,9 @@ String _friendlyAuthError(
   if (raw.contains('invalid otp')) {
     return app.t('invalid_otp_error');
   }
+  if (raw.contains('not verified')) {
+    return 'Email is not verified yet. Please verify email from Profile first.';
+  }
   if (raw.contains('otp has expired') || raw.contains('otp not found')) {
     return app.t('otp_expired_error');
   }
@@ -86,7 +89,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  UserRole _role = UserRole.patient;
   LoginMethod _method = LoginMethod.number4n;
   bool _submitting = false;
   final TextEditingController _phoneController = TextEditingController();
@@ -384,83 +386,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF2F4F7),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => setState(
-                                      () => _role = UserRole.patient,
-                                    ),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      margin: const EdgeInsets.all(6),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _role == UserRole.patient
-                                            ? Colors.white
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        app.t('patient'),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: _role == UserRole.patient
-                                              ? const Color(0xFF1570EF)
-                                              : const Color(0xFF475467),
-                                          fontSize: isSmall ? 16 : 17,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => setState(
-                                      () => _role = UserRole.caregiver,
-                                    ),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      margin: const EdgeInsets.all(6),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _role == UserRole.caregiver
-                                            ? Colors.white
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        app.t('caregiver'),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: _role == UserRole.caregiver
-                                              ? const Color(0xFF1570EF)
-                                              : const Color(0xFF475467),
-                                          fontSize: isSmall ? 16 : 17,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: isSmall ? 18 : 24),
                           Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF2F4F7),
@@ -822,11 +747,15 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  UserRole _role = UserRole.patient;
-  bool _submitting = false;
-  final TextEditingController _nameController = TextEditingController();
+  final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _profileFormKey = GlobalKey<FormState>();
+
+  bool _otpSending = false;
+  bool _phoneVerified = false;
+  bool _creating = false;
+
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
@@ -843,6 +772,96 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool _isValidSriLankanPhone(String value) {
     return _isValidLkPhone(value);
+  }
+
+  Future<void> _verifyPhoneFirst(AppState app) async {
+    if (_phoneFormKey.currentState?.validate() != true) {
+      return;
+    }
+
+    setState(() => _otpSending = true);
+    final NavigatorState navigator = Navigator.of(context);
+    final String phone = _normalizeLkPhoneForApi(_phoneController.text.trim());
+
+    try {
+      await authService.sendOtp(credential: phone, type: 'phone');
+    } catch (e) {
+      if (!mounted) return;
+      final String friendly = _friendlyAuthError(
+        e,
+        app: app,
+        fallback: app.t('send_otp_failed'),
+      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendly)));
+      setState(() => _otpSending = false);
+      return;
+    }
+
+    final bool otpOk =
+        await navigator.push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => OtpVerificationScreen(
+              title: app.t('otp_verification'),
+              subtitle: app.t('enter_otp_signup'),
+              credential: phone,
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!mounted) {
+      return;
+    }
+
+    if (otpOk) {
+      setState(() {
+        _phoneVerified = true;
+        _otpSending = false;
+      });
+      return;
+    }
+
+    setState(() => _otpSending = false);
+  }
+
+  Future<void> _createAccount(AppState app) async {
+    if (_profileFormKey.currentState?.validate() != true) {
+      return;
+    }
+
+    setState(() => _creating = true);
+    final String phone = _normalizeLkPhoneForApi(_phoneController.text.trim());
+    final String? email = _emailController.text.trim().isEmpty
+        ? null
+        : _emailController.text.trim();
+
+    try {
+      await app.signup(
+        email: email,
+        phone: phone,
+        password: _passwordController.text.trim(),
+        name: _nameController.text.trim(),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const DashboardRouter()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final String friendly = _friendlyAuthError(
+        e,
+        app: app,
+        fallback: app.t('signup_failed'),
+      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendly)));
+      setState(() => _creating = false);
+    }
   }
 
   @override
@@ -864,452 +883,374 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 horizontal: isSmall ? 16 : 24,
                 vertical: isSmall ? 18 : 28,
               ),
-              child: Form(
-                key: _formKey,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: const <BoxShadow>[
-                      BoxShadow(
-                        color: Color(0x190F172A),
-                        blurRadius: 22,
-                        offset: Offset(0, 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x190F172A),
+                      blurRadius: 22,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        isSmall ? 16 : 24,
+                        isSmall ? 20 : 26,
+                        isSmall ? 16 : 24,
+                        isSmall ? 16 : 20,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          isSmall ? 16 : 24,
-                          isSmall ? 20 : 26,
-                          isSmall ? 16 : 24,
-                          isSmall ? 16 : 20,
-                        ),
-                        child: Column(
-                          children: <Widget>[
-                            ColorFiltered(
-                              colorFilter: const ColorFilter.mode(
-                                Color(0x38FFFFFF),
-                                BlendMode.screen,
+                      child: Column(
+                        children: <Widget>[
+                          ColorFiltered(
+                            colorFilter: const ColorFilter.mode(
+                              Color(0x38FFFFFF),
+                              BlendMode.screen,
+                            ),
+                            child: Image.asset(
+                              'assets/images/vitaltrack_logo_symbol.png',
+                              height: isTablet ? 110 : (isSmall ? 80 : 96),
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                              semanticLabel: 'VitalTrack Logo',
+                              errorBuilder: (_, _, _) => const Icon(
+                                Icons.monitor_heart,
+                                size: 84,
+                                color: Color(0xFF1E5AA8),
                               ),
-                              child: Image.asset(
-                                'assets/images/vitaltrack_logo_symbol.png',
-                                height: isTablet ? 110 : (isSmall ? 80 : 96),
-                                fit: BoxFit.contain,
-                                filterQuality: FilterQuality.high,
-                                semanticLabel: 'VitalTrack Logo',
-                                errorBuilder: (_, _, _) => const Icon(
-                                  Icons.monitor_heart,
-                                  size: 84,
-                                  color: Color(0xFF1E5AA8),
+                            ),
+                          ),
+                          SizedBox(height: isSmall ? 14 : 18),
+                          Text(
+                            app.t('create_account'),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: const Color(0xFF101828),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: isSmall ? 40 * 0.8 : 40 * 0.9,
                                 ),
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 14 : 18),
-                            Text(
-                              app.t('create_account'),
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    color: const Color(0xFF101828),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: isSmall ? 40 * 0.8 : 40 * 0.9,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              app.t('join_vitaltrack'),
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: const Color(0xFF667085),
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: isSmall ? 16 : 18,
-                                    height: 1.35,
-                                  ),
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _phoneVerified
+                                ? 'Phone verified. Complete your profile.'
+                                : 'Verify your phone number first.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: const Color(0xFF667085),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: isSmall ? 16 : 18,
+                                  height: 1.35,
+                                ),
+                          ),
+                        ],
                       ),
-                      const Divider(height: 1, color: Color(0xFFE4E7EC)),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          isSmall ? 16 : 24,
-                          isSmall ? 18 : 24,
-                          isSmall ? 16 : 24,
-                          isSmall ? 20 : 26,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF2F4F7),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => setState(
-                                        () => _role = UserRole.patient,
-                                      ),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        margin: const EdgeInsets.all(6),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _role == UserRole.patient
-                                              ? Colors.white
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          app.t('patient'),
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: _role == UserRole.patient
-                                                ? const Color(0xFF1570EF)
-                                                : const Color(0xFF475467),
-                                            fontSize: isSmall ? 15 : 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => setState(
-                                        () => _role = UserRole.caregiver,
-                                      ),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        margin: const EdgeInsets.all(6),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _role == UserRole.caregiver
-                                              ? Colors.white
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          app.t('caregiver'),
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: _role == UserRole.caregiver
-                                                ? const Color(0xFF1570EF)
-                                                : const Color(0xFF475467),
-                                            fontSize: isSmall ? 15 : 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 14 : 18),
-                            Text(
-                              app.t('name'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.person_outline_rounded),
-                              ),
-                              validator: (String? value) {
-                                if (value == null || value.trim().length < 2) {
-                                  return app.t('required_field');
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: isSmall ? 14 : 18),
-                            Text(
-                              app.t('phone_number_lk'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                hintText: '07XXXXXXXX',
-                                prefixIcon: Icon(Icons.phone_outlined),
-                              ),
-                              validator: (String? value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return app.t('required_field');
-                                }
-                                final String fullPhone =
-                                    _normalizeLkPhoneForApi(value.trim());
-                                if (!_isValidSriLankanPhone(fullPhone)) {
-                                  return app.t('invalid_lk_phone');
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: isSmall ? 14 : 18),
-                            Text(
-                              '${app.t('email')} (${app.t('optional')})',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                hintText: 'name@example.com',
-                                prefixIcon: Icon(Icons.email_outlined),
-                              ),
-                              validator: (String? value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return null;
-                                }
-                                if (!value.contains('@')) {
-                                  return app.t('invalid_email');
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: isSmall ? 14 : 18),
-                            Text(
-                              app.t('password'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.lock_outline_rounded),
-                              ),
-                              validator: (String? value) {
-                                if (value == null || value.length < 6) {
-                                  return app.t('password_min');
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: isSmall ? 14 : 18),
-                            Text(
-                              app.t('re_enter_password'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _confirmController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.verified_user_outlined),
-                              ),
-                              validator: (String? value) {
-                                if (value != _passwordController.text) {
-                                  return app.t('password_mismatch');
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: isSmall ? 12 : 16),
-                            SizedBox(
-                              height: isSmall ? 52 : 58,
-                              child: FilledButton(
-                                onPressed: _submitting
-                                    ? null
-                                    : () async {
-                                        if (_formKey.currentState?.validate() !=
-                                            true) {
-                                          return;
-                                        }
-
-                                        setState(() => _submitting = true);
-                                        final NavigatorState navigator =
-                                            Navigator.of(context);
-                                        final String phone =
-                                            _normalizeLkPhoneForApi(
-                                              _phoneController.text.trim(),
-                                            );
-                                        final String? email =
-                                            _emailController.text.trim().isEmpty
-                                            ? null
-                                            : _emailController.text.trim();
-                                        final String typedName = _nameController
-                                            .text
-                                            .trim();
-                                        final String signupName = typedName;
-
-                                        try {
-                                          await authService.sendOtp(
-                                            credential: phone,
-                                            type: 'phone',
-                                          );
-                                        } catch (e) {
-                                          if (!context.mounted) return;
-                                          final String friendly =
-                                              _friendlyAuthError(
-                                                e,
-                                                app: app,
-                                                fallback: app.t(
-                                                  'send_otp_failed',
-                                                ),
-                                              );
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(content: Text(friendly)),
-                                          );
-                                          setState(() => _submitting = false);
-                                          return;
-                                        }
-
-                                        final bool otpOk =
-                                            await navigator.push<bool>(
-                                              MaterialPageRoute<bool>(
-                                                builder: (_) => OtpVerificationScreen(
-                                                  title: app.t(
-                                                    'otp_verification',
-                                                  ),
-                                                  subtitle: app.t(
-                                                    'enter_otp_signup',
-                                                  ),
-                                                  credential: phone,
-                                                  navigateToDashboardOnSuccess:
-                                                      true,
-                                                  onVerifiedSuccess: () async {
-                                                    await app.signup(
-                                                      email: email,
-                                                      phone: phone,
-                                                      password:
-                                                          _passwordController
-                                                              .text
-                                                              .trim(),
-                                                      name: signupName,
-                                                      role:
-                                                          _role ==
-                                                              UserRole.patient
-                                                          ? 'patient'
-                                                          : 'caregiver',
-                                                    );
-                                                  },
-                                                ),
-                                              ),
-                                            ) ??
-                                            false;
-                                        if (!context.mounted) {
-                                          return;
-                                        }
-                                        if (!otpOk) {
-                                          setState(() => _submitting = false);
-                                          return;
-                                        }
-                                        setState(() => _submitting = false);
-                                      },
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1570EF),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                child: _submitting
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
-                                              ),
-                                        ),
-                                      )
-                                    : Text(
-                                        app.t('signup'),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleLarge
-                                            ?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 16 : 20),
-                            Center(
-                              child: Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: 6,
+                    ),
+                    const Divider(height: 1, color: Color(0xFFE4E7EC)),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        isSmall ? 16 : 24,
+                        isSmall ? 18 : 24,
+                        isSmall ? 16 : 24,
+                        isSmall ? 20 : 26,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          if (!_phoneVerified)
+                            Form(
+                              key: _phoneFormKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: <Widget>[
                                   Text(
-                                    app.t('already_have_account'),
+                                    app.t('phone_number_lk'),
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
                                         ?.copyWith(
-                                          color: const Color(0xFF475467),
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF101828),
                                         ),
                                   ),
-                                  GestureDetector(
-                                    onTap: () => Navigator.of(context).pop(),
-                                    child: Text(
-                                      app.t('login'),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: const Color(0xFF1570EF),
-                                            fontWeight: FontWeight.w700,
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _phoneController,
+                                    keyboardType: TextInputType.phone,
+                                    decoration: const InputDecoration(
+                                      hintText: '07XXXXXXXX',
+                                      prefixIcon: Icon(Icons.phone_outlined),
+                                    ),
+                                    validator: (String? value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return app.t('required_field');
+                                      }
+                                      final String fullPhone =
+                                          _normalizeLkPhoneForApi(value.trim());
+                                      if (!_isValidSriLankanPhone(fullPhone)) {
+                                        return app.t('invalid_lk_phone');
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: isSmall ? 14 : 18),
+                                  SizedBox(
+                                    height: isSmall ? 52 : 58,
+                                    child: FilledButton(
+                                      onPressed: _otpSending
+                                          ? null
+                                          : () => _verifyPhoneFirst(app),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF1570EF,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
                                           ),
+                                        ),
+                                      ),
+                                      child: _otpSending
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                          : const Text('Verify Phone'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Form(
+                              key: _profileFormKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: <Widget>[
+                                  Row(
+                                    children: <Widget>[
+                                      const Icon(
+                                        Icons.verified_user,
+                                        color: Color(0xFF1570EF),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _phoneController.text.trim(),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: const Color(0xFF101828),
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: _creating
+                                            ? null
+                                            : () => setState(() {
+                                                _phoneVerified = false;
+                                              }),
+                                        child: const Text('Change'),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: isSmall ? 14 : 18),
+                                  Text(
+                                    app.t('name'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF101828),
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _nameController,
+                                    decoration: const InputDecoration(
+                                      prefixIcon: Icon(
+                                        Icons.person_outline_rounded,
+                                      ),
+                                    ),
+                                    validator: (String? value) {
+                                      if (value == null ||
+                                          value.trim().length < 2) {
+                                        return app.t('required_field');
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: isSmall ? 14 : 18),
+                                  Text(
+                                    '${app.t('email')} (${app.t('optional')})',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF101828),
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: const InputDecoration(
+                                      hintText: 'name@example.com',
+                                      prefixIcon: Icon(Icons.email_outlined),
+                                    ),
+                                    validator: (String? value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return null;
+                                      }
+                                      if (!value.contains('@')) {
+                                        return app.t('invalid_email');
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: isSmall ? 14 : 18),
+                                  Text(
+                                    app.t('password'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF101828),
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: true,
+                                    decoration: const InputDecoration(
+                                      prefixIcon: Icon(
+                                        Icons.lock_outline_rounded,
+                                      ),
+                                    ),
+                                    validator: (String? value) {
+                                      if (value == null || value.length < 6) {
+                                        return app.t('password_min');
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: isSmall ? 14 : 18),
+                                  Text(
+                                    app.t('re_enter_password'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF101828),
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _confirmController,
+                                    obscureText: true,
+                                    decoration: const InputDecoration(
+                                      prefixIcon: Icon(
+                                        Icons.verified_user_outlined,
+                                      ),
+                                    ),
+                                    validator: (String? value) {
+                                      if (value != _passwordController.text) {
+                                        return app.t('password_mismatch');
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: isSmall ? 12 : 16),
+                                  SizedBox(
+                                    height: isSmall ? 52 : 58,
+                                    child: FilledButton(
+                                      onPressed: _creating
+                                          ? null
+                                          : () => _createAccount(app),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF1570EF,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      child: _creating
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                          : Text(app.t('signup')),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
+                          SizedBox(height: isSmall ? 16 : 20),
+                          Center(
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 6,
+                              children: <Widget>[
+                                Text(
+                                  app.t('already_have_account'),
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        color: const Color(0xFF475467),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => Navigator.of(context).pop(),
+                                  child: Text(
+                                    app.t('login'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: const Color(0xFF1570EF),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

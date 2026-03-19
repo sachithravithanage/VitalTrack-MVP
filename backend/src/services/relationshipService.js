@@ -175,7 +175,10 @@ export async function createManagedPatient(caregiverId, { name, disease }) {
   }
 
   const caregiver = caregiverDoc.data();
-  if (caregiver.role !== "caregiver") {
+  const caregiverRoles = Array.isArray(caregiver.roles)
+    ? caregiver.roles.map((role) => String(role || "").toLowerCase())
+    : [String(caregiver.role || "").toLowerCase()];
+  if (!caregiverRoles.includes("caregiver")) {
     throw new ValidationError("Only caregivers can create managed patients");
   }
 
@@ -190,6 +193,8 @@ export async function createManagedPatient(caregiverId, { name, disease }) {
       uid: patientId,
       name: trimmedName,
       role: "patient",
+      roles: ["patient"],
+      activeRole: "patient",
       email: null,
       phone: null,
       emailVerified: false,

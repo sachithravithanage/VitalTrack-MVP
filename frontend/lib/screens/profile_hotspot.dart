@@ -11,6 +11,7 @@ import '../app/ui.dart';
 import '../widgets/action_buttons.dart';
 import '../widgets/input_sections.dart';
 import 'auth.dart';
+import 'root_router.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,7 +22,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController emailController;
-  bool _relationshipsLoaded = false;
+  UserRole? _loadedForRole;
   Timer? _refreshTimer;
 
   String _formatPhoneForDisplay(String value) {
@@ -49,12 +50,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (currentUser != null) {
       emailController.text = currentUser.email ?? '';
 
-      if (!_relationshipsLoaded) {
-        _relationshipsLoaded = true;
+      if (_loadedForRole != currentUser.role) {
+        _loadedForRole = currentUser.role;
+        _refreshTimer?.cancel();
         unawaited(_loadRelationships(app, currentUser.role));
         _refreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
           if (!mounted) return;
-          unawaited(_loadRelationships(app, currentUser.role));
+          final current = app.currentUser;
+          if (current == null) return;
+          unawaited(_loadRelationships(app, current.role));
         });
       }
     }
@@ -75,6 +79,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await app.loadCaregiverPatients();
       }
     } catch (_) {}
+  }
+
+  Future<void> _switchRole(AppState app, UserRole role) async {
+    if (app.currentUser == null || app.currentUser!.role == role) {
+      return;
+    }
+
+    try {
+      await app.switchActiveRole(role);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const DashboardRouter()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    }
+  }
+
+  Future<void> _enableCaregiver(AppState app) async {
+    try {
+      await app.enableCaregiverRole();
+      await app.switchActiveRole(UserRole.caregiver);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const DashboardRouter()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    }
   }
 
   Future<void> _addEmail(AppState app) async {
@@ -130,6 +171,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _startEmailVerification(AppState app) async {
+    final String email = (app.currentUser?.email ?? '').trim();
+    if (email.isEmpty) {
+      return;
+    }
+
+    try {
+      await app.sendEmailVerificationOtp();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+      return;
+    }
+
+    if (!mounted) return;
+
+    final bool verified =
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => OtpVerificationScreen(
+              title: app.t('otp_verification'),
+              subtitle: 'Enter the OTP sent to your email',
+              credential: email,
+              onVerifyOtp: (otp) => app.confirmEmailVerification(otp: otp),
+              onResendOtp: () => app.sendEmailVerificationOtp(),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!mounted) return;
+
+    if (verified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email verified successfully')),
+      );
+    }
+  }
+
+  Future<String?> _getStepUpToken({
+    required AppState app,
+    required String purpose,
+  }) async {
+    try {
+      await app.sendStepUpOtp(purpose: purpose, channel: 'phone');
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+      return null;
+    }
+
+    if (!mounted) return null;
+
+    String? token;
+    final bool verified =
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => OtpVerificationScreen(
+              title: app.t('otp_verification'),
+              subtitle: 'Enter the OTP sent to your phone',
+              credential: app.currentUser?.phone ?? '',
+              onVerifyOtp: (otp) async {
+                final stepUpToken = await app.verifyStepUpOtp(
+                  purpose: purpose,
+                  otp: otp,
+                  channel: 'phone',
+                );
+                token = stepUpToken;
+              },
+              onResendOtp: () => app.sendStepUpOtp(purpose: purpose),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!verified || token == null || token!.isEmpty) {
+      return null;
+    }
+
+    return token;
+  }
+
   Widget _profileInfoTile(
     BuildContext context, {
     required IconData icon,
@@ -164,6 +291,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final List<Map<String, dynamic>> linkedCaregivers = app.patientCaregivers(
       user.id,
     );
+    final bool hasPatientRole = app.hasRole(UserRole.patient);
+    final bool hasCaregiverRole = app.hasRole(UserRole.caregiver);
+    final bool canSwitchRoles = hasPatientRole && hasCaregiverRole;
 
     return ResponsiveListView(
       children: <Widget>[
@@ -187,18 +317,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: app.t('phone'),
           value: _formatPhoneForDisplay(user.phone),
         ),
-        if ((user.email ?? '').trim().isNotEmpty)
+        if ((user.email ?? '').trim().isNotEmpty) ...<Widget>[
           _profileInfoTile(
             context,
             icon: Icons.email_outlined,
             label: app.t('email'),
             value: user.email!,
-          )
-        else
+          ),
+          if (!user.emailVerified)
+            FilledButton.tonalIcon(
+              onPressed: () => _startEmailVerification(app),
+              icon: const Icon(Icons.mark_email_read_outlined),
+              label: const Text('Verify Email'),
+            ),
+        ] else
           FilledButton.tonal(
             onPressed: () => _addEmail(app),
             child: const Text('Add Email'),
           ),
+        if (canSwitchRoles) ...<Widget>[
+          UiSpace.xs,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Use app as',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<UserRole>(
+                    segments: <ButtonSegment<UserRole>>[
+                      ButtonSegment<UserRole>(
+                        value: UserRole.patient,
+                        label: Text(app.t('patient')),
+                        icon: const Icon(Icons.favorite_outline),
+                      ),
+                      ButtonSegment<UserRole>(
+                        value: UserRole.caregiver,
+                        label: Text(app.t('caregiver')),
+                        icon: const Icon(Icons.people_outline),
+                      ),
+                    ],
+                    selected: <UserRole>{user.role},
+                    onSelectionChanged: (selection) {
+                      final nextRole = selection.first;
+                      unawaited(_switchRole(app, nextRole));
+                    },
+                    showSelectedIcon: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else if (!hasCaregiverRole) ...<Widget>[
+          UiSpace.xs,
+          FilledButton.tonalIcon(
+            onPressed: () => _enableCaregiver(app),
+            icon: const Icon(Icons.add_moderator_outlined),
+            label: const Text('Enable Caregiver Mode'),
+          ),
+        ],
         if (user.role == UserRole.patient) ...<Widget>[
           UiSpace.sm,
           Container(
@@ -254,7 +435,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () async {
-                      final String code = await app.generateCaregiverCode();
+                      String code;
+                      try {
+                        final String? token = await _getStepUpToken(
+                          app: app,
+                          purpose: 'manage_relationships',
+                        );
+                        if (token == null ||
+                            token.isEmpty ||
+                            !context.mounted) {
+                          return;
+                        }
+
+                        code = await app.generateCaregiverCodeSecured(
+                          stepUpToken: token,
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${app.t('error')}: $e')),
+                        );
+                        return;
+                      }
+
                       if (!context.mounted) return;
                       showDialog<void>(
                         context: context,

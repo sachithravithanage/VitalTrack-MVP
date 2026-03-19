@@ -57,7 +57,7 @@ class AuthService {
     required String phone,
     required String password,
     required String name,
-    required String role, // 'patient' or 'caregiver'
+    String role = 'patient', // 'patient' or 'caregiver'
   }) async {
     try {
       // Register with backend
@@ -160,6 +160,38 @@ class AuthService {
     }
   }
 
+  /// Send OTP for step-up verification (authenticated)
+  Future<void> sendStepUpOtp({
+    required String purpose,
+    String channel = 'phone',
+  }) async {
+    try {
+      await _apiClient.sendStepUpOtp(purpose: purpose, channel: channel);
+    } catch (e) {
+      debugPrint("Error sending step-up OTP: $e");
+      rethrow;
+    }
+  }
+
+  /// Verify step-up OTP and return one-time action token
+  Future<String> verifyStepUpOtp({
+    required String purpose,
+    required String otp,
+    String channel = 'phone',
+  }) async {
+    try {
+      final response = await _apiClient.verifyStepUpOtp(
+        purpose: purpose,
+        otp: otp,
+        channel: channel,
+      );
+      return response['stepUpToken'] as String? ?? '';
+    } catch (e) {
+      debugPrint("Error verifying step-up OTP: $e");
+      rethrow;
+    }
+  }
+
   /// Get user profile
   Future<Map<String, dynamic>> getUserProfile() async {
     try {
@@ -200,6 +232,36 @@ class AuthService {
       return response;
     } catch (e) {
       debugPrint("Error updating profile: $e");
+      rethrow;
+    }
+  }
+
+  /// Enable caregiver role for current user
+  Future<Map<String, dynamic>> enableCaregiverRole() async {
+    try {
+      final response = await _apiClient.enableCaregiverRole();
+      final user = response['profile'] ?? response['user'];
+      if (user is Map<String, dynamic>) {
+        await _storage.saveCurrentUser(user);
+      }
+      return response;
+    } catch (e) {
+      debugPrint("Error enabling caregiver role: $e");
+      rethrow;
+    }
+  }
+
+  /// Switch active role for current user
+  Future<Map<String, dynamic>> switchActiveRole({required String role}) async {
+    try {
+      final response = await _apiClient.switchActiveRole(role: role);
+      final user = response['profile'] ?? response['user'];
+      if (user is Map<String, dynamic>) {
+        await _storage.saveCurrentUser(user);
+      }
+      return response;
+    } catch (e) {
+      debugPrint("Error switching active role: $e");
       rethrow;
     }
   }
@@ -246,7 +308,8 @@ class AuthService {
 
   /// Get current user role
   String? getCurrentUserRole() {
-    return _storage.getCurrentUser()?['role'] as String?;
+    final user = _storage.getCurrentUser();
+    return (user?['activeRole'] ?? user?['role']) as String?;
   }
 
   /// Log out

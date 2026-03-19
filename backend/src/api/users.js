@@ -76,6 +76,55 @@ router.put("/profile", async (req, res) => {
 });
 
 /**
+ * POST /api/v1/users/roles/caregiver
+ * Enable caregiver role for current user
+ */
+router.post("/roles/caregiver", async (req, res) => {
+  try {
+    const profile = await authService.enableUserRole(req.user.uid, "caregiver");
+
+    res.json({
+      success: true,
+      data: { profile },
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * PUT /api/v1/users/active-role
+ * Switch currently active role
+ */
+router.put("/active-role", async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (
+      !role ||
+      !["patient", "caregiver"].includes(String(role).toLowerCase())
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Valid role is required",
+        },
+      });
+    }
+
+    const profile = await authService.setActiveUserRole(req.user.uid, role);
+
+    res.json({
+      success: true,
+      data: { profile },
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
  * POST /api/v1/users/verify-email
  * Send email verification OTP
  */

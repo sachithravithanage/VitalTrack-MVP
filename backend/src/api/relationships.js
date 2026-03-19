@@ -1,7 +1,11 @@
 import express from "express";
 import * as relationshipService from "../services/relationshipService.js";
 import * as authService from "../services/authService.js";
-import { verifyFirebaseToken, requireRole } from "../middleware/auth.js";
+import {
+  verifyFirebaseToken,
+  requireRole,
+  requireStepUp,
+} from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 
 const router = express.Router();
@@ -13,92 +17,107 @@ router.use(verifyFirebaseToken);
  * POST /api/v1/relationships/link-code
  * Generate a link code for a patient (patient only)
  */
-router.post("/link-code", requireRole("patient"), async (req, res) => {
-  try {
-    const code = await relationshipService.generateLinkCode(req.user.uid);
+router.post(
+  "/link-code",
+  requireRole("patient"),
+  requireStepUp("manage_relationships"),
+  async (req, res) => {
+    try {
+      const code = await relationshipService.generateLinkCode(req.user.uid);
 
-    res.status(201).json({
-      success: true,
-      data: { code },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+      res.status(201).json({
+        success: true,
+        data: { code },
+      });
+    } catch (error) {
+      handleError(error, res);
+    }
+  },
+);
 
 /**
  * POST /api/v1/relationships/add-patient
  * Caregiver adds a patient using link code
  */
-router.post("/add-patient", requireRole("caregiver"), async (req, res) => {
-  try {
-    const { code, disease } = req.body;
+router.post(
+  "/add-patient",
+  requireRole("caregiver"),
+  requireStepUp("manage_relationships"),
+  async (req, res) => {
+    try {
+      const { code, disease } = req.body;
 
-    if (!code) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Link code required",
-        },
+      if (!code) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Link code required",
+          },
+        });
+      }
+
+      const result = await relationshipService.useLinkCode(code, req.user.uid);
+
+      // Update disease if provided
+      if (disease) {
+        const relationshipId = `${result.patientId}-${req.user.uid}`;
+        const db = (await import("../config/firebase.js")).db;
+
+        await db.collection("relationships").doc(relationshipId).update({
+          disease,
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        data: { relationship: result },
       });
+    } catch (error) {
+      handleError(error, res);
     }
-
-    const result = await relationshipService.useLinkCode(code, req.user.uid);
-
-    // Update disease if provided
-    if (disease) {
-      const relationshipId = `${result.patientId}-${req.user.uid}`;
-      const db = (await import("../config/firebase.js")).db;
-
-      await db.collection("relationships").doc(relationshipId).update({
-        disease,
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      data: { relationship: result },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+  },
+);
 
 /**
  * POST /api/v1/relationships/create-patient
  * Caregiver creates a new managed patient and links immediately
  */
-router.post("/create-patient", requireRole("caregiver"), async (req, res) => {
-  try {
-    const { name, disease } = req.body;
+router.post(
+  "/create-patient",
+  requireRole("caregiver"),
+  requireStepUp("manage_relationships"),
+  async (req, res) => {
+    try {
+      const { name, disease } = req.body;
 
-    if (!name || !disease) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Patient name and disease are required",
+      if (!name || !disease) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Patient name and disease are required",
+          },
+        });
+      }
+
+      const result = await relationshipService.createManagedPatient(
+        req.user.uid,
+        {
+          name,
+          disease,
         },
+      );
+
+      res.status(201).json({
+        success: true,
+        data: { relationship: result },
       });
+    } catch (error) {
+      handleError(error, res);
     }
-
-    const result = await relationshipService.createManagedPatient(
-      req.user.uid,
-      {
-        name,
-        disease,
-      },
-    );
-
-    res.status(201).json({
-      success: true,
-      data: { relationship: result },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+  },
+);
 
 /**
  * GET /api/v1/relationships/patients
@@ -153,7 +172,8 @@ router.delete("/:userId", verifyFirebaseToken, async (req, res) => {
       .doc(currentUserId)
       .get();
 
-    const currentUserRole = currentUserDoc.data().role;
+    const currentUserRole =
+      currentUserDoc.data().activeRole || currentUserDoc.data().role;
 
     if (currentUserRole === "patient") {
       await relationshipService.removeRelationship(currentUserId, userId);

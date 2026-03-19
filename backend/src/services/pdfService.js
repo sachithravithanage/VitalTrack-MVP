@@ -1,4 +1,5 @@
 import { db, bucket } from "../config/firebase.js";
+import { config } from "../config/env.js";
 import PDFDocument from "pdfkit";
 import { formatTimestamp, sanitizeFilename } from "../utils/helpers.js";
 import { NotFoundError } from "../utils/errors.js";
@@ -193,6 +194,13 @@ export async function getPDFDownloadUrl(filePath) {
 
   if (!exists[0]) {
     throw new NotFoundError("PDF file not found");
+  }
+
+  if (config.useFirebaseEmulators) {
+    const encodedPath = encodeURIComponent(filePath);
+    const storageHost =
+      process.env.FIREBASE_STORAGE_EMULATOR_HOST || "127.0.0.1:9199";
+    return `http://${storageHost}/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
   }
 
   // Generate signed URL valid for 7 days

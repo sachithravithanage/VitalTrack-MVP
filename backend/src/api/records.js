@@ -4,7 +4,11 @@ import * as pdfService from "../services/pdfService.js";
 import * as notificationService from "../services/notificationService.js";
 import * as authService from "../services/authService.js";
 import * as relationshipService from "../services/relationshipService.js";
-import { verifyFirebaseToken, requireRole } from "../middleware/auth.js";
+import {
+  verifyFirebaseToken,
+  requireRole,
+  requireStepUp,
+} from "../middleware/auth.js";
 import {
   handleError,
   ValidationError,
@@ -278,6 +282,7 @@ router.get("/stats/:patientId", verifyFirebaseToken, async (req, res) => {
 router.get(
   "/export/pdf",
   requireRole("patient", "caregiver"),
+  requireStepUp("export_records"),
   async (req, res) => {
     try {
       const { timelineFilter, patientId } = req.query;

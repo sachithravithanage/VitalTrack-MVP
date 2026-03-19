@@ -10,6 +10,7 @@ import '../app/ui.dart';
 import '../widgets/action_buttons.dart';
 import '../widgets/dashboard_shell.dart';
 import '../widgets/selection_controls.dart';
+import 'auth.dart';
 import 'records.dart';
 
 class CaregiverPatientsScreen extends StatefulWidget {
@@ -217,6 +218,53 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
     super.dispose();
   }
 
+  Future<String?> _getStepUpToken(AppState app) async {
+    try {
+      await app.sendStepUpOtp(
+        purpose: 'manage_relationships',
+        channel: 'phone',
+      );
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+      return null;
+    }
+
+    if (!mounted) return null;
+
+    String? token;
+    final bool verified =
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => OtpVerificationScreen(
+              title: app.t('otp_verification'),
+              subtitle: 'Enter the OTP sent to your phone',
+              credential: app.currentUser?.phone ?? '',
+              onVerifyOtp: (otp) async {
+                token = await app.verifyStepUpOtp(
+                  purpose: 'manage_relationships',
+                  otp: otp,
+                  channel: 'phone',
+                );
+              },
+              onResendOtp: () => app.sendStepUpOtp(
+                purpose: 'manage_relationships',
+                channel: 'phone',
+              ),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!verified || token == null || token!.isEmpty) {
+      return null;
+    }
+
+    return token;
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
@@ -373,12 +421,19 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                   if (_formKey.currentState?.validate() != true) return;
                   setState(() => _saving = true);
 
+                  final String? stepUpToken = await _getStepUpToken(app);
+                  if (stepUpToken == null || stepUpToken.isEmpty) {
+                    if (mounted) setState(() => _saving = false);
+                    return;
+                  }
+
                   if (_useCode) {
                     final String code = _codeController.text.trim();
                     try {
                       await app.attachPatientToCaregiver(
                         code: code,
                         disease: _disease.toString().split('.').last,
+                        stepUpToken: stepUpToken,
                       );
                       await app.loadCaregiverPatients();
                     } catch (e) {
@@ -394,6 +449,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                       await app.createManagedPatient(
                         name: _nameController.text.trim(),
                         disease: _disease.toString().split('.').last,
+                        stepUpToken: stepUpToken,
                       );
                       await app.loadCaregiverPatients();
                     } catch (e) {

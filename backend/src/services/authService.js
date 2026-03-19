@@ -14,6 +14,7 @@ import {
 } from "../utils/errors.js";
 
 const OTP_EXPIRY_MINUTES = 5;
+const STEP_UP_EXPIRY_MINUTES = 10;
 
 function normalizePhone(phone) {
   const digits = String(phone || "").replace(/\D/g, "");
@@ -51,6 +52,57 @@ async function queryUsersByPhone(phone) {
   }
 
   return db.collection("users").where("phone", "in", variants).get();
+}
+
+function normalizeRole(role) {
+  return String(role || "").toLowerCase() === "caregiver"
+    ? "caregiver"
+    : "patient";
+}
+
+function extractRoles(profile) {
+  if (Array.isArray(profile?.roles) && profile.roles.length > 0) {
+    return Array.from(
+      new Set(profile.roles.map((value) => normalizeRole(value))),
+    );
+  }
+
+  if (profile?.role) {
+    return [normalizeRole(profile.role)];
+  }
+
+  return ["patient"];
+}
+
+function resolveActiveRole(profile) {
+  const roles = extractRoles(profile);
+  const preferred = normalizeRole(profile?.activeRole || profile?.role);
+  return roles.includes(preferred) ? preferred : roles[0];
+}
+
+async function ensureRoleDocument(uid, role) {
+  if (role === "patient") {
+    await db.collection("patients").doc(uid).set(
+      {
+        uid,
+        linkedCaregivers: [],
+        medicalHistory: [],
+      },
+      { merge: true },
+    );
+    return;
+  }
+
+  if (role === "caregiver") {
+    await db.collection("caregivers").doc(uid).set(
+      {
+        uid,
+        linkedPatients: [],
+        verificationStatus: "pending",
+      },
+      { merge: true },
+    );
+  }
 }
 
 /**
@@ -111,6 +163,7 @@ export async function verifyOTP(credential, inputOTP) {
  * Register new user
  */
 export async function registerUser(email, phone, password, name, role) {
+  const normalizedRole = normalizeRole(role);
   const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
   const normalizedPhone = normalizePhone(phone);
   const passwordHash = await bcrypt.hash(password, 10);
@@ -206,7 +259,9 @@ export async function registerUser(email, phone, password, name, role) {
       email: normalizedEmail,
       phone: normalizedPhone,
       name,
-      role,
+      role: normalizedRole,
+      roles: [normalizedRole],
+      activeRole: normalizedRole,
       emailVerified: false,
       passwordHash,
       createdAt: new Date(),
@@ -219,19 +274,7 @@ export async function registerUser(email, phone, password, name, role) {
     });
 
     // Create role-specific document
-    if (role === "patient") {
-      await db.collection("patients").doc(userRecord.uid).set({
-        uid: userRecord.uid,
-        linkedCaregivers: [],
-        medicalHistory: [],
-      });
-    } else if (role === "caregiver") {
-      await db.collection("caregivers").doc(userRecord.uid).set({
-        uid: userRecord.uid,
-        linkedPatients: [],
-        verificationStatus: "pending",
-      });
-    }
+    await ensureRoleDocument(userRecord.uid, normalizedRole);
 
     return {
       id: userRecord.uid,
@@ -239,7 +282,9 @@ export async function registerUser(email, phone, password, name, role) {
       email: normalizedEmail,
       phone: normalizedPhone,
       name,
-      role,
+      role: normalizedRole,
+      roles: [normalizedRole],
+      activeRole: normalizedRole,
       emailVerified: false,
     };
   } catch (error) {
@@ -289,6 +334,10 @@ export async function loginUser(credential, password) {
 
   const user = userDoc.data();
 
+  if (normalizedCredential.includes("@") && user.emailVerified !== true) {
+    throw new AuthenticationError("Email is not verified for sign in");
+  }
+
   // Verify password from stored hash.
   if (!user.passwordHash) {
     throw new AuthenticationError("Password verification unavailable for user");
@@ -299,15 +348,93 @@ export async function loginUser(credential, password) {
     throw new AuthenticationError("Invalid credentials");
   }
 
+  const roles = extractRoles(user);
+  const activeRole = resolveActiveRole(user);
+
   return {
     id: user.uid,
     uid: user.uid,
     email: user.email,
     phone: user.phone,
     name: user.name,
-    role: user.role,
+    role: activeRole,
+    roles,
+    activeRole,
     emailVerified: user.emailVerified,
   };
+}
+
+export async function ensureVerifiedEmailCredential(credential) {
+  const normalizedCredential = String(credential || "").trim();
+  if (!normalizedCredential.includes("@")) {
+    return true;
+  }
+
+  const user = await findUserByCredential(normalizedCredential);
+  if (user.emailVerified !== true) {
+    throw new AuthenticationError("Email is not verified");
+  }
+
+  return true;
+}
+
+export async function createStepUpToken(uid, purpose) {
+  const token = generateId().replace(/-/g, "");
+  const tokenHash = hashData(`${uid}:${token}`);
+  const now = Date.now();
+
+  await db
+    .collection("stepUpSessions")
+    .doc(tokenHash)
+    .set({
+      uid,
+      purpose,
+      createdAt: now,
+      expiresAt: now + STEP_UP_EXPIRY_MINUTES * 60 * 1000,
+      consumed: false,
+    });
+
+  return token;
+}
+
+export async function consumeStepUpToken(uid, token, purpose) {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) {
+    throw new ValidationError("Step-up token is required");
+  }
+
+  const tokenHash = hashData(`${uid}:${normalizedToken}`);
+  const sessionRef = db.collection("stepUpSessions").doc(tokenHash);
+  const sessionDoc = await sessionRef.get();
+
+  if (!sessionDoc.exists) {
+    throw new AuthenticationError("Invalid step-up token");
+  }
+
+  const session = sessionDoc.data();
+  if (session.uid !== uid) {
+    throw new AuthenticationError("Step-up token does not belong to user");
+  }
+
+  if (purpose && session.purpose !== purpose) {
+    throw new AuthenticationError("Step-up token purpose mismatch");
+  }
+
+  if (session.consumed === true) {
+    throw new AuthenticationError("Step-up token already used");
+  }
+
+  if (Date.now() > Number(session.expiresAt || 0)) {
+    await sessionRef.delete();
+    throw new AuthenticationError("Step-up token expired");
+  }
+
+  await sessionRef.update({
+    consumed: true,
+    consumedAt: Date.now(),
+  });
+
+  return true;
 }
 
 /**
@@ -377,7 +504,60 @@ export async function getUserProfile(uid) {
     throw new NotFoundError("User not found");
   }
 
-  return userDoc.data();
+  const profile = userDoc.data();
+  const roles = extractRoles(profile);
+  const activeRole = resolveActiveRole(profile);
+
+  return {
+    ...profile,
+    role: activeRole,
+    roles,
+    activeRole,
+  };
+}
+
+export async function enableUserRole(uid, role) {
+  const normalizedRole = normalizeRole(role);
+  const profile = await getUserProfile(uid);
+  const roles = extractRoles(profile);
+
+  if (!roles.includes(normalizedRole)) {
+    roles.push(normalizedRole);
+  }
+
+  const activeRole = resolveActiveRole({
+    ...profile,
+    roles,
+    activeRole: profile.activeRole,
+  });
+
+  await db.collection("users").doc(uid).update({
+    roles,
+    role: activeRole,
+    activeRole,
+    updatedAt: new Date(),
+  });
+
+  await ensureRoleDocument(uid, normalizedRole);
+  return getUserProfile(uid);
+}
+
+export async function setActiveUserRole(uid, role) {
+  const normalizedRole = normalizeRole(role);
+  const profile = await getUserProfile(uid);
+  const roles = extractRoles(profile);
+
+  if (!roles.includes(normalizedRole)) {
+    throw new ValidationError("Role is not enabled for this user");
+  }
+
+  await db.collection("users").doc(uid).update({
+    role: normalizedRole,
+    activeRole: normalizedRole,
+    updatedAt: new Date(),
+  });
+
+  return getUserProfile(uid);
 }
 
 /**
@@ -468,5 +648,10 @@ export default {
   getUserProfile,
   updateUserProfile,
   markEmailVerified,
+  enableUserRole,
+  setActiveUserRole,
+  ensureVerifiedEmailCredential,
+  createStepUpToken,
+  consumeStepUpToken,
   createCustomAuthToken,
 };

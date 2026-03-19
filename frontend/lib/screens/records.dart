@@ -9,6 +9,7 @@ import '../app/scope.dart';
 import '../app/state.dart';
 import '../app/ui.dart';
 import '../widgets/action_buttons.dart';
+import 'auth.dart';
 
 class KeepRecordsSelectorScreen extends StatelessWidget {
   const KeepRecordsSelectorScreen({super.key});
@@ -821,10 +822,43 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
     List<RecordEntry> records,
   ) async {
     try {
+      await app.sendStepUpOtp(purpose: 'export_records', channel: 'phone');
+
+      if (!context.mounted) return;
+
+      String? stepUpToken;
+      final bool verified =
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => OtpVerificationScreen(
+                title: app.t('otp_verification'),
+                subtitle: 'Enter the OTP sent to your phone',
+                credential: app.currentUser?.phone ?? '',
+                onVerifyOtp: (otp) async {
+                  stepUpToken = await app.verifyStepUpOtp(
+                    purpose: 'export_records',
+                    otp: otp,
+                    channel: 'phone',
+                  );
+                },
+                onResendOtp: () => app.sendStepUpOtp(
+                  purpose: 'export_records',
+                  channel: 'phone',
+                ),
+              ),
+            ),
+          ) ??
+          false;
+
+      if (!verified || stepUpToken == null || stepUpToken!.isEmpty) {
+        return;
+      }
+
       // Call backend API to generate and download PDF
       final String pdfUrl = await app.exportRecordsPdf(
         filter: _filter,
         patientId: widget.patientId,
+        stepUpToken: stepUpToken,
       );
 
       if (pdfUrl.isEmpty) {

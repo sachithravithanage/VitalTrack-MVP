@@ -29,14 +29,7 @@ class AppState extends ChangeNotifier {
   void initializeUser() {
     final userData = authService.getCurrentUser();
     if (userData != null) {
-      currentUser = UserProfileData(
-        id: userData['id'] ?? userData['uid'] ?? '',
-        role: _parseUserRole(userData['role']),
-        name: userData['name'] ?? '',
-        phone: userData['phone'] ?? '',
-        email: userData['email'],
-        emailVerified: userData['emailVerified'] == true,
-      );
+      currentUser = _toUserProfile(userData);
       notifyListeners();
     }
   }
@@ -54,14 +47,7 @@ class AppState extends ChangeNotifier {
 
       if (response['user'] != null) {
         final userData = response['user'] as Map<String, dynamic>;
-        currentUser = UserProfileData(
-          id: userData['id'] ?? userData['uid'] ?? '',
-          role: _parseUserRole(userData['role']),
-          name: userData['name'] ?? '',
-          phone: userData['phone'] ?? '',
-          email: userData['email'],
-          emailVerified: userData['emailVerified'] == true,
-        );
+        currentUser = _toUserProfile(userData);
         notifyListeners();
 
         // Reload user data after successful login
@@ -79,7 +65,7 @@ class AppState extends ChangeNotifier {
     required String phone,
     required String password,
     required String name,
-    required String role,
+    String role = 'patient',
   }) async {
     try {
       final response = await authService.signUp(
@@ -92,14 +78,7 @@ class AppState extends ChangeNotifier {
 
       if (response['user'] != null) {
         final userData = response['user'] as Map<String, dynamic>;
-        currentUser = UserProfileData(
-          id: userData['id'] ?? userData['uid'] ?? '',
-          role: _parseUserRole(userData['role']),
-          name: userData['name'] ?? '',
-          phone: userData['phone'] ?? '',
-          email: userData['email'],
-          emailVerified: userData['emailVerified'] == true,
-        );
+        currentUser = _toUserProfile(userData);
         notifyListeners();
       }
     } catch (e) {
@@ -160,9 +139,7 @@ class AppState extends ChangeNotifier {
 
       final userData = response['profile'] ?? response['user'];
       if (userData is Map<String, dynamic> && currentUser != null) {
-        currentUser!.name = userData['name'] ?? '';
-        currentUser!.phone = userData['phone'] ?? '';
-        currentUser!.email = userData['email'];
+        currentUser = _toUserProfile(userData);
         notifyListeners();
       }
     } catch (e) {
@@ -179,6 +156,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Send verification OTP to current email
+  Future<void> sendEmailVerificationOtp() async {
+    await authService.verifyEmail();
+  }
+
+  /// Confirm email verification using OTP
+  Future<void> confirmEmailVerification({required String otp}) async {
+    await authService.confirmEmailVerification(otp: otp);
+    markEmailVerified();
+  }
+
   /// Parse user role string
   UserRole _parseUserRole(dynamic roleValue) {
     if (roleValue is String) {
@@ -187,6 +175,71 @@ class AppState extends ChangeNotifier {
           : UserRole.patient;
     }
     return UserRole.patient;
+  }
+
+  List<UserRole> _parseUserRoles(dynamic rolesValue, UserRole fallbackRole) {
+    if (rolesValue is List) {
+      final parsed = rolesValue
+          .map((role) => _parseUserRole(role))
+          .toSet()
+          .toList();
+      if (parsed.isNotEmpty) {
+        return parsed;
+      }
+    }
+    return <UserRole>[fallbackRole];
+  }
+
+  UserProfileData _toUserProfile(Map<String, dynamic> userData) {
+    final activeRole = _parseUserRole(
+      userData['activeRole'] ?? userData['role'],
+    );
+    final roles = _parseUserRoles(userData['roles'], activeRole);
+
+    return UserProfileData(
+      id: userData['id'] ?? userData['uid'] ?? '',
+      role: activeRole,
+      roles: roles,
+      name: userData['name'] ?? '',
+      phone: userData['phone'] ?? '',
+      email: userData['email'],
+      emailVerified: userData['emailVerified'] == true,
+    );
+  }
+
+  bool hasRole(UserRole role) {
+    if (currentUser == null) return false;
+    return currentUser!.roles.contains(role) || currentUser!.role == role;
+  }
+
+  Future<void> enableCaregiverRole() async {
+    try {
+      final response = await authService.enableCaregiverRole();
+      final userData = response['profile'] ?? response['user'];
+      if (userData is Map<String, dynamic>) {
+        currentUser = _toUserProfile(userData);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Enable caregiver role error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> switchActiveRole(UserRole role) async {
+    try {
+      final roleValue = role == UserRole.caregiver ? 'caregiver' : 'patient';
+      final response = await authService.switchActiveRole(role: roleValue);
+      final userData = response['profile'] ?? response['user'];
+      if (userData is Map<String, dynamic>) {
+        currentUser = _toUserProfile(userData);
+        notifyListeners();
+        await reloadUserData();
+      }
+    } catch (e) {
+      debugPrint('Switch active role error: $e');
+      rethrow;
+    }
   }
 
   String _formatPhoneForDisplay(dynamic value) {
@@ -368,11 +421,13 @@ class AppState extends ChangeNotifier {
   Future<String> exportRecordsPdf({
     TimelineFilter filter = TimelineFilter.last7Days,
     String? patientId,
+    String? stepUpToken,
   }) async {
     try {
       final response = await recordService.exportRecordsPdf(
         timelineFilter: _filterToString(filter),
         patientId: patientId,
+        stepUpToken: stepUpToken,
       );
       final pdf = response['pdf'] as Map<String, dynamic>?;
       // Returns signed URL or file path
@@ -400,10 +455,25 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<String> generateCaregiverCodeSecured({
+    required String stepUpToken,
+  }) async {
+    try {
+      final code = await relationshipService.generateLinkCodeSecured(
+        stepUpToken: stepUpToken,
+      );
+      return code;
+    } catch (e) {
+      debugPrint('Generate secured link code error: $e');
+      rethrow;
+    }
+  }
+
   /// Add patient using link code (caregiver)
   Future<void> attachPatientToCaregiver({
     required String code,
     String? disease,
+    String? stepUpToken,
   }) async {
     try {
       if (currentUser == null) throw Exception('User not logged in');
@@ -411,6 +481,7 @@ class AppState extends ChangeNotifier {
       final response = await relationshipService.addPatient(
         code: code,
         disease: disease,
+        stepUpToken: stepUpToken,
       );
 
       if (response['relationship'] != null) {
@@ -444,6 +515,7 @@ class AppState extends ChangeNotifier {
   Future<void> createManagedPatient({
     required String name,
     required String disease,
+    String? stepUpToken,
   }) async {
     try {
       if (currentUser == null) throw Exception('User not logged in');
@@ -451,6 +523,7 @@ class AppState extends ChangeNotifier {
       final response = await relationshipService.createPatient(
         name: name,
         disease: disease,
+        stepUpToken: stepUpToken,
       );
 
       if (response['relationship'] != null) {
@@ -636,6 +709,27 @@ class AppState extends ChangeNotifier {
         (HotspotResponse a, HotspotResponse b) =>
             b.createdAt.compareTo(a.createdAt),
       );
+  }
+
+  /// Send step-up OTP for sensitive actions
+  Future<void> sendStepUpOtp({
+    required String purpose,
+    String channel = 'phone',
+  }) async {
+    await authService.sendStepUpOtp(purpose: purpose, channel: channel);
+  }
+
+  /// Verify step-up OTP and obtain one-time token
+  Future<String> verifyStepUpOtp({
+    required String purpose,
+    required String otp,
+    String channel = 'phone',
+  }) async {
+    return authService.verifyStepUpOtp(
+      purpose: purpose,
+      otp: otp,
+      channel: channel,
+    );
   }
 
   // ============ Helpers ============

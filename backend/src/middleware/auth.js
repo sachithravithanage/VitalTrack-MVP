@@ -96,7 +96,21 @@ export function requireRole(...roles) {
 
       const userData = userDoc.data();
 
-      if (!roles.includes(userData.role)) {
+      const normalizedRequiredRoles = roles.map((r) =>
+        String(r || "").toLowerCase(),
+      );
+      const userRoles = Array.isArray(userData.roles)
+        ? userData.roles.map((role) => String(role || "").toLowerCase())
+        : [String(userData.role || "patient").toLowerCase()];
+      const activeRole = String(
+        userData.activeRole || userData.role || userRoles[0] || "patient",
+      ).toLowerCase();
+
+      const hasAnyRequiredRole = normalizedRequiredRoles.some((role) =>
+        userRoles.includes(role),
+      );
+
+      if (!hasAnyRequiredRole) {
         return res.status(403).json({
           success: false,
           error: {
@@ -106,7 +120,9 @@ export function requireRole(...roles) {
         });
       }
 
-      req.userRole = userData.role;
+      req.userRole = normalizedRequiredRoles.includes(activeRole)
+        ? activeRole
+        : userRoles.find((role) => normalizedRequiredRoles.includes(role));
       next();
     } catch (error) {
       res.status(500).json({
@@ -114,6 +130,44 @@ export function requireRole(...roles) {
         error: {
           code: "INTERNAL_ERROR",
           message: "Error checking permissions",
+        },
+      });
+    }
+  };
+}
+
+/**
+ * Require a valid one-time step-up token for sensitive actions
+ */
+export function requireStepUp(purpose) {
+  return async (req, res, next) => {
+    try {
+      const tokenHeader = req.headers["x-step-up-token"];
+      const token = Array.isArray(tokenHeader) ? tokenHeader[0] : tokenHeader;
+
+      if (!token || String(token).trim().length === 0) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "STEP_UP_REQUIRED",
+            message: "Step-up verification is required",
+          },
+        });
+      }
+
+      const authService = await import("../services/authService.js");
+      await authService.consumeStepUpToken(
+        req.user.uid,
+        String(token),
+        purpose,
+      );
+      next();
+    } catch (error) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "STEP_UP_INVALID",
+          message: error.message || "Invalid step-up token",
         },
       });
     }
@@ -143,4 +197,5 @@ export default {
   verifyFirebaseToken,
   verifyJWT,
   requireRole,
+  requireStepUp,
 };

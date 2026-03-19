@@ -119,7 +119,7 @@ class ApiClient {
     required String phone,
     required String password,
     required String name,
-    required String role,
+    String role = 'patient',
   }) async {
     try {
       final response = await _dio.post(
@@ -191,6 +191,39 @@ class ApiClient {
     }
   }
 
+  /// Send OTP for step-up verification (authenticated)
+  Future<Map<String, dynamic>> sendStepUpOtp({
+    required String purpose,
+    String channel = 'phone',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/step-up/send-otp',
+        data: {'purpose': purpose, 'channel': channel},
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Verify OTP for step-up and obtain one-time token
+  Future<Map<String, dynamic>> verifyStepUpOtp({
+    required String purpose,
+    required String otp,
+    String channel = 'phone',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/step-up/verify',
+        data: {'purpose': purpose, 'otp': otp, 'channel': channel},
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // ============ Users ============
 
   /// Get user profile
@@ -215,6 +248,29 @@ class ApiClient {
       if (phone != null) data['phone'] = phone;
       if (email != null) data['email'] = email;
       final response = await _dio.put('/users/profile', data: data);
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Enable caregiver role for current user
+  Future<Map<String, dynamic>> enableCaregiverRole() async {
+    try {
+      final response = await _dio.post('/users/roles/caregiver');
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Switch active role for current user
+  Future<Map<String, dynamic>> switchActiveRole({required String role}) async {
+    try {
+      final response = await _dio.put(
+        '/users/active-role',
+        data: {'role': role},
+      );
       return _unwrapResponse(response.data);
     } catch (e) {
       rethrow;
@@ -319,6 +375,7 @@ class ApiClient {
   Future<Map<String, dynamic>> exportRecordsPdf({
     String? timelineFilter,
     String? patientId,
+    String? stepUpToken,
   }) async {
     try {
       final Map<String, dynamic> query = <String, dynamic>{};
@@ -327,6 +384,9 @@ class ApiClient {
       final response = await _dio.get(
         '/records/export/pdf',
         queryParameters: query,
+        options: stepUpToken == null
+            ? null
+            : Options(headers: {'x-step-up-token': stepUpToken}),
       );
       return _unwrapResponse(response.data);
     } catch (e) {
@@ -346,10 +406,26 @@ class ApiClient {
     }
   }
 
+  /// Generate link code with step-up token
+  Future<Map<String, dynamic>> generateLinkCodeSecured({
+    required String stepUpToken,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/relationships/link-code',
+        options: Options(headers: {'x-step-up-token': stepUpToken}),
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Add patient using link code
   Future<Map<String, dynamic>> addPatient({
     required String code,
     String? disease,
+    String? stepUpToken,
   }) async {
     try {
       final data = {'code': code};
@@ -357,6 +433,9 @@ class ApiClient {
       final response = await _dio.post(
         '/relationships/add-patient',
         data: data,
+        options: stepUpToken == null
+            ? null
+            : Options(headers: {'x-step-up-token': stepUpToken}),
       );
       return _unwrapResponse(response.data);
     } catch (e) {
@@ -368,11 +447,15 @@ class ApiClient {
   Future<Map<String, dynamic>> createPatient({
     required String name,
     required String disease,
+    String? stepUpToken,
   }) async {
     try {
       final response = await _dio.post(
         '/relationships/create-patient',
         data: {'name': name, 'disease': disease},
+        options: stepUpToken == null
+            ? null
+            : Options(headers: {'x-step-up-token': stepUpToken}),
       );
       return _unwrapResponse(response.data);
     } catch (e) {

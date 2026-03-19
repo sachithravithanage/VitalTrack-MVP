@@ -44,6 +44,7 @@ class UserProfileData {
   UserProfileData({
     required this.id,
     required this.role,
+    required this.roles,
     required this.name,
     required this.phone,
     this.email,
@@ -52,6 +53,7 @@ class UserProfileData {
 
   final String id;
   final UserRole role;
+  final List<UserRole> roles;
   String name;
   String phone;
   String? email;

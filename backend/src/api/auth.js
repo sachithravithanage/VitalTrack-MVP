@@ -20,12 +20,13 @@ const router = express.Router();
 router.post("/signup", async (req, res) => {
   try {
     const { email, phone, password, name, role } = req.body;
+    const normalizedRole = role ? String(role).toLowerCase() : "patient";
 
     // Validate inputs
     const normalizedEmail = email ? validateEmail(email) : null;
     const normalizedPhone = validatePhone(phone);
     validatePassword(password);
-    validateUserRole(role);
+    validateUserRole(normalizedRole);
 
     if (!name || name.trim().length < 2) {
       return res.status(400).json({
@@ -42,7 +43,7 @@ router.post("/signup", async (req, res) => {
       normalizedPhone,
       password,
       name,
-      role,
+      normalizedRole,
     );
     const customToken = await authService.createCustomAuthToken(user.uid);
 
@@ -81,6 +82,7 @@ router.post("/send-otp", async (req, res) => {
     // Validate based on type
     if (type === "email") {
       normalizedCredential = validateEmail(credential);
+      await authService.ensureVerifiedEmailCredential(normalizedCredential);
     } else {
       normalizedCredential = validatePhone(credential);
     }
@@ -132,7 +134,16 @@ router.post("/forgot-password/send-otp", async (req, res) => {
     const normalizedCredential =
       type === "email" ? validateEmail(credential) : validatePhone(credential);
 
-    await authService.findUserByCredential(normalizedCredential);
+    const user = await authService.findUserByCredential(normalizedCredential);
+    if (type === "email" && user.emailVerified !== true) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "AUTHENTICATION_ERROR",
+          message: "Email is not verified for password recovery",
+        },
+      });
+    }
     const otp = await authService.createOTP(normalizedCredential, type);
 
     if (type === "email") {
@@ -183,6 +194,10 @@ router.post("/forgot-password/reset", async (req, res) => {
     const normalizedCredential = credential.includes("@")
       ? validateEmail(credential)
       : validatePhone(credential);
+
+    if (normalizedCredential.includes("@")) {
+      await authService.ensureVerifiedEmailCredential(normalizedCredential);
+    }
 
     await authService.verifyOTP(normalizedCredential, otp);
     const user = await authService.resetPasswordByCredential(
@@ -295,6 +310,144 @@ router.get("/profile", verifyFirebaseToken, async (req, res) => {
       success: true,
       data: {
         profile,
+      },
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * POST /api/v1/auth/step-up/send-otp
+ * Send OTP for step-up verification (authenticated users only)
+ */
+router.post("/step-up/send-otp", verifyFirebaseToken, async (req, res) => {
+  try {
+    const { purpose, channel } = req.body;
+    const selectedChannel = channel === "email" ? "email" : "phone";
+
+    if (!purpose || String(purpose).trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Purpose is required",
+        },
+      });
+    }
+
+    const userProfile = await authService.getUserProfile(req.user.uid);
+
+    let credential;
+    if (selectedChannel === "email") {
+      if (!userProfile.email || userProfile.emailVerified !== true) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "AUTHENTICATION_ERROR",
+            message: "Verified email is required for email step-up",
+          },
+        });
+      }
+      credential = validateEmail(userProfile.email);
+    } else {
+      if (!userProfile.phone) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Phone number is required for step-up",
+          },
+        });
+      }
+      credential = validatePhone(userProfile.phone);
+    }
+
+    const otp = await authService.createOTP(credential, selectedChannel);
+
+    if (selectedChannel === "email") {
+      try {
+        await emailService.sendOtpEmail(
+          credential,
+          otp,
+          "security verification",
+        );
+      } catch (emailError) {
+        console.error("Failed to send step-up email:", emailError);
+      }
+    } else {
+      console.log(`Step-up SMS OTP for ${credential}: ${otp}`);
+    }
+
+    res.json({
+      success: true,
+      message: `Step-up OTP sent to ${selectedChannel}`,
+      ...(process.env.NODE_ENV === "development" && { otp }),
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * POST /api/v1/auth/step-up/verify
+ * Verify step-up OTP and issue short-lived action token
+ */
+router.post("/step-up/verify", verifyFirebaseToken, async (req, res) => {
+  try {
+    const { purpose, otp, channel } = req.body;
+    const selectedChannel = channel === "email" ? "email" : "phone";
+
+    if (!purpose || !otp) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Purpose and OTP are required",
+        },
+      });
+    }
+
+    validateOTP(otp);
+
+    const userProfile = await authService.getUserProfile(req.user.uid);
+
+    let credential;
+    if (selectedChannel === "email") {
+      if (!userProfile.email || userProfile.emailVerified !== true) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "AUTHENTICATION_ERROR",
+            message: "Verified email is required for email step-up",
+          },
+        });
+      }
+      credential = validateEmail(userProfile.email);
+    } else {
+      if (!userProfile.phone) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Phone number is required for step-up",
+          },
+        });
+      }
+      credential = validatePhone(userProfile.phone);
+    }
+
+    await authService.verifyOTP(credential, otp);
+    const stepUpToken = await authService.createStepUpToken(
+      req.user.uid,
+      String(purpose),
+    );
+
+    res.json({
+      success: true,
+      data: {
+        stepUpToken,
+        purpose: String(purpose),
       },
     });
   } catch (error) {
