@@ -407,30 +407,6 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
 
     return ResponsiveListView(
       children: <Widget>[
-        SectionHeader(
-          title: app.t('hotspot_map'),
-          subtitle: widget.forCaregiverPatientData
-              ? app.t('patients')
-              : app.t('patient'),
-          icon: Icons.map_outlined,
-        ),
-        UiSpace.xs,
-        Container(
-          height: 180,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-            border: Border.all(color: const Color(0xFFD9E2F2)),
-          ),
-          child: Center(
-            child: Text(
-              app.t('hotspot_map_placeholder'),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-        ),
-        UiSpace.sm,
         InputSection(
           title: widget.forCaregiverPatientData
               ? app.t('add_patient_hotspot_data')
@@ -439,6 +415,18 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
             key: _formKey,
             child: Column(
               children: <Widget>[
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search for hotspots',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFB),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 if (widget.forCaregiverPatientData)
                   TextFormField(
                     controller: _subjectController,

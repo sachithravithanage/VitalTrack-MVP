@@ -7,12 +7,35 @@ class ApiClient {
   late Dio _dio;
 
   // Backend URL configuration
-  // For Android emulator, use 10.0.2.2 instead of localhost
+  // Priority:
+  // 1) --dart-define=API_BASE_URL (recommended)
+  // 2) Web: same host as current page, configurable port via API_PORT
+  // 3) Android emulator debug: 10.0.2.2
+  // 4) Fallback localhost
   static String _getBaseUrl() {
+    const String fromDefine = String.fromEnvironment('API_BASE_URL');
+    if (fromDefine.trim().isNotEmpty) {
+      return fromDefine.trim();
+    }
+
+    if (kIsWeb) {
+      const String apiPortRaw = String.fromEnvironment(
+        'API_PORT',
+        defaultValue: '5000',
+      );
+      final int apiPort = int.tryParse(apiPortRaw) ?? 5000;
+
+      final Uri page = Uri.base;
+      final String scheme = page.scheme == 'https' ? 'https' : 'http';
+      final String host = page.host.isEmpty ? 'localhost' : page.host;
+      return '$scheme://$host:$apiPort';
+    }
+
     if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:5000'; // Android emulator special IP
     }
-    return 'http://localhost:5000'; // iOS simulator, web, or real device on same network
+
+    return 'http://localhost:5000';
   }
 
   static const String apiVersion = 'v1';

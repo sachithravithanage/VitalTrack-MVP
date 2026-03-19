@@ -1345,71 +1345,16 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final List<TextEditingController> _digitControllers =
-      List<TextEditingController>.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _digitFocusNodes = List<FocusNode>.generate(
-    6,
-    (_) => FocusNode(),
-  );
+  final TextEditingController _otpController = TextEditingController();
   bool _verifying = false;
   bool _resending = false;
 
-  String get _otpValue => _digitControllers
-      .map((TextEditingController controller) => controller.text)
-      .join();
-
-  @override
-  void initState() {
-    super.initState();
-    for (final FocusNode focusNode in _digitFocusNodes) {
-      focusNode.addListener(() {
-        if (mounted) {
-          setState(() {});
-        }
-      });
-    }
-  }
+  String get _otpValue => _otpController.text;
 
   @override
   void dispose() {
-    for (final TextEditingController controller in _digitControllers) {
-      controller.dispose();
-    }
-    for (final FocusNode focusNode in _digitFocusNodes) {
-      focusNode.dispose();
-    }
+    _otpController.dispose();
     super.dispose();
-  }
-
-  void _handleDigitChanged(int index, String value) {
-    final String digitsOnly = value.replaceAll(RegExp(r'[^0-9]'), '');
-
-    if (digitsOnly.length > 1) {
-      for (int i = 0; i < 6; i++) {
-        _digitControllers[i].text = i < digitsOnly.length ? digitsOnly[i] : '';
-      }
-      if (digitsOnly.length >= 6) {
-        _digitFocusNodes.last.unfocus();
-      } else {
-        _digitFocusNodes[digitsOnly.length].requestFocus();
-      }
-      setState(() {});
-      return;
-    }
-
-    _digitControllers[index].text = digitsOnly;
-
-    if (digitsOnly.isNotEmpty) {
-      if (index < 5) {
-        _digitFocusNodes[index + 1].requestFocus();
-      } else {
-        _digitFocusNodes[index].unfocus();
-      }
-    } else if (index > 0) {
-      _digitFocusNodes[index - 1].requestFocus();
-    }
-
-    setState(() {});
   }
 
   Future<void> _verifyOtp(AppState app) async {
@@ -1618,69 +1563,59 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             SizedBox(height: isSmall ? 26 : 34),
                             SizedBox(
                               width: isTablet ? 420 : double.infinity,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List<Widget>.generate(6, (int index) {
-                                  return Container(
-                                    width: isSmall ? 44 : 52,
-                                    height: isSmall ? 64 : 74,
-                                    margin: EdgeInsets.symmetric(
-                                      horizontal: isSmall ? 4 : 6,
+                              child: TextField(
+                                controller: _otpController,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
+                                maxLength: 6,
+                                textAlign: TextAlign.center,
+                                inputFormatters: <TextInputFormatter>[
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(6),
+                                ],
+                                onSubmitted: (_) => _verifyOtp(app),
+                                style: TextStyle(
+                                  fontSize: isSmall ? 24 : 28,
+                                  letterSpacing: 8,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0B1736),
+                                ),
+                                decoration: InputDecoration(
+                                  counterText: '',
+                                  hintText: '------',
+                                  hintStyle: TextStyle(
+                                    letterSpacing: 8,
+                                    color: const Color(0xFF98A2B3),
+                                    fontSize: isSmall ? 22 : 24,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF7F8FA),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: isSmall ? 18 : 22,
+                                    horizontal: 16,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFD0D7E2),
+                                      width: 1.5,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF7F8FA),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: _digitFocusNodes[index].hasFocus
-                                            ? const Color(0xFF2B77CB)
-                                            : const Color(0xFFD0D7E2),
-                                        width: _digitFocusNodes[index].hasFocus
-                                            ? 2
-                                            : 1.5,
-                                      ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFD0D7E2),
+                                      width: 1.5,
                                     ),
-                                    alignment: Alignment.center,
-                                    child: TextField(
-                                      controller: _digitControllers[index],
-                                      focusNode: _digitFocusNodes[index],
-                                      textAlign: TextAlign.center,
-                                      keyboardType: TextInputType.number,
-                                      textInputAction: index == 5
-                                          ? TextInputAction.done
-                                          : TextInputAction.next,
-                                      maxLength: 1,
-                                      inputFormatters: <TextInputFormatter>[
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(1),
-                                      ],
-                                      onChanged: (String value) =>
-                                          _handleDigitChanged(index, value),
-                                      onSubmitted: (_) {
-                                        if (index == 5) {
-                                          _verifyOtp(app);
-                                        }
-                                      },
-                                      style: TextStyle(
-                                        fontSize: isSmall ? 20 : 24,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF0B1736),
-                                      ),
-                                      decoration: const InputDecoration(
-                                        counterText: '',
-                                        filled: false,
-                                        border: InputBorder.none,
-                                        enabledBorder: InputBorder.none,
-                                        focusedBorder: InputBorder.none,
-                                        disabledBorder: InputBorder.none,
-                                        errorBorder: InputBorder.none,
-                                        focusedErrorBorder: InputBorder.none,
-                                        isCollapsed: true,
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                      ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF2B77CB),
+                                      width: 2,
                                     ),
-                                  );
-                                }),
+                                  ),
+                                ),
                               ),
                             ),
                             SizedBox(height: isSmall ? 30 : 38),

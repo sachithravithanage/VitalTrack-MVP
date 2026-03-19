@@ -86,12 +86,35 @@ class _VitalTrackAppState extends State<VitalTrackApp> {
                 ),
                 labelStyle: const TextStyle(color: Color(0xFF5D6785)),
               ),
-              navigationBarTheme: const NavigationBarThemeData(
+              navigationBarTheme: NavigationBarThemeData(
                 backgroundColor: Colors.white,
-                indicatorColor: Color(0x1F1E5AA8),
-                labelTextStyle: WidgetStatePropertyAll(
-                  TextStyle(fontWeight: FontWeight.w600),
-                ),
+                indicatorColor: Colors.transparent,
+                iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((
+                  Set<WidgetState> states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const IconThemeData(
+                      color: Color(0xFF1E5AA8),
+                      size: 24,
+                    );
+                  }
+                  return const IconThemeData(
+                    color: Color(0xFF95A5BC),
+                    size: 24,
+                  );
+                }),
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((
+                  Set<WidgetState> states,
+                ) {
+                  return TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: states.contains(WidgetState.selected)
+                        ? const Color(0xFF1E5AA8)
+                        : const Color(0xFF95A5BC),
+                    letterSpacing: 0.4,
+                  );
+                }),
               ),
               navigationRailTheme: const NavigationRailThemeData(
                 backgroundColor: Colors.white,
