@@ -28,9 +28,8 @@ export async function generateLinkCode(patientId) {
       patientId,
       createdAt: timestamp,
       expiresAt: timestamp + LINK_CODE_EXPIRY_HOURS * 60 * 60 * 1000,
-      used: false,
-      usedBy: null,
-      usedAt: null,
+      usedBy: [],
+      lastUsedAt: null,
     });
 
   return code;
@@ -47,11 +46,6 @@ export async function useLinkCode(code, caregiverId) {
   }
 
   const codeData = codeDoc.data();
-
-  // Check if code is already used
-  if (codeData.used) {
-    throw new ValidationError("Link code has already been used");
-  }
 
   // Check if code is expired
   if (isExpired(codeData.createdAt, LINK_CODE_EXPIRY_HOURS * 60)) {
@@ -103,9 +97,12 @@ export async function useLinkCode(code, caregiverId) {
   await db
     .collection("patients")
     .doc(patientId)
-    .update({
-      linkedCaregivers: admin.firestore.FieldValue.arrayUnion(caregiverId),
-    });
+    .set(
+      {
+        linkedCaregivers: admin.firestore.FieldValue.arrayUnion(caregiverId),
+      },
+      { merge: true },
+    );
 
   // Update caregiver's linked patients
   const existingCaregiverDoc = await db
@@ -130,11 +127,10 @@ export async function useLinkCode(code, caregiverId) {
       });
   }
 
-  // Mark code as used
+  // Track code usage
   await codeDoc.ref.update({
-    used: true,
-    usedBy: caregiverId,
-    usedAt: new Date(),
+    usedBy: admin.firestore.FieldValue.arrayUnion(caregiverId),
+    lastUsedAt: new Date(),
   });
 
   // Send email notification to patient if they have an email

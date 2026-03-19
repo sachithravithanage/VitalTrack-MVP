@@ -252,10 +252,11 @@ class ApiClient {
   Future<Map<String, dynamic>> createRecord({
     String? patientId,
     required String disease,
-    required String temperature,
+    String? temperature,
     String? fluidIntake,
     String? urineOutput,
     String? urineColor,
+    Map<String, String>? values,
     Map<String, bool>? symptoms,
     String? notes,
   }) async {
@@ -263,11 +264,12 @@ class ApiClient {
       final Map<String, dynamic> data = <String, dynamic>{
         'patientId': patientId,
         'disease': disease,
-        'temperature': temperature,
       };
+      if (temperature != null) data['temperature'] = temperature;
       if (fluidIntake != null) data['fluidIntake'] = fluidIntake;
       if (urineOutput != null) data['urineOutput'] = urineOutput;
       if (urineColor != null) data['urineColor'] = urineColor;
+      if (values != null) data['values'] = values;
       if (symptoms != null) data['symptoms'] = symptoms;
       if (notes != null) data['notes'] = notes;
       final response = await _dio.post('/records', data: data);

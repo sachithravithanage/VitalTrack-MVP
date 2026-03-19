@@ -74,7 +74,7 @@ String _normalizeLkPhoneForApi(String localInput) {
 
 bool _isValidLkPhone(String phone) {
   final String cleaned = phone.replaceAll(RegExp(r'[^0-9]'), '');
-  return RegExp(r'^07[0-9]{8}$').hasMatch(cleaned);
+  return RegExp(r'^(07[0-9]{8}|7[0-9]{8}|94[0-9]{9})$').hasMatch(cleaned);
 }
 
 class LoginScreen extends StatefulWidget {

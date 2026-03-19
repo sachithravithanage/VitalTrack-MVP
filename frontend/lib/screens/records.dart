@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -57,16 +59,8 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
           ).textTheme.titleMedium?.copyWith(color: const Color(0xFF5F7391)),
         ),
         const SizedBox(height: 18),
-        _ConditionCard(
-          badgeIcon: Icons.medical_services,
-          badgeText: 'HEALTH MONITORING',
-          badgeTextColor: const Color(0xFF60748F),
-          title: 'Track Dengue Symptoms',
-          description:
-              'Record fever levels, rashes, muscle pain, and hydration status for better clinical monitoring.',
-          actionLabel: 'Start Tracking',
-          actionIcon: Icons.add_circle,
-          emphasizedAction: true,
+        _DiseaseSelectorTile(
+          title: app.t('dengue'),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -79,17 +73,9 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 14),
-        _ConditionCard(
-          badgeIcon: Icons.medical_services,
-          badgeText: 'HEALTH MONITORING',
-          badgeTextColor: const Color(0xFF60748F),
-          title: 'Track Rat Fever Symptoms',
-          description:
-              'Monitor leptospirosis indicators including high fever, headache, chills, and jaundice signs.',
-          actionLabel: 'Start Tracking',
-          actionIcon: Icons.add_circle,
-          emphasizedAction: true,
+        const SizedBox(height: 10),
+        _DiseaseSelectorTile(
+          title: app.t('rat_fever'),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -174,18 +160,39 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
   final TextEditingController _tempController = TextEditingController();
   final TextEditingController _fluidController = TextEditingController();
   final TextEditingController _urineOutputController = TextEditingController();
-  final TextEditingController _urineColorController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  bool _bodyPain = false;
-  bool _vomiting = false;
+  String _ratUrineColor = 'yellow';
+  String _eyeColoration = 'normal';
+
+  final Map<String, bool> _dengueSymptoms = <String, bool>{
+    'feverDrop': false,
+    'coldClammyHandsFeet': false,
+    'vomiting': false,
+    'dizziness': false,
+    'severeRightUpperAbdominalPain': false,
+    'poorAppetite': false,
+    'suddenReturnOfAppetite': false,
+  };
+
+  final Map<String, bool> _ratSymptoms = <String, bool>{
+    'suddenReductionUrineOutput': false,
+    'inabilityToPassUrine': false,
+    'musclePains': false,
+    'calfOrLowerBackTenderness': false,
+    'bloodshotEyes': false,
+    'skinJaundice': false,
+    'difficultyBreathing': false,
+    'rapidBreathing': false,
+    'coughingUpBlood': false,
+    'dizziness': false,
+  };
 
   @override
   void dispose() {
     _tempController.dispose();
     _fluidController.dispose();
     _urineOutputController.dispose();
-    _urineColorController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -247,34 +254,34 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   ),
                 ],
               ),
-              if (isDengue) ...<Widget>[
-                const SizedBox(height: 12),
-                Text(
-                  'Please record the latest readings for accurate monitoring.',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: const Color(0xFF5F7391),
-                  ),
+              const SizedBox(height: 12),
+              Text(
+                isDengue
+                    ? 'Record all dengue warning indicators with Yes / No selections.'
+                    : 'Record rat fever warning indicators with Yes / No selections.',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: const Color(0xFF5F7391),
                 ),
-              ],
+              ),
               const SizedBox(height: 20),
-              _FieldLabel(
-                text: 'Body Temperature (°C)',
-                icon: Icons.device_thermostat,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _tempController,
-                keyboardType: TextInputType.number,
-                decoration: _formDecoration(
-                  hint: isDengue ? 'e.g. 37.5' : 'e.g. 38.5',
-                ),
-                validator: (String? value) =>
-                    (value == null || value.trim().isEmpty)
-                    ? app.t('required_field')
-                    : null,
-              ),
-              const SizedBox(height: 18),
               if (isDengue) ...<Widget>[
+                const _FieldLabel(
+                  text: 'Body Temperature (°C)',
+                  icon: Icons.device_thermostat,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _tempController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: _formDecoration(hint: 'e.g. 37.8'),
+                  validator: (String? value) =>
+                      (value == null || value.trim().isEmpty)
+                      ? app.t('required_field')
+                      : null,
+                ),
+                const SizedBox(height: 18),
                 const _FieldLabel(
                   text: 'Fluid Intake (ml)',
                   icon: Icons.opacity_rounded,
@@ -284,6 +291,10 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   controller: _fluidController,
                   keyboardType: TextInputType.number,
                   decoration: _formDecoration(hint: 'e.g. 250'),
+                  validator: (String? value) =>
+                      (value == null || value.trim().isEmpty)
+                      ? app.t('required_field')
+                      : null,
                 ),
                 const SizedBox(height: 18),
               ],
@@ -298,55 +309,86 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 decoration: _formDecoration(
                   hint: isDengue ? 'e.g. 200' : 'e.g. 500',
                 ),
+                validator: (String? value) =>
+                    (value == null || value.trim().isEmpty)
+                    ? app.t('required_field')
+                    : null,
               ),
-              if (!isDengue) ...<Widget>[
-                const SizedBox(height: 18),
+              const SizedBox(height: 18),
+              if (isDengue)
+                ..._buildYesNoGroup(
+                  context,
+                  data: _dengueSymptoms,
+                  labels: const <String, String>{
+                    'feverDrop': 'Fever dropped from previous value',
+                    'coldClammyHandsFeet': 'Hands or feet cold and clammy',
+                    'vomiting': 'Vomiting',
+                    'dizziness': 'Dizziness',
+                    'severeRightUpperAbdominalPain':
+                        'Severe right-sided upper abdominal pain',
+                    'poorAppetite': 'Poor appetite',
+                    'suddenReturnOfAppetite': 'Sudden return of appetite',
+                  },
+                )
+              else ...<Widget>[
                 const _FieldLabel(
                   text: 'Urine Color',
                   icon: Icons.colorize_outlined,
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _urineColorController,
-                  decoration: _formDecoration(
-                    hint: 'Select color',
-                    suffix: const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF6D778A),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(height: 1, color: const Color(0xFFE4EAF3)),
-                const SizedBox(height: 18),
-                Text(
-                  'Associated Symptoms',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0A1430),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _SymptomBox(
-                        label: app.t('body_pain'),
-                        value: _bodyPain,
-                        onChanged: (bool next) =>
-                            setState(() => _bodyPain = next),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: _SymptomBox(
-                        label: app.t('vomiting'),
-                        value: _vomiting,
-                        onChanged: (bool next) =>
-                            setState(() => _vomiting = next),
-                      ),
-                    ),
+                DropdownButtonFormField<String>(
+                  initialValue: _ratUrineColor,
+                  decoration: _formDecoration(hint: 'Urine color'),
+                  items: const <DropdownMenuItem<String>>[
+                    DropdownMenuItem(value: 'white', child: Text('White')),
+                    DropdownMenuItem(value: 'yellow', child: Text('Yellow')),
+                    DropdownMenuItem(value: 'brown', child: Text('Brown')),
+                    DropdownMenuItem(value: 'dark', child: Text('Dark')),
                   ],
+                  onChanged: (String? value) {
+                    if (value != null) {
+                      setState(() => _ratUrineColor = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                const _FieldLabel(
+                  text: 'Eye Coloration',
+                  icon: Icons.remove_red_eye_outlined,
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _eyeColoration,
+                  decoration: _formDecoration(hint: 'Eye coloration'),
+                  items: const <DropdownMenuItem<String>>[
+                    DropdownMenuItem(value: 'normal', child: Text('Normal')),
+                    DropdownMenuItem(value: 'red', child: Text('Red')),
+                    DropdownMenuItem(value: 'yellow', child: Text('Yellow')),
+                  ],
+                  onChanged: (String? value) {
+                    if (value != null) {
+                      setState(() => _eyeColoration = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 18),
+                ..._buildYesNoGroup(
+                  context,
+                  data: _ratSymptoms,
+                  labels: const <String, String>{
+                    'suddenReductionUrineOutput':
+                        'Sudden reduction of urine output',
+                    'inabilityToPassUrine': 'Inability to pass urine',
+                    'musclePains': 'Muscle pains',
+                    'calfOrLowerBackTenderness':
+                        'Tenderness in calf muscles or lower back',
+                    'bloodshotEyes': 'Bloodshot appearance in eyes',
+                    'skinJaundice': 'Skin jaundice (yellowish skin tint)',
+                    'difficultyBreathing': 'Difficulty breathing',
+                    'rapidBreathing': 'Rapid breathing',
+                    'coughingUpBlood': 'Coughing up blood',
+                    'dizziness': 'Dizziness',
+                  },
                 ),
               ],
               const SizedBox(height: 20),
@@ -364,31 +406,6 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                       : 'Describe any other symptoms or feelings here...',
                 ),
               ),
-              if (!isDengue) ...<Widget>[
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F2FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFB8D7FF)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const Icon(Icons.info, color: Color(0xFF1E73D8)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Regular tracking helps healthcare providers monitor the progression of Leptospirosis accurately.',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: const Color(0xFF344B6D)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 26),
               BusyFilledButton(
                 isBusy: _saving,
@@ -396,10 +413,26 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 onPressed: () async {
                   if (_formKey.currentState?.validate() != true) return;
                   final isDengue = widget.disease == DiseaseType.dengue;
-                  final Map<String, bool> symptoms = <String, bool>{};
-                  if (!isDengue) {
-                    symptoms['bodyPain'] = _bodyPain;
-                    symptoms['vomiting'] = _vomiting;
+                  final Map<String, String> values = <String, String>{
+                    'urineOutput': _urineOutputController.text.trim(),
+                  };
+                  final Map<String, bool> symptoms = isDengue
+                      ? Map<String, bool>.from(_dengueSymptoms)
+                      : Map<String, bool>.from(_ratSymptoms);
+
+                  String? temperature;
+                  String? fluidIntake;
+                  String? urineColor;
+
+                  if (isDengue) {
+                    temperature = _tempController.text.trim();
+                    fluidIntake = _fluidController.text.trim();
+                    values['temperature'] = temperature;
+                    values['fluidIntake'] = fluidIntake;
+                  } else {
+                    urineColor = _ratUrineColor;
+                    values['urineColor'] = _ratUrineColor;
+                    values['eyeColoration'] = _eyeColoration;
                   }
 
                   setState(() => _saving = true);
@@ -409,14 +442,11 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                       disease: widget.disease == DiseaseType.dengue
                           ? 'dengue'
                           : 'ratFever',
-                      temperature: _tempController.text.trim(),
-                      fluidIntake: isDengue
-                          ? _fluidController.text.trim()
-                          : null,
+                      temperature: temperature,
+                      fluidIntake: fluidIntake,
                       urineOutput: _urineOutputController.text.trim(),
-                      urineColor: isDengue
-                          ? null
-                          : _urineColorController.text.trim(),
+                      urineColor: urineColor,
+                      values: values,
                       symptoms: symptoms.isNotEmpty ? symptoms : null,
                       notes: _notesController.text.trim(),
                     );
@@ -437,21 +467,32 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   Navigator.of(context).pop();
                 },
               ),
-              if (isDengue) ...<Widget>[
-                const SizedBox(height: 16),
-                Text(
-                  'Data is synced securely with VitalTrack Cloud',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF92A1B7),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildYesNoGroup(
+    BuildContext context, {
+    required Map<String, bool> data,
+    required Map<String, String> labels,
+  }) {
+    final List<Widget> children = <Widget>[];
+    labels.forEach((String key, String label) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _YesNoSelector(
+            label: label,
+            value: data[key] ?? false,
+            onChanged: (bool value) => setState(() => data[key] = value),
+          ),
+        ),
+      );
+    });
+    return children;
   }
 
   InputDecoration _formDecoration({required String hint, Widget? suffix}) {
@@ -501,13 +542,24 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
   bool _exporting = false;
   bool _loadingRecords = false;
   bool _didInitialLoad = false;
+  Timer? _refreshTimer;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_didInitialLoad) return;
     _didInitialLoad = true;
-    _loadRecords();
+    unawaited(_loadRecords());
+    _refreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (!mounted) return;
+      unawaited(_loadRecords());
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadRecords() async {
@@ -747,6 +799,11 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
       return 'Temperature ${record.values['temperature']}°C';
     }
 
+    if (record.values['urineOutput'] != null &&
+        record.values['urineOutput']!.trim().isNotEmpty) {
+      return 'Urine output ${record.values['urineOutput']} ml';
+    }
+
     final Iterable<String> nonEmpty = record.values.values.where(
       (String value) => value.trim().isNotEmpty,
     );
@@ -778,11 +835,12 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
         return;
       }
 
-      // Open PDF URL in browser/default app
-      // This will download on web and open in PDF viewer on mobile
       final Uri uri = Uri.parse(pdfUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.platformDefault,
+      );
+      if (launched) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(
           context,
@@ -982,109 +1040,29 @@ String _relativeTimeLabel(DateTime timestamp) {
   return '${diff.inDays} days ago';
 }
 
-class _ConditionCard extends StatelessWidget {
-  const _ConditionCard({
-    required this.badgeIcon,
-    required this.badgeText,
-    required this.badgeTextColor,
-    required this.title,
-    required this.description,
-    required this.actionLabel,
-    required this.actionIcon,
-    required this.emphasizedAction,
-    required this.onTap,
-  });
+class _DiseaseSelectorTile extends StatelessWidget {
+  const _DiseaseSelectorTile({required this.title, required this.onTap});
 
-  final IconData badgeIcon;
-  final String badgeText;
-  final Color badgeTextColor;
   final String title;
-  final String description;
-  final String actionLabel;
-  final IconData actionIcon;
-  final bool emphasizedAction;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bool compact = MediaQuery.sizeOf(context).width < 380;
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 16 : 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: badgeTextColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Icon(badgeIcon, color: badgeTextColor),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  badgeText,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: badgeTextColor,
-                    letterSpacing: 0.9,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: const Color(0xFF0A1430),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              description,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: const Color(0xFF3B4D69)),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: emphasizedAction
-                      ? Theme.of(context).colorScheme.primary
-                      : const Color(0xFFEFF4FB),
-                  foregroundColor: emphasizedAction
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(
-                      color: emphasizedAction
-                          ? Colors.transparent
-                          : const Color(0xFFBFD3EF),
-                    ),
-                  ),
-                ),
-                onPressed: onTap,
-                icon: Icon(actionIcon),
-                label: Text(
-                  actionLabel,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: onTap,
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF0A1430),
+          ),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Color(0xFF95A5BC),
         ),
       ),
     );
@@ -1115,8 +1093,8 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _SymptomBox extends StatelessWidget {
-  const _SymptomBox({
+class _YesNoSelector extends StatelessWidget {
+  const _YesNoSelector({
     required this.label,
     required this.value,
     required this.onChanged,
@@ -1128,39 +1106,44 @@ class _SymptomBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: value ? const Color(0xFF1E73D8) : const Color(0xFFD4DFEE),
-            width: value ? 1.5 : 1,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD4DFEE)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: const Color(0xFF1C2D49),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Checkbox(
-              value: value,
-              onChanged: (bool? next) => onChanged(next ?? false),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+          SegmentedButton<bool>(
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              side: const WidgetStatePropertyAll(
+                BorderSide(color: Color(0xFFD9E2F2)),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
-            Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: const Color(0xFF1C2D49),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
+            segments: const <ButtonSegment<bool>>[
+              ButtonSegment<bool>(value: true, label: Text('Yes')),
+              ButtonSegment<bool>(value: false, label: Text('No')),
+            ],
+            selected: <bool>{value},
+            onSelectionChanged: (Set<bool> selected) =>
+                onChanged(selected.first),
+          ),
+        ],
       ),
     );
   }

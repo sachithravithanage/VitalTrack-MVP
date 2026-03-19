@@ -9,10 +9,11 @@ class RecordService {
   Future<Map<String, dynamic>> createRecord({
     String? patientId,
     required String disease,
-    required String temperature,
+    String? temperature,
     String? fluidIntake,
     String? urineOutput,
     String? urineColor,
+    Map<String, String>? values,
     Map<String, bool>? symptoms,
     String? notes,
   }) async {
@@ -24,6 +25,7 @@ class RecordService {
         fluidIntake: fluidIntake,
         urineOutput: urineOutput,
         urineColor: urineColor,
+        values: values,
         symptoms: symptoms,
         notes: notes,
       );

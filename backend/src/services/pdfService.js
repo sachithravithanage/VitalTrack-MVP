@@ -81,28 +81,52 @@ export async function generatePDFReport(patientId, records, userProfile) {
         );
 
         // Record details in table format
-        const details = [
-          `Temperature: ${record.temperature || "N/A"}°C`,
-          `Fluid Intake: ${record.fluidIntake || "N/A"}`,
-          `Urine Output: ${record.urineOutput || "N/A"}`,
-          `Urine Color: ${record.urineColor || "N/A"}`,
-        ];
+        const details = [];
+        const values =
+          record.values && typeof record.values === "object"
+            ? record.values
+            : {};
+
+        const mergedValues = {
+          temperature: record.temperature,
+          fluidIntake: record.fluidIntake,
+          urineOutput: record.urineOutput,
+          urineColor: record.urineColor,
+          ...values,
+        };
+
+        Object.entries(mergedValues).forEach(([key, rawValue]) => {
+          if (rawValue === undefined || rawValue === null) {
+            return;
+          }
+          const valueString = String(rawValue).trim();
+          if (!valueString) {
+            return;
+          }
+          const prettyKey = key
+            .replace(/([a-z])([A-Z])/g, "$1 $2")
+            .replace(/_/g, " ")
+            .trim();
+          const label = prettyKey
+            ? prettyKey[0].toUpperCase() + prettyKey.slice(1)
+            : key;
+          details.push(`${label}: ${valueString}`);
+        });
 
         details.forEach((detail) => {
           doc.text(detail, { indent: 20 });
         });
 
         // Symptoms
-        if (record.symptoms && Object.values(record.symptoms).some((v) => v)) {
+        if (record.symptoms && Object.keys(record.symptoms).length > 0) {
           doc.text("Symptoms:", { indent: 20 });
           Object.entries(record.symptoms).forEach(([symptom, present]) => {
-            if (present) {
-              const displayName = symptom
-                .replace(/([A-Z])/g, " $1")
-                .toLowerCase()
-                .trim();
-              doc.text(`• ${displayName}`, { indent: 40 });
-            }
+            const displayName = symptom
+              .replace(/([A-Z])/g, " $1")
+              .toLowerCase()
+              .trim();
+            const value = present ? "Yes" : "No";
+            doc.text(`• ${displayName}: ${value}`, { indent: 40 });
           });
         }
 

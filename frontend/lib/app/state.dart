@@ -129,20 +129,16 @@ class AppState extends ChangeNotifier {
     try {
       if (currentUser == null) return;
 
-      // Load patient records
-      await loadPatientRecords(currentUser!.id);
-
-      // Load relationships based on role
       if (currentUser!.role == UserRole.caregiver) {
-        // Caregivers: load their patients
+        // Caregivers: load linked patients. Individual patient records are
+        // loaded when a patient is opened.
         await loadCaregiverPatients();
       } else {
-        // Patients: load linked caregivers
+        // Patients: load own records, linked caregivers, and hotspots.
+        await loadPatientRecords(currentUser!.id);
         await loadPatientCaregivers();
+        await loadPatientHotspots(currentUser!.id);
       }
-
-      // Load hotspot data
-      await loadPatientHotspots(currentUser!.id);
     } catch (e) {
       debugPrint('Error reloading user data: $e');
       // Don't rethrow - this is optional data
@@ -193,16 +189,32 @@ class AppState extends ChangeNotifier {
     return UserRole.patient;
   }
 
+  String _formatPhoneForDisplay(dynamic value) {
+    final String raw = value?.toString() ?? '';
+    final String digits = raw.replaceAll(RegExp(r'\D'), '');
+
+    if (digits.length == 11 && digits.startsWith('94')) {
+      return '0${digits.substring(2)}';
+    }
+
+    if (digits.length == 10 && digits.startsWith('7')) {
+      return '0$digits';
+    }
+
+    return raw;
+  }
+
   // ============ Medical Records ============
 
   /// Add a new medical record via backend
   Future<void> addRecord({
     String? patientId,
     required String disease,
-    required String temperature,
+    String? temperature,
     String? fluidIntake,
     String? urineOutput,
     String? urineColor,
+    Map<String, String>? values,
     Map<String, bool>? symptoms,
     String? notes,
   }) async {
@@ -218,6 +230,7 @@ class AppState extends ChangeNotifier {
         fluidIntake: fluidIntake,
         urineOutput: urineOutput,
         urineColor: urineColor,
+        values: values,
         symptoms: symptoms,
         notes: notes,
       );
@@ -233,14 +246,18 @@ class AppState extends ChangeNotifier {
           disease: diseaseEnum,
           createdAt: DateTime.now(),
           values: {
-            'temperature': temperature.toString(),
-            'fluidIntake': fluidIntake?.toString() ?? '',
-            'urineOutput': urineOutput?.toString() ?? '',
-            'urineColor': urineColor ?? '',
+            if (temperature != null && temperature.trim().isNotEmpty)
+              'temperature': temperature,
+            if (fluidIntake != null && fluidIntake.trim().isNotEmpty)
+              'fluidIntake': fluidIntake,
+            if (urineOutput != null && urineOutput.trim().isNotEmpty)
+              'urineOutput': urineOutput,
+            if (urineColor != null && urineColor.trim().isNotEmpty)
+              'urineColor': urineColor,
+            if (values != null) ...values,
             if (symptoms != null)
-              ...symptoms.entries.fold<Map<String, String>>(
-                <String, String>{},
-                (map, entry) => {...map, entry.key: entry.value.toString()},
+              ...symptoms.map(
+                (key, value) => MapEntry(key, value ? t('yes') : t('no')),
               ),
           },
           notes: notes ?? '',
@@ -288,13 +305,26 @@ class AppState extends ChangeNotifier {
             disease: diseaseParsed,
             createdAt: _parseTimestamp(recordData['createdAt']),
             values: {
-              'temperature': recordData['temperature']?.toString() ?? '',
-              'fluidIntake': recordData['fluidIntake']?.toString() ?? '',
-              'urineOutput': recordData['urineOutput']?.toString() ?? '',
-              'urineColor': recordData['urineColor']?.toString() ?? '',
+              if (recordData['temperature'] != null)
+                'temperature': recordData['temperature'].toString(),
+              if (recordData['fluidIntake'] != null)
+                'fluidIntake': recordData['fluidIntake'].toString(),
+              if (recordData['urineOutput'] != null)
+                'urineOutput': recordData['urineOutput'].toString(),
+              if (recordData['urineColor'] != null)
+                'urineColor': recordData['urineColor'].toString(),
+              if (recordData['values'] is Map)
+                ...(recordData['values'] as Map).map(
+                  (key, value) => MapEntry(key.toString(), value.toString()),
+                ),
               if (recordData['symptoms'] is Map)
                 ...(recordData['symptoms'] as Map).map(
-                  (key, value) => MapEntry(key.toString(), value.toString()),
+                  (key, value) => MapEntry(
+                    key.toString(),
+                    value is bool
+                        ? (value ? t('yes') : t('no'))
+                        : value.toString(),
+                  ),
                 ),
             },
             notes: recordData['notes']?.toString() ?? '',
@@ -501,7 +531,7 @@ class AppState extends ChangeNotifier {
           'id': caregiverData['id'] ?? caregiverData['uid'] ?? '',
           'name': caregiverData['name'] ?? '',
           'email': caregiverData['email'],
-          'phone': caregiverData['phone'],
+          'phone': _formatPhoneForDisplay(caregiverData['phone']),
         };
       }).toList();
 

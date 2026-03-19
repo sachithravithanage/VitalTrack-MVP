@@ -22,20 +22,21 @@ if (!admin.apps.length) {
   if (config.useFirebaseEmulators) {
     admin.initializeApp({
       projectId: firebaseConfig.projectId || "vitaltrack-vcode",
-      storageBucket: process.env.PDF_STORAGE_BUCKET,
+      storageBucket: config.pdfStorageBucket,
     });
   } else {
     admin.initializeApp({
       credential: admin.credential.cert(firebaseConfig),
       databaseURL: firebaseConfig.databaseURL,
+      storageBucket: config.pdfStorageBucket,
     });
   }
 }
 
 export const db = admin.firestore();
 export const auth = admin.auth();
-export const bucket = process.env.PDF_STORAGE_BUCKET
-  ? admin.storage().bucket(process.env.PDF_STORAGE_BUCKET)
+export const bucket = config.pdfStorageBucket
+  ? admin.storage().bucket(config.pdfStorageBucket)
   : null;
 export const messaging = admin.messaging();
 

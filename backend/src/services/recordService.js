@@ -9,20 +9,26 @@ export async function createRecord(patientId, recordData) {
   const recordId = generateId();
   const timestamp = new Date();
 
+  const values =
+    recordData.values && typeof recordData.values === "object"
+      ? { ...recordData.values }
+      : {};
+
+  const symptoms =
+    recordData.symptoms && typeof recordData.symptoms === "object"
+      ? { ...recordData.symptoms }
+      : {};
+
   const record = {
     id: recordId,
     patientId,
     disease: recordData.disease,
-    temperature: recordData.temperature,
+    temperature: recordData.temperature || null,
     fluidIntake: recordData.fluidIntake || null,
     urineOutput: recordData.urineOutput || null,
     urineColor: recordData.urineColor || null,
-    symptoms: {
-      bodyPain: recordData.bodyPain || false,
-      vomiting: recordData.vomiting || false,
-      headache: recordData.headache || false,
-      rash: recordData.rash || false,
-    },
+    values,
+    symptoms,
     notes: recordData.notes || "",
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -178,12 +184,7 @@ export async function getRecordStats(patientId, timelineFilter = "last7Days") {
     };
   }
 
-  const symptoms = {
-    bodyPain: 0,
-    vomiting: 0,
-    headache: 0,
-    rash: 0,
-  };
+  const symptomFrequency = {};
 
   const diseases = {};
   let totalTemp = 0;
@@ -200,17 +201,20 @@ export async function getRecordStats(patientId, timelineFilter = "last7Days") {
     diseases[record.disease] = (diseases[record.disease] || 0) + 1;
 
     // Symptom frequency
-    if (record.symptoms?.bodyPain) symptoms.bodyPain++;
-    if (record.symptoms?.vomiting) symptoms.vomiting++;
-    if (record.symptoms?.headache) symptoms.headache++;
-    if (record.symptoms?.rash) symptoms.rash++;
+    if (record.symptoms && typeof record.symptoms === "object") {
+      Object.entries(record.symptoms).forEach(([key, value]) => {
+        if (value) {
+          symptomFrequency[key] = (symptomFrequency[key] || 0) + 1;
+        }
+      });
+    }
   });
 
   return {
     totalRecords: records.length,
     avgTemperature: tempCount > 0 ? (totalTemp / tempCount).toFixed(1) : null,
     diseaseBreakdown: diseases,
-    symptomFrequency: symptoms,
+    symptomFrequency,
   };
 }
 

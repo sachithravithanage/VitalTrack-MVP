@@ -28,7 +28,9 @@ export const config = {
 
   // Firebase
   firebaseProjectId: process.env.FIREBASE_PROJECT_ID || "vitaltrack-vcode",
-  pdfStorageBucket: process.env.PDF_STORAGE_BUCKET,
+  pdfStorageBucket:
+    process.env.PDF_STORAGE_BUCKET ||
+    `${process.env.FIREBASE_PROJECT_ID || "vitaltrack-vcode"}.appspot.com`,
 
   // Email
   sendgridApiKey: process.env.SENDGRID_API_KEY,

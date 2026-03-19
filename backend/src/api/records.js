@@ -29,6 +29,7 @@ router.post("/", requireRole("patient", "caregiver"), async (req, res) => {
       fluidIntake,
       urineOutput,
       urineColor,
+      values,
       symptoms,
       notes,
     } = req.body;
@@ -67,10 +68,8 @@ router.post("/", requireRole("patient", "caregiver"), async (req, res) => {
       fluidIntake,
       urineOutput,
       urineColor,
-      bodyPain: symptoms?.bodyPain || false,
-      vomiting: symptoms?.vomiting || false,
-      headache: symptoms?.headache || false,
-      rash: symptoms?.rash || false,
+      values,
+      symptoms,
       notes,
       createdBy: req.user.uid,
     });
@@ -324,11 +323,15 @@ router.get(
         records,
         userProfile,
       );
+      const signedUrl = await pdfService.getPDFDownloadUrl(pdfInfo.filePath);
 
       res.json({
         success: true,
         data: {
-          pdf: pdfInfo,
+          pdf: {
+            ...pdfInfo,
+            url: signedUrl,
+          },
         },
       });
     } catch (error) {

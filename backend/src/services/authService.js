@@ -26,6 +26,33 @@ function normalizePhone(phone) {
   return digits;
 }
 
+function phoneVariants(phone) {
+  const normalized = normalizePhone(phone);
+  const variants = new Set([normalized]);
+
+  if (/^94\d{9}$/.test(normalized)) {
+    variants.add(`0${normalized.slice(2)}`);
+    variants.add(normalized.slice(2));
+  } else if (/^07\d{8}$/.test(normalized)) {
+    variants.add(`94${normalized.slice(1)}`);
+    variants.add(normalized.slice(1));
+  } else if (/^7\d{8}$/.test(normalized)) {
+    variants.add(`94${normalized}`);
+    variants.add(`0${normalized}`);
+  }
+
+  return Array.from(variants).filter((v) => v && v.trim().length > 0);
+}
+
+async function queryUsersByPhone(phone) {
+  const variants = phoneVariants(phone);
+  if (variants.length === 1) {
+    return db.collection("users").where("phone", "==", variants[0]).get();
+  }
+
+  return db.collection("users").where("phone", "in", variants).get();
+}
+
 /**
  * Create or update OTP for phone/email
  */
@@ -137,10 +164,7 @@ export async function registerUser(email, phone, password, name, role) {
     }
   }
 
-  const phoneQuery = await db
-    .collection("users")
-    .where("phone", "==", normalizedPhone)
-    .get();
+  const phoneQuery = await queryUsersByPhone(normalizedPhone);
 
   if (!phoneQuery.empty) {
     throw new ConflictError(
@@ -256,10 +280,7 @@ export async function loginUser(credential, password) {
   } else {
     // Phone login
     const normalizedPhone = normalizePhone(normalizedCredential);
-    const query = await db
-      .collection("users")
-      .where("phone", "==", normalizedPhone)
-      .get();
+    const query = await queryUsersByPhone(normalizedPhone);
     if (query.empty) {
       throw new AuthenticationError("User not found");
     }
@@ -307,10 +328,7 @@ export async function findUserByCredential(credential) {
     userDoc = query.docs[0];
   } else {
     const normalizedPhone = normalizePhone(normalizedCredential);
-    const query = await db
-      .collection("users")
-      .where("phone", "==", normalizedPhone)
-      .get();
+    const query = await queryUsersByPhone(normalizedPhone);
     if (query.empty) {
       throw new NotFoundError("User not found");
     }
@@ -377,18 +395,22 @@ export async function updateUserProfile(uid, updates) {
   }
 
   if (phone !== undefined) {
-    // Check if phone is already in use
-    const phoneQuery = await db
-      .collection("users")
-      .where("phone", "==", phone)
-      .where("uid", "!=", uid)
-      .get();
+    const normalizedPhone = normalizePhone(phone);
+    const variants = phoneVariants(normalizedPhone);
 
-    if (!phoneQuery.empty) {
+    // Check if phone is already in use
+    const phoneQuery =
+      variants.length === 1
+        ? await db.collection("users").where("phone", "==", variants[0]).get()
+        : await db.collection("users").where("phone", "in", variants).get();
+
+    const hasConflict = phoneQuery.docs.some((doc) => doc.data().uid !== uid);
+
+    if (hasConflict) {
       throw new ConflictError("Phone number already in use");
     }
 
-    validUpdates.phone = phone;
+    validUpdates.phone = normalizedPhone;
   }
 
   if (email !== undefined) {

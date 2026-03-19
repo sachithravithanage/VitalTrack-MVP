@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/models.dart';
 import '../app/scope.dart';
@@ -9,8 +12,33 @@ import '../widgets/dashboard_shell.dart';
 import '../widgets/selection_controls.dart';
 import 'records.dart';
 
-class CaregiverPatientsScreen extends StatelessWidget {
+class CaregiverPatientsScreen extends StatefulWidget {
   const CaregiverPatientsScreen({super.key});
+
+  @override
+  State<CaregiverPatientsScreen> createState() =>
+      _CaregiverPatientsScreenState();
+}
+
+class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
+  Timer? _refreshTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final app = AppScope.of(context);
+    unawaited(app.loadCaregiverPatients());
+    _refreshTimer ??= Timer.periodic(const Duration(seconds: 12), (_) {
+      if (!mounted) return;
+      unawaited(app.loadCaregiverPatients());
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,23 +49,6 @@ class CaregiverPatientsScreen extends StatelessWidget {
     return ResponsiveListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
       children: <Widget>[
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: <Widget>[
-              _HeaderTab(label: 'My Patients', selected: true, onTap: () {}),
-              const SizedBox(width: 20),
-              _HeaderTab(
-                label: 'Recent Activity',
-                selected: false,
-                onTap: () {},
-              ),
-              const SizedBox(width: 20),
-              _HeaderTab(label: 'Resources', selected: false, onTap: () {}),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
         Text(
           'Patient Directory',
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -165,40 +176,12 @@ class CaregiverPatientsScreen extends StatelessWidget {
         const SizedBox(height: 10),
         BusyFilledButton(
           isBusy: false,
-          label: 'Add New Patient',
+          label: 'Add Patient',
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const AddPatientScreen()),
             );
           },
-        ),
-        const SizedBox(height: 18),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(36),
-              boxShadow: const <BoxShadow>[
-                BoxShadow(
-                  color: Color(0x331E73D8),
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: const Text(
-              '✱',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 34,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
-            ),
-          ),
         ),
       ],
     );
@@ -330,60 +313,34 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 TextFormField(
                   controller: _codeController,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   maxLength: 6,
+                  textAlign: TextAlign.center,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
                   decoration: const InputDecoration(
                     counterText: '',
                     hintText: '000000',
-                    contentPadding: EdgeInsets.zero,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    filled: false,
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
                   ),
                   style: const TextStyle(
-                    fontSize: 1,
-                    color: Colors.transparent,
+                    fontSize: 24,
+                    letterSpacing: 4,
+                    fontWeight: FontWeight.w700,
                   ),
-                  cursorColor: Colors.transparent,
                   validator: (String? value) {
                     if (value == null || value.trim().length != 6) {
                       return app.t('invalid_code');
                     }
                     return null;
-                  },
-                  onChanged: (_) => setState(() {}),
-                ),
-                LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    final double gap = 8;
-                    final double width =
-                        ((constraints.maxWidth - (gap * 5)) / 6).clamp(36, 56);
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List<Widget>.generate(6, (int i) {
-                        final String text = i < _codeController.text.length
-                            ? _codeController.text[i]
-                            : '';
-                        return Container(
-                          width: width,
-                          height: 58,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFD4DFEE)),
-                          ),
-                          child: Text(
-                            text,
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1E2C44),
-                                ),
-                          ),
-                        );
-                      }),
-                    );
                   },
                 ),
               ],
@@ -419,69 +376,6 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 ),
               ],
               const SizedBox(height: 18),
-              if (_useCode) ...<Widget>[
-                Row(
-                  children: <Widget>[
-                    const Expanded(child: Divider(color: Color(0xFFD7E1EF))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
-                        'OR',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFF8C9CB3),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const Expanded(child: Divider(color: Color(0xFFD7E1EF))),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => setState(() => _useCode = false),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFD4DFEE)),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Start Registration',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium
-                                    ?.copyWith(
-                                      color: const Color(0xFF0A1430),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'This takes about 2 minutes',
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(color: const Color(0xFF6D7D95)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: Color(0xFF95A5BC),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 28),
               BusyFilledButton(
                 isBusy: _saving,
                 label: app.t('confirm'),
@@ -531,14 +425,6 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                   Navigator.of(context).pop();
                 },
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Need help? Contact VitalTrack Support',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: const Color(0xFF5E708A),
-                ),
-              ),
             ],
           ),
         ),
@@ -555,43 +441,6 @@ class CaregiverPatientRecordsScreen extends StatefulWidget {
   @override
   State<CaregiverPatientRecordsScreen> createState() =>
       _CaregiverPatientRecordsScreenState();
-}
-
-class _HeaderTab extends StatelessWidget {
-  const _HeaderTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          border: selected
-              ? const Border(
-                  bottom: BorderSide(color: Color(0xFF1E73D8), width: 3),
-                )
-              : null,
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: selected ? const Color(0xFF1E73D8) : const Color(0xFF657892),
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CaregiverPatientRecordsScreenState
