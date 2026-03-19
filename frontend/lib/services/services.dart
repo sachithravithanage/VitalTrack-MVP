@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
 /// Service for medical records operations
@@ -28,7 +29,7 @@ class RecordService {
       );
       return response;
     } catch (e) {
-      print("Error creating record: $e");
+      debugPrint("Error creating record: $e");
       rethrow;
     }
   }
@@ -47,7 +48,7 @@ class RecordService {
       );
       return response;
     } catch (e) {
-      print("Error listing records: $e");
+      debugPrint("Error listing records: $e");
       rethrow;
     }
   }
@@ -64,7 +65,7 @@ class RecordService {
       );
       return response;
     } catch (e) {
-      print("Error getting record stats: $e");
+      debugPrint("Error getting record stats: $e");
       rethrow;
     }
   }
@@ -81,7 +82,7 @@ class RecordService {
       );
       return response;
     } catch (e) {
-      print("Error exporting records: $e");
+      debugPrint("Error exporting records: $e");
       rethrow;
     }
   }
@@ -97,7 +98,7 @@ class RelationshipService {
       final response = await _apiClient.generateLinkCode();
       return response['code'] as String? ?? '';
     } catch (e) {
-      print("Error generating link code: $e");
+      debugPrint("Error generating link code: $e");
       rethrow;
     }
   }
@@ -114,7 +115,7 @@ class RelationshipService {
       );
       return response;
     } catch (e) {
-      print("Error adding patient: $e");
+      debugPrint("Error adding patient: $e");
       rethrow;
     }
   }
@@ -131,7 +132,7 @@ class RelationshipService {
       );
       return response;
     } catch (e) {
-      print("Error creating patient: $e");
+      debugPrint("Error creating patient: $e");
       rethrow;
     }
   }
@@ -142,7 +143,7 @@ class RelationshipService {
       final response = await _apiClient.getPatients();
       return response['patients'] as List<dynamic>? ?? [];
     } catch (e) {
-      print("Error getting patients: $e");
+      debugPrint("Error getting patients: $e");
       rethrow;
     }
   }
@@ -153,7 +154,7 @@ class RelationshipService {
       final response = await _apiClient.getCaregivers();
       return response['caregivers'] as List<dynamic>? ?? [];
     } catch (e) {
-      print("Error getting caregivers: $e");
+      debugPrint("Error getting caregivers: $e");
       rethrow;
     }
   }
@@ -169,7 +170,7 @@ class NotificationService {
       final response = await _apiClient.getNotificationHistory(limit: limit);
       return response['notifications'] as List<dynamic>? ?? [];
     } catch (e) {
-      print("Error getting notification history: $e");
+      debugPrint("Error getting notification history: $e");
       rethrow;
     }
   }
@@ -199,7 +200,7 @@ class HotspotService {
       );
       return response;
     } catch (e) {
-      print("Error submitting hotspot: $e");
+      debugPrint("Error submitting hotspot: $e");
       rethrow;
     }
   }
@@ -212,7 +213,7 @@ class HotspotService {
       );
       return response['hotspots'] as List<dynamic>? ?? [];
     } catch (e) {
-      print("Error getting patient hotspots: $e");
+      debugPrint("Error getting patient hotspots: $e");
       rethrow;
     }
   }
@@ -223,7 +224,7 @@ class HotspotService {
       final response = await _apiClient.getHeatmapData(disease: disease);
       return response;
     } catch (e) {
-      print("Error getting heatmap data: $e");
+      debugPrint("Error getting heatmap data: $e");
       rethrow;
     }
   }

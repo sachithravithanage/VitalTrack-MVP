@@ -46,8 +46,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: '$baseUrl/api/$apiVersion',
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
         contentType: Headers.jsonContentType,
       ),
     );
@@ -124,6 +124,43 @@ class ApiClient {
       final response = await _dio.post(
         '/auth/login',
         data: {'credential': credential, 'password': password},
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Send forgot-password OTP
+  Future<Map<String, dynamic>> sendForgotPasswordOtp({
+    required String credential,
+    required String type,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/forgot-password/send-otp',
+        data: {'credential': credential, 'type': type},
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Reset password with OTP
+  Future<Map<String, dynamic>> resetPassword({
+    required String credential,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/forgot-password/reset',
+        data: {
+          'credential': credential,
+          'otp': otp,
+          'newPassword': newPassword,
+        },
       );
       return _unwrapResponse(response.data);
     } catch (e) {

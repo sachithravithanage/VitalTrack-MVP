@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'firebase_service.dart';
 import 'api_client.dart';
 import 'storage_service.dart';
@@ -20,7 +21,7 @@ class AuthService {
       );
       return response['success'] ?? false;
     } catch (e) {
-      print("Error sending OTP: $e");
+      debugPrint("Error sending OTP: $e");
       rethrow;
     }
   }
@@ -45,7 +46,7 @@ class AuthService {
 
       return response;
     } catch (e) {
-      print("Error verifying OTP: $e");
+      debugPrint("Error verifying OTP: $e");
       rethrow;
     }
   }
@@ -85,7 +86,7 @@ class AuthService {
 
       return response;
     } catch (e) {
-      print("Error signing up: $e");
+      debugPrint("Error signing up: $e");
       rethrow;
     }
   }
@@ -119,7 +120,42 @@ class AuthService {
 
       return response;
     } catch (e) {
-      print("Error logging in: $e");
+      debugPrint("Error logging in: $e");
+      rethrow;
+    }
+  }
+
+  /// Send forgot-password OTP
+  Future<bool> sendForgotPasswordOtp({
+    required String credential,
+    required String type,
+  }) async {
+    try {
+      final response = await _apiClient.sendForgotPasswordOtp(
+        credential: credential,
+        type: type,
+      );
+      return response['success'] ?? false;
+    } catch (e) {
+      debugPrint("Error sending forgot-password OTP: $e");
+      rethrow;
+    }
+  }
+
+  /// Reset password using OTP
+  Future<Map<String, dynamic>> resetPassword({
+    required String credential,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      return await _apiClient.resetPassword(
+        credential: credential,
+        otp: otp,
+        newPassword: newPassword,
+      );
+    } catch (e) {
+      debugPrint("Error resetting password: $e");
       rethrow;
     }
   }
@@ -137,7 +173,7 @@ class AuthService {
 
       return response;
     } catch (e) {
-      print("Error getting user profile: $e");
+      debugPrint("Error getting user profile: $e");
       rethrow;
     }
   }
@@ -163,7 +199,7 @@ class AuthService {
 
       return response;
     } catch (e) {
-      print("Error updating profile: $e");
+      debugPrint("Error updating profile: $e");
       rethrow;
     }
   }
@@ -173,7 +209,7 @@ class AuthService {
     try {
       return await _apiClient.verifyEmail();
     } catch (e) {
-      print("Error requesting email verification: $e");
+      debugPrint("Error requesting email verification: $e");
       rethrow;
     }
   }
@@ -193,7 +229,7 @@ class AuthService {
 
       return response;
     } catch (e) {
-      print("Error confirming email verification: $e");
+      debugPrint("Error confirming email verification: $e");
       rethrow;
     }
   }
@@ -220,7 +256,7 @@ class AuthService {
       await _storage.clearCurrentUser();
       await _storage.clearFCMToken();
     } catch (e) {
-      print("Error logging out: $e");
+      debugPrint("Error logging out: $e");
       rethrow;
     }
   }
@@ -239,7 +275,7 @@ class AuthService {
         });
       }
     } catch (e) {
-      print("Error registering FCM token: $e");
+      debugPrint("Error registering FCM token: $e");
     }
   }
 
@@ -249,7 +285,7 @@ class AuthService {
       await _apiClient.registerFCMToken(token: newToken, platform: 'flutter');
       await _storage.saveFCMToken(newToken);
     } catch (e) {
-      print("Error updating FCM token: $e");
+      debugPrint("Error updating FCM token: $e");
     }
   }
 

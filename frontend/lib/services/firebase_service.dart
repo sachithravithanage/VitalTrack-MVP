@@ -13,10 +13,10 @@ Future<void> initializeFirebase() async {
     try {
       // Connect to Auth emulator (runs on localhost:9099 by default)
       await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-      print('✓ Connected to Firebase Auth Emulator');
+      debugPrint('✓ Connected to Firebase Auth Emulator');
     } catch (e) {
       // Emulator might not be running, continue anyway
-      print('⚠ Auth Emulator not available: $e');
+      debugPrint('⚠ Auth Emulator not available: $e');
     }
   }
 
@@ -37,7 +37,7 @@ Future<void> initializeFirebase() async {
 
 /// Background message handler for Firebase Cloud Messaging
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print("Handling a background message: ${message.messageId}");
+  debugPrint("Handling a background message: ${message.messageId}");
 }
 
 /// Firebase Authentication Service
@@ -105,7 +105,7 @@ class FirebaseAuthService {
     try {
       return await _messaging.getToken();
     } catch (e) {
-      print("Error getting FCM token: $e");
+      debugPrint("Error getting FCM token: $e");
       return null;
     }
   }

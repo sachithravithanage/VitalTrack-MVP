@@ -68,7 +68,7 @@ class AppState extends ChangeNotifier {
         await reloadUserData();
       }
     } catch (e) {
-      print('Login error: $e');
+      debugPrint('Login error: $e');
       rethrow;
     }
   }
@@ -103,7 +103,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Signup error: $e');
+      debugPrint('Signup error: $e');
       rethrow;
     }
   }
@@ -119,7 +119,7 @@ class AppState extends ChangeNotifier {
       _hotspots.clear();
       notifyListeners();
     } catch (e) {
-      print('Logout error: $e');
+      debugPrint('Logout error: $e');
       rethrow;
     }
   }
@@ -144,7 +144,7 @@ class AppState extends ChangeNotifier {
       // Load hotspot data
       await loadPatientHotspots(currentUser!.id);
     } catch (e) {
-      print('Error reloading user data: $e');
+      debugPrint('Error reloading user data: $e');
       // Don't rethrow - this is optional data
     }
   }
@@ -170,7 +170,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Update profile error: $e');
+      debugPrint('Update profile error: $e');
       rethrow;
     }
   }
@@ -255,7 +255,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Add record error: $e');
+      debugPrint('Add record error: $e');
       rethrow;
     }
   }
@@ -306,7 +306,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Load patient records error: $e');
+      debugPrint('Load patient records error: $e');
       rethrow;
     }
   }
@@ -352,7 +352,7 @@ class AppState extends ChangeNotifier {
           pdf?['filePath'] ??
           '';
     } catch (e) {
-      print('Export records error: $e');
+      debugPrint('Export records error: $e');
       rethrow;
     }
   }
@@ -365,7 +365,7 @@ class AppState extends ChangeNotifier {
       final code = await relationshipService.generateLinkCode();
       return code;
     } catch (e) {
-      print('Generate link code error: $e');
+      debugPrint('Generate link code error: $e');
       rethrow;
     }
   }
@@ -405,7 +405,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Attach patient error: $e');
+      debugPrint('Attach patient error: $e');
       rethrow;
     }
   }
@@ -445,7 +445,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Create managed patient error: $e');
+      debugPrint('Create managed patient error: $e');
       rethrow;
     }
   }
@@ -474,7 +474,7 @@ class AppState extends ChangeNotifier {
       _caregiverPatients[currentUser!.id] = patients;
       notifyListeners();
     } catch (e) {
-      print('Load caregiver patients error: $e');
+      debugPrint('Load caregiver patients error: $e');
       rethrow;
     }
   }
@@ -484,7 +484,7 @@ class AppState extends ChangeNotifier {
     try {
       return await relationshipService.getCaregivers();
     } catch (e) {
-      print('Get caregivers error: $e');
+      debugPrint('Get caregivers error: $e');
       rethrow;
     }
   }
@@ -508,7 +508,7 @@ class AppState extends ChangeNotifier {
       _caregiversByPatient[currentUser!.id] = caregivers;
       notifyListeners();
     } catch (e) {
-      print('Load patient caregivers error: $e');
+      debugPrint('Load patient caregivers error: $e');
       rethrow;
     }
   }
@@ -560,7 +560,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Submit hotspot error: $e');
+      debugPrint('Submit hotspot error: $e');
       rethrow;
     }
   }
@@ -587,7 +587,7 @@ class AppState extends ChangeNotifier {
       _hotspots.addAll(hotspots);
       notifyListeners();
     } catch (e) {
-      print('Load patient hotspots error: $e');
+      debugPrint('Load patient hotspots error: $e');
       rethrow;
     }
   }

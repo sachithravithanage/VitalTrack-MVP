@@ -112,6 +112,97 @@ router.post("/send-otp", async (req, res) => {
 });
 
 /**
+ * POST /api/v1/auth/forgot-password/send-otp
+ * Send OTP for password reset
+ */
+router.post("/forgot-password/send-otp", async (req, res) => {
+  try {
+    const { credential, type } = req.body;
+
+    if (!credential || !type || !["phone", "email"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid credential or type",
+        },
+      });
+    }
+
+    const normalizedCredential =
+      type === "email" ? validateEmail(credential) : validatePhone(credential);
+
+    await authService.findUserByCredential(normalizedCredential);
+    const otp = await authService.createOTP(normalizedCredential, type);
+
+    if (type === "email") {
+      try {
+        await emailService.sendOtpEmail(
+          normalizedCredential,
+          otp,
+          "password reset",
+        );
+      } catch (emailError) {
+        console.error("Failed to send reset email:", emailError);
+      }
+    } else {
+      console.log(`Password reset SMS OTP for ${normalizedCredential}: ${otp}`);
+    }
+
+    res.json({
+      success: true,
+      message: `Password reset OTP sent to ${type}`,
+      ...(process.env.NODE_ENV === "development" && { otp }),
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * POST /api/v1/auth/forgot-password/reset
+ * Reset password using OTP
+ */
+router.post("/forgot-password/reset", async (req, res) => {
+  try {
+    const { credential, otp, newPassword } = req.body;
+
+    if (!credential || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Credential, OTP, and new password required",
+        },
+      });
+    }
+
+    validateOTP(otp);
+    validatePassword(newPassword);
+
+    const normalizedCredential = credential.includes("@")
+      ? validateEmail(credential)
+      : validatePhone(credential);
+
+    await authService.verifyOTP(normalizedCredential, otp);
+    const user = await authService.resetPasswordByCredential(
+      normalizedCredential,
+      newPassword,
+    );
+
+    res.json({
+      success: true,
+      message: "Password reset successful",
+      data: {
+        uid: user.uid,
+      },
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
  * POST /api/v1/auth/verify-otp
  * Verify OTP sent to phone or email
  */

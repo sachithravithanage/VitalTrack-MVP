@@ -290,6 +290,59 @@ export async function loginUser(credential, password) {
 }
 
 /**
+ * Find user by email or phone credential
+ */
+export async function findUserByCredential(credential) {
+  let userDoc;
+  const normalizedCredential = String(credential || "").trim();
+
+  if (normalizedCredential.includes("@")) {
+    const query = await db
+      .collection("users")
+      .where("email", "==", normalizedCredential.toLowerCase())
+      .get();
+    if (query.empty) {
+      throw new NotFoundError("User not found");
+    }
+    userDoc = query.docs[0];
+  } else {
+    const normalizedPhone = normalizePhone(normalizedCredential);
+    const query = await db
+      .collection("users")
+      .where("phone", "==", normalizedPhone)
+      .get();
+    if (query.empty) {
+      throw new NotFoundError("User not found");
+    }
+    userDoc = query.docs[0];
+  }
+
+  return userDoc.data();
+}
+
+/**
+ * Reset password using credential
+ */
+export async function resetPasswordByCredential(credential, newPassword) {
+  const user = await findUserByCredential(credential);
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await db.collection("users").doc(user.uid).update({
+    passwordHash,
+    updatedAt: new Date(),
+  });
+
+  await auth.updateUser(user.uid, { password: newPassword });
+
+  return {
+    uid: user.uid,
+    email: user.email,
+    phone: user.phone,
+  };
+}
+
+/**
  * Create a Firebase custom token for a user ID
  */
 export async function createCustomAuthToken(uid) {
@@ -388,6 +441,8 @@ export default {
   verifyOTP,
   registerUser,
   loginUser,
+  findUserByCredential,
+  resetPasswordByCredential,
   getUserProfile,
   updateUserProfile,
   markEmailVerified,
