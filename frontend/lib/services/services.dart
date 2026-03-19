@@ -72,10 +72,12 @@ class RecordService {
   /// Export records as PDF
   Future<Map<String, dynamic>> exportRecordsPdf({
     String? timelineFilter,
+    String? patientId,
   }) async {
     try {
       final response = await _apiClient.exportRecordsPdf(
         timelineFilter: timelineFilter,
+        patientId: patientId,
       );
       return response;
     } catch (e) {
@@ -113,6 +115,23 @@ class RelationshipService {
       return response;
     } catch (e) {
       print("Error adding patient: $e");
+      rethrow;
+    }
+  }
+
+  /// Create and link a new managed patient
+  Future<Map<String, dynamic>> createPatient({
+    required String name,
+    required String disease,
+  }) async {
+    try {
+      final response = await _apiClient.createPatient(
+        name: name,
+        disease: disease,
+      );
+      return response;
+    } catch (e) {
+      print("Error creating patient: $e");
       rethrow;
     }
   }

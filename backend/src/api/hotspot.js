@@ -13,47 +13,51 @@ router.use(verifyFirebaseToken);
  * POST /api/v1/hotspot/submit
  * Submit hotspot location data
  */
-router.post("/submit", requireRole("patient"), async (req, res) => {
-  try {
-    const { subject, hometown, workplace, places, disease, coordinates } =
-      req.body;
+router.post(
+  "/submit",
+  requireRole("patient", "caregiver"),
+  async (req, res) => {
+    try {
+      const { subject, hometown, workplace, places, disease, coordinates } =
+        req.body;
 
-    if (!subject || !hometown) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Subject and hometown are required",
-        },
+      if (!subject || !hometown) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Subject and hometown are required",
+          },
+        });
+      }
+
+      // Validate coordinates if provided
+      let validCoordinates = null;
+      if (coordinates?.latitude && coordinates?.longitude) {
+        validCoordinates = validateCoordinates(
+          coordinates.latitude,
+          coordinates.longitude,
+        );
+      }
+
+      const data = await hotspotService.submitHotspotData(req.user.uid, {
+        subject,
+        hometown,
+        workplace,
+        places,
+        disease,
+        coordinates: validCoordinates,
       });
+
+      res.status(201).json({
+        success: true,
+        data: { hotspot: data },
+      });
+    } catch (error) {
+      handleError(error, res);
     }
-
-    // Validate coordinates if provided
-    let validCoordinates = null;
-    if (coordinates?.latitude && coordinates?.longitude) {
-      validCoordinates = validateCoordinates(
-        coordinates.latitude,
-        coordinates.longitude,
-      );
-    }
-
-    const data = await hotspotService.submitHotspotData(req.user.uid, {
-      subject,
-      hometown,
-      workplace,
-      places,
-      disease,
-      coordinates: validCoordinates,
-    });
-
-    res.status(201).json({
-      success: true,
-      data: { hotspot: data },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+  },
+);
 
 /**
  * GET /api/v1/hotspot/patient/:patientId

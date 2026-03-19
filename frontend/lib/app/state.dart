@@ -11,6 +11,8 @@ class AppState extends ChangeNotifier {
       <String, List<RecordEntry>>{};
   final Map<String, List<PatientSummary>> _caregiverPatients =
       <String, List<PatientSummary>>{};
+  final Map<String, List<Map<String, dynamic>>> _caregiversByPatient =
+      <String, List<Map<String, dynamic>>>{};
   final List<HotspotResponse> _hotspots = <HotspotResponse>[];
 
   String t(String key) {
@@ -113,6 +115,7 @@ class AppState extends ChangeNotifier {
       currentUser = null;
       _recordsByPatient.clear();
       _caregiverPatients.clear();
+      _caregiversByPatient.clear();
       _hotspots.clear();
       notifyListeners();
     } catch (e) {
@@ -133,6 +136,9 @@ class AppState extends ChangeNotifier {
       if (currentUser!.role == UserRole.caregiver) {
         // Caregivers: load their patients
         await loadCaregiverPatients();
+      } else {
+        // Patients: load linked caregivers
+        await loadPatientCaregivers();
       }
 
       // Load hotspot data
@@ -331,10 +337,12 @@ class AppState extends ChangeNotifier {
   /// Export records as PDF
   Future<String> exportRecordsPdf({
     TimelineFilter filter = TimelineFilter.last7Days,
+    String? patientId,
   }) async {
     try {
       final response = await recordService.exportRecordsPdf(
         timelineFilter: _filterToString(filter),
+        patientId: patientId,
       );
       final pdf = response['pdf'] as Map<String, dynamic>?;
       // Returns signed URL or file path
@@ -402,6 +410,46 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Caregiver creates a managed patient profile and links it immediately
+  Future<void> createManagedPatient({
+    required String name,
+    required String disease,
+  }) async {
+    try {
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final response = await relationshipService.createPatient(
+        name: name,
+        disease: disease,
+      );
+
+      if (response['relationship'] != null) {
+        final patientData = response['relationship'] as Map<String, dynamic>;
+        final diseaseStr = patientData['disease'] ?? disease;
+        final diseaseParsed =
+            diseaseStr == 'ratFever' || diseaseStr.toLowerCase().contains('rat')
+            ? DiseaseType.ratFever
+            : DiseaseType.dengue;
+
+        final patient = PatientSummary(
+          id: patientData['patientId'] ?? '',
+          name: patientData['patientName'] ?? '',
+          disease: diseaseParsed,
+        );
+
+        final patients = _caregiverPatients.putIfAbsent(
+          currentUser!.id,
+          () => <PatientSummary>[],
+        );
+        patients.add(patient);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Create managed patient error: $e');
+      rethrow;
+    }
+  }
+
   /// Get patients for caregiver
   Future<void> loadCaregiverPatients() async {
     try {
@@ -439,6 +487,37 @@ class AppState extends ChangeNotifier {
       print('Get caregivers error: $e');
       rethrow;
     }
+  }
+
+  /// Load linked caregivers for the current patient
+  Future<void> loadPatientCaregivers() async {
+    try {
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final caregiversList = await relationshipService.getCaregivers();
+      final caregivers = caregiversList.map((c) {
+        final caregiverData = c as Map<String, dynamic>;
+        return <String, dynamic>{
+          'id': caregiverData['id'] ?? caregiverData['uid'] ?? '',
+          'name': caregiverData['name'] ?? '',
+          'email': caregiverData['email'],
+          'phone': caregiverData['phone'],
+        };
+      }).toList();
+
+      _caregiversByPatient[currentUser!.id] = caregivers;
+      notifyListeners();
+    } catch (e) {
+      print('Load patient caregivers error: $e');
+      rethrow;
+    }
+  }
+
+  /// Get caregivers for a patient
+  List<Map<String, dynamic>> patientCaregivers(String patientId) {
+    return List<Map<String, dynamic>>.unmodifiable(
+      _caregiversByPatient[patientId] ?? <Map<String, dynamic>>[],
+    );
   }
 
   /// Get list of patients for caregiver
@@ -512,6 +591,13 @@ class AppState extends ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Get hotspots for a subject
+  List<HotspotResponse> get hotspotResponses =>
+      List<HotspotResponse>.unmodifiable(_hotspots)..sort(
+        (HotspotResponse a, HotspotResponse b) =>
+            b.createdAt.compareTo(a.createdAt),
+      );
 
   /// Get hotspots for a subject
   List<HotspotResponse> hotspotResponsesForSubject(String subject) {

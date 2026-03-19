@@ -2,11 +2,19 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+function resolveUseFirebaseEmulators() {
+  const raw = process.env.USE_FIREBASE_EMULATORS;
+
+  if (raw !== undefined) {
+    return String(raw).trim().toLowerCase() === "true";
+  }
+
+  return (process.env.NODE_ENV || "development") !== "production";
+}
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
-  useFirebaseEmulators:
-    process.env.USE_FIREBASE_EMULATORS === "true" ||
-    (process.env.NODE_ENV || "development") !== "production",
+  useFirebaseEmulators: resolveUseFirebaseEmulators(),
   port: process.env.PORT || 5000,
   apiVersion: process.env.API_VERSION || "v1",
 

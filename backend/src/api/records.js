@@ -276,40 +276,65 @@ router.get("/stats/:patientId", verifyFirebaseToken, async (req, res) => {
  * GET /api/v1/records/export/pdf
  * Export records as PDF
  */
-router.get("/export/pdf", requireRole("patient"), async (req, res) => {
-  try {
-    const { timelineFilter } = req.query;
+router.get(
+  "/export/pdf",
+  requireRole("patient", "caregiver"),
+  async (req, res) => {
+    try {
+      const { timelineFilter, patientId } = req.query;
 
-    const records = await recordService.listRecords(req.user.uid, {
-      timelineFilter,
-    });
-    const userProfile = await authService.getUserProfile(req.user.uid);
+      let targetPatientId = req.user.uid;
 
-    if (records.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: "NO_RECORDS",
-          message: "No records found to export",
+      if (req.userRole === "caregiver") {
+        if (!patientId) {
+          throw new ValidationError("Patient ID is required for caregivers");
+        }
+
+        const isLinked = await relationshipService.isCaregiverLinkedToPatient(
+          patientId,
+          req.user.uid,
+        );
+
+        if (!isLinked) {
+          throw new AuthenticationError(
+            "Caregiver is not linked to this patient",
+          );
+        }
+
+        targetPatientId = patientId;
+      }
+
+      const records = await recordService.listRecords(targetPatientId, {
+        timelineFilter,
+      });
+      const userProfile = await authService.getUserProfile(targetPatientId);
+
+      if (records.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "NO_RECORDS",
+            message: "No records found to export",
+          },
+        });
+      }
+
+      const pdfInfo = await pdfService.generatePDFReport(
+        targetPatientId,
+        records,
+        userProfile,
+      );
+
+      res.json({
+        success: true,
+        data: {
+          pdf: pdfInfo,
         },
       });
+    } catch (error) {
+      handleError(error, res);
     }
-
-    const pdfInfo = await pdfService.generatePDFReport(
-      req.user.uid,
-      records,
-      userProfile,
-    );
-
-    res.json({
-      success: true,
-      data: {
-        pdf: pdfInfo,
-      },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+  },
+);
 
 export default router;

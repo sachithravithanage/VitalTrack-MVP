@@ -23,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController phoneController;
   late TextEditingController emailController;
   late TextEditingController codeController;
+  bool _relationshipsLoaded = false;
 
   @override
   void initState() {
@@ -39,11 +40,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Now we can safely access AppScope in didChangeDependencies
-    final currentUser = AppScope.of(context).currentUser;
+    final app = AppScope.of(context);
+    final currentUser = app.currentUser;
     if (currentUser != null) {
       nameController.text = currentUser.name;
       phoneController.text = currentUser.phone;
       emailController.text = currentUser.email ?? '';
+
+      if (!_relationshipsLoaded) {
+        _relationshipsLoaded = true;
+        Future<void>.microtask(() async {
+          try {
+            if (currentUser.role == UserRole.patient) {
+              await app.loadPatientCaregivers();
+            } else {
+              await app.loadCaregiverPatients();
+            }
+          } catch (_) {}
+        });
+      }
     }
   }
 
@@ -118,7 +133,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return Center(child: CircularProgressIndicator());
     }
 
-    final List<PatientSummary> linked = app.caregiverPatients(user.id);
+    final List<PatientSummary> linkedPatients = app.caregiverPatients(user.id);
+    final List<Map<String, dynamic>> linkedCaregivers = app.patientCaregivers(
+      user.id,
+    );
 
     return ResponsiveListView(
       children: <Widget>[
@@ -276,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             app.t('caregivers_list'),
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          if (linked.isEmpty)
+          if (linkedCaregivers.isEmpty)
             EmptyStateCard(
               icon: Icons.group_outlined,
               title: app.t('no_caregivers_yet'),
@@ -287,7 +305,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(
-                  linked.map((PatientSummary p) => p.name).join(', '),
+                  linkedCaregivers
+                      .map(
+                        (Map<String, dynamic> c) =>
+                            (c['name'] ?? '').toString(),
+                      )
+                      .where((String n) => n.trim().isNotEmpty)
+                      .join(', '),
                 ),
               ),
             ),
@@ -309,7 +333,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             app.t('my_patients'),
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          if (linked.isEmpty)
+          if (linkedPatients.isEmpty)
             EmptyStateCard(
               icon: Icons.person_outline,
               title: app.t('no_patients_yet'),
@@ -320,7 +344,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(
-                  linked.map((PatientSummary p) => p.name).join(', '),
+                  linkedPatients.map((PatientSummary p) => p.name).join(', '),
                 ),
               ),
             ),
@@ -377,9 +401,9 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
     }
 
     final String defaultSubject = currentUser.name;
-    final List<HotspotResponse> history = app.hotspotResponsesForSubject(
-      defaultSubject,
-    );
+    final List<HotspotResponse> history = widget.forCaregiverPatientData
+        ? app.hotspotResponses
+        : app.hotspotResponsesForSubject(defaultSubject);
 
     return ResponsiveListView(
       children: <Widget>[
@@ -466,22 +490,30 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                     final String subject = widget.forCaregiverPatientData
                         ? _subjectController.text.trim()
                         : defaultSubject;
-                    app.submitHotspot(
-                      subject: subject,
-                      hometown: _hometownController.text.trim(),
-                      workplace: _workplaceController.text.trim(),
-                      places: _placesController.text.trim(),
-                    );
+                    try {
+                      await app.submitHotspot(
+                        subject: subject,
+                        hometown: _hometownController.text.trim(),
+                        workplace: _workplaceController.text.trim(),
+                        places: _placesController.text.trim(),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      setState(() => _saving = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${app.t('error')}: $e')),
+                      );
+                      return;
+                    }
                     _subjectController.clear();
                     _hometownController.clear();
                     _workplaceController.clear();
                     _placesController.clear();
-                    if (mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(app.t('saved'))));
-                      setState(() => _saving = false);
-                    }
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(app.t('saved'))));
+                    setState(() => _saving = false);
                   },
                 ),
               ],

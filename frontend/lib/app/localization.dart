@@ -13,6 +13,18 @@ localized = <String, Map<String, String>>{
     'en': 'Track your health, secure your life',
     'si': 'ඔබේ සෞඛ්‍යය නිරීක්ෂණය කර ජීවිතය සුරක්ෂිත කරගන්න',
   },
+  'splash_continue_note': {
+    'en': 'You can change this later in settings',
+    'si': 'මෙය පසුව සැකසුම් තුළ වෙනස් කළ හැක',
+  },
+  'select_preferred_language': {
+    'en': 'Select Your Preferred\nLanguage',
+    'si': 'ඔබගේ කැමති\nභාෂාව තෝරන්න',
+  },
+  'continue_bilingual': {
+    'en': 'Continue / ඉදිරියට',
+    'si': 'ඉදිරියට / Continue',
+  },
   'login': {'en': 'Login', 'si': 'පිවිසීම'},
   'signup': {'en': 'SignUp', 'si': 'ලියාපදිංචි වීම'},
   'login_subtitle': {
@@ -30,6 +42,28 @@ localized = <String, Map<String, String>>{
   'n4_number': {'en': 'Mobile Number', 'si': 'ජංගම දුරකථන අංකය'},
   'email': {'en': 'Email', 'si': 'ඊමේල්'},
   'password': {'en': 'Password', 'si': 'මුරපදය'},
+  'forgot_password': {'en': 'Forgot password?', 'si': 'මුරපදය අමතකද?'},
+  'via_mobile_number': {'en': 'Via Mobile Number', 'si': 'ජංගම අංකයෙන්'},
+  'via_email': {'en': 'Via Email', 'si': 'ඊමේල් මගින්'},
+  'monitor_precision': {
+    'en': 'Monitor your health with precision',
+    'si': 'ඔබගේ සෞඛ්‍යය නිවැරදිව නිරීක්ෂණය කරන්න',
+  },
+  'login_to_account': {'en': 'Login to Account', 'si': 'ගිණුමට පිවිසෙන්න'},
+  'dont_have_account': {'en': "Don't have an account?", 'si': 'ගිණුමක් නැද්ද?'},
+  'already_have_account': {
+    'en': 'Already have an account?',
+    'si': 'දැනටමත් ගිණුමක් තිබේද?',
+  },
+  'join_vitaltrack': {
+    'en': 'Join VitalTrack for better health monitoring',
+    'si': 'වඩා හොඳ සෞඛ්‍ය නිරීක්ෂණය සඳහා VitalTrack සමඟ එක්වන්න',
+  },
+  'terms_privacy_notice': {
+    'en': 'By logging in, you agree to our Terms of Service and Privacy Policy',
+    'si':
+        'පිවිසීමෙන් ඔබ අපගේ සේවා කොන්දේසි සහ පෞද්ගලිකත්ව ප්‍රතිපත්තියට එකඟ වේ',
+  },
   'continue': {'en': 'Continue', 'si': 'ඉදිරියට'},
   'no_account_signup': {
     'en': 'No account? Sign up',

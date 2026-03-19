@@ -127,6 +127,7 @@ class RecordFormScreen extends StatefulWidget {
 
 class _RecordFormScreenState extends State<RecordFormScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _saving = false;
 
   final TextEditingController _tempController = TextEditingController();
   final TextEditingController _fluidController = TextEditingController();
@@ -224,8 +225,10 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
               decoration: InputDecoration(labelText: app.t('additional_notes')),
             ),
             UiSpace.md,
-            FilledButton(
-              onPressed: () {
+            BusyFilledButton(
+              isBusy: _saving,
+              label: app.t('save'),
+              onPressed: () async {
                 if (_formKey.currentState?.validate() != true) return;
                 final isDengue = widget.disease == DiseaseType.dengue;
                 final Map<String, bool> symptoms = <String, bool>{};
@@ -233,26 +236,39 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   symptoms['bodyPain'] = _bodyPain;
                   symptoms['vomiting'] = _vomiting;
                 }
-                app.addRecord(
-                  patientId: widget.patientId,
-                  disease: widget.disease == DiseaseType.dengue
-                      ? 'dengue'
-                      : 'ratFever',
-                  temperature: _tempController.text.trim(),
-                  fluidIntake: isDengue ? _fluidController.text.trim() : null,
-                  urineOutput: _urineOutputController.text.trim(),
-                  urineColor: isDengue
-                      ? null
-                      : _urineColorController.text.trim(),
-                  symptoms: symptoms.isNotEmpty ? symptoms : null,
-                  notes: _notesController.text.trim(),
-                );
+
+                setState(() => _saving = true);
+                try {
+                  await app.addRecord(
+                    patientId: widget.patientId,
+                    disease: widget.disease == DiseaseType.dengue
+                        ? 'dengue'
+                        : 'ratFever',
+                    temperature: _tempController.text.trim(),
+                    fluidIntake: isDengue ? _fluidController.text.trim() : null,
+                    urineOutput: _urineOutputController.text.trim(),
+                    urineColor: isDengue
+                        ? null
+                        : _urineColorController.text.trim(),
+                    symptoms: symptoms.isNotEmpty ? symptoms : null,
+                    notes: _notesController.text.trim(),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${app.t('error')}: $e')),
+                  );
+                  setState(() => _saving = false);
+                  return;
+                }
+
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(SnackBar(content: Text(app.t('record_saved'))));
+                setState(() => _saving = false);
                 Navigator.of(context).pop();
               },
-              child: Text(app.t('save')),
             ),
           ],
         ),
@@ -454,7 +470,10 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
   ) async {
     try {
       // Call backend API to generate and download PDF
-      final String pdfUrl = await app.exportRecordsPdf(filter: _filter);
+      final String pdfUrl = await app.exportRecordsPdf(
+        filter: _filter,
+        patientId: widget.patientId,
+      );
 
       if (pdfUrl.isEmpty) {
         if (!context.mounted) return;

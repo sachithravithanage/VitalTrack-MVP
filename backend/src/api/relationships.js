@@ -66,6 +66,41 @@ router.post("/add-patient", requireRole("caregiver"), async (req, res) => {
 });
 
 /**
+ * POST /api/v1/relationships/create-patient
+ * Caregiver creates a new managed patient and links immediately
+ */
+router.post("/create-patient", requireRole("caregiver"), async (req, res) => {
+  try {
+    const { name, disease } = req.body;
+
+    if (!name || !disease) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Patient name and disease are required",
+        },
+      });
+    }
+
+    const result = await relationshipService.createManagedPatient(
+      req.user.uid,
+      {
+        name,
+        disease,
+      },
+    );
+
+    res.status(201).json({
+      success: true,
+      data: { relationship: result },
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
  * GET /api/v1/relationships/patients
  * Get list of patients (for caregivers)
  */

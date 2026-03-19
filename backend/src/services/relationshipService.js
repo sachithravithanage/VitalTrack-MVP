@@ -1,6 +1,7 @@
 import admin, { db } from "../config/firebase.js";
 import {
   generateLinkCode as createLinkCode,
+  generateId,
   isExpired,
 } from "../utils/helpers.js";
 import {
@@ -159,6 +160,104 @@ export async function useLinkCode(code, caregiverId) {
 }
 
 /**
+ * Caregiver creates and links a managed patient profile
+ */
+export async function createManagedPatient(caregiverId, { name, disease }) {
+  const trimmedName = String(name || "").trim();
+  if (trimmedName.length < 2) {
+    throw new ValidationError("Patient name must be at least 2 characters");
+  }
+
+  const allowedDiseases = ["dengue", "ratFever"];
+  if (!allowedDiseases.includes(disease)) {
+    throw new ValidationError("Invalid disease type");
+  }
+
+  const caregiverDoc = await db.collection("users").doc(caregiverId).get();
+  if (!caregiverDoc.exists) {
+    throw new NotFoundError("Caregiver not found");
+  }
+
+  const caregiver = caregiverDoc.data();
+  if (caregiver.role !== "caregiver") {
+    throw new ValidationError("Only caregivers can create managed patients");
+  }
+
+  const patientId = generateId();
+  const relationshipId = `${patientId}-${caregiverId}`;
+  const now = new Date();
+
+  await db
+    .collection("users")
+    .doc(patientId)
+    .set({
+      uid: patientId,
+      name: trimmedName,
+      role: "patient",
+      email: null,
+      phone: null,
+      emailVerified: false,
+      managedByCaregiver: true,
+      createdAt: now,
+      updatedAt: now,
+      isActive: true,
+      profile: {
+        avatar: null,
+        bio: "",
+      },
+    });
+
+  await db
+    .collection("patients")
+    .doc(patientId)
+    .set({
+      uid: patientId,
+      linkedCaregivers: [caregiverId],
+      medicalHistory: [],
+    });
+
+  await db.collection("relationships").doc(relationshipId).set({
+    patientId,
+    caregiverId,
+    patientName: trimmedName,
+    disease,
+    createdAt: now,
+    status: "active",
+    managed: true,
+  });
+
+  const existingCaregiverDoc = await db
+    .collection("caregivers")
+    .doc(caregiverId)
+    .get();
+
+  if (!existingCaregiverDoc.exists) {
+    await db
+      .collection("caregivers")
+      .doc(caregiverId)
+      .set({
+        uid: caregiverId,
+        linkedPatients: [patientId],
+      });
+  } else {
+    await db
+      .collection("caregivers")
+      .doc(caregiverId)
+      .update({
+        linkedPatients: admin.firestore.FieldValue.arrayUnion(patientId),
+      });
+  }
+
+  return {
+    patientId,
+    patientName: trimmedName,
+    caregiverId,
+    disease,
+    linkedAt: now,
+  };
+}
+
+/**
  * Get patient's linked caregivers
  */
 export async function getPatientCaregivers(patientId) {
@@ -293,6 +392,7 @@ export async function removeRelationship(patientId, caregiverId) {
 export default {
   generateLinkCode,
   useLinkCode,
+  createManagedPatient,
   getPatientCaregivers,
   getCaregiverPatients,
   isCaregiverLinkedToPatient,

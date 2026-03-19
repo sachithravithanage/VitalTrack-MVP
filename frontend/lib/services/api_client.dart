@@ -256,10 +256,12 @@ class ApiClient {
   /// Export records as PDF
   Future<Map<String, dynamic>> exportRecordsPdf({
     String? timelineFilter,
+    String? patientId,
   }) async {
     try {
       final Map<String, dynamic> query = <String, dynamic>{};
       if (timelineFilter != null) query['timelineFilter'] = timelineFilter;
+      if (patientId != null) query['patientId'] = patientId;
       final response = await _dio.get(
         '/records/export/pdf',
         queryParameters: query,
@@ -293,6 +295,22 @@ class ApiClient {
       final response = await _dio.post(
         '/relationships/add-patient',
         data: data,
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Create and link a new managed patient
+  Future<Map<String, dynamic>> createPatient({
+    required String name,
+    required String disease,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/relationships/create-patient',
+        data: {'name': name, 'disease': disease},
       );
       return _unwrapResponse(response.data);
     } catch (e) {

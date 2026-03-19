@@ -258,13 +258,20 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                     return;
                   }
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(app.t('manual_entry_not_supported')),
-                    ),
-                  );
-                  setState(() => _saving = false);
-                  return;
+                  try {
+                    await app.createManagedPatient(
+                      name: _nameController.text.trim(),
+                      disease: _disease.toString().split('.').last,
+                    );
+                    await app.loadCaregiverPatients();
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${app.t('error')}: $e')),
+                    );
+                    setState(() => _saving = false);
+                    return;
+                  }
                 }
 
                 if (!context.mounted) return;
