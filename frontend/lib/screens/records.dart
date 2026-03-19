@@ -27,11 +27,11 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
         : null;
 
     return ResponsiveListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       children: <Widget>[
         Text(
           'Good morning, $firstName',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w800,
             color: const Color(0xFF0A1430),
           ),
@@ -46,7 +46,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
         const SizedBox(height: 28),
         Text(
           app.t('keep_records'),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
             color: const Color(0xFF0A1430),
           ),
@@ -58,7 +58,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
             context,
           ).textTheme.titleMedium?.copyWith(color: const Color(0xFF5F7391)),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         _DiseaseSelectorTile(
           title: app.t('dengue'),
           onTap: () {
@@ -88,7 +88,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
             );
           },
         ),
-        if (latest != null) const SizedBox(height: 14),
+        if (latest != null) const SizedBox(height: 16),
         if (latest != null)
           Container(
             padding: const EdgeInsets.all(16),
@@ -117,10 +117,10 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
                         'Last entry: ${_relativeTimeLabel(latest.createdAt)}',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: const Color(0xFF24344F),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         '${latest.disease == DiseaseType.dengue ? app.t('dengue') : app.t('rat_fever')} monitoring',
                         style: Theme.of(context).textTheme.titleMedium
@@ -229,7 +229,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(28, 18, 28, 26),
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
             children: <Widget>[
               Row(
                 children: <Widget>[
@@ -254,7 +254,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
                 isDengue
                     ? 'Record all dengue warning indicators with Yes / No selections.'
@@ -263,7 +263,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   color: const Color(0xFF5F7391),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               if (isDengue) ...<Widget>[
                 const _FieldLabel(
                   text: 'Body Temperature (°C)',
@@ -281,7 +281,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                       ? app.t('required_field')
                       : null,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 const _FieldLabel(
                   text: 'Fluid Intake (ml)',
                   icon: Icons.opacity_rounded,
@@ -296,7 +296,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                       ? app.t('required_field')
                       : null,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
               ],
               _FieldLabel(
                 text: 'Urine Output (ml)',
@@ -314,7 +314,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                     ? app.t('required_field')
                     : null,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               if (isDengue)
                 ..._buildYesNoGroup(
                   context,
@@ -371,7 +371,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 ..._buildYesNoGroup(
                   context,
                   data: _ratSymptoms,
@@ -406,7 +406,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                       : 'Describe any other symptoms or feelings here...',
                 ),
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 24),
               BusyFilledButton(
                 isBusy: _saving,
                 label: 'Save Record',
@@ -498,7 +498,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
   InputDecoration _formDecoration({required String hint, Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF97A6BC), fontSize: 19),
+      hintStyle: const TextStyle(color: Color(0xFF97A6BC), fontSize: 16),
       suffixIcon: suffix,
       filled: true,
       fillColor: Colors.white,
@@ -514,7 +514,7 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: Color(0xFF1E73D8), width: 1.3),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 }
@@ -1079,12 +1079,12 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        Icon(icon, color: const Color(0xFF2D3E5B), size: 22),
+        Icon(icon, color: const Color(0xFF2D3E5B), size: 20),
         const SizedBox(width: 8),
         Text(
           text,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
             color: const Color(0xFF1C2D49),
           ),
         ),

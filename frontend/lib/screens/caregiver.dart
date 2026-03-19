@@ -66,7 +66,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              '${patients.length} Active',
+              '${patients.length} Active Patients',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: const Color(0xFF1E73D8),
                 fontWeight: FontWeight.w600,
@@ -87,7 +87,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                 ? app.t('dengue')
                 : app.t('rat_fever');
             return Card(
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: 14),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () {
@@ -100,11 +100,24 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
+                    horizontal: 16,
+                    vertical: 16,
                   ),
                   child: Row(
                     children: <Widget>[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE9F1FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.person_outline_rounded,
+                          color: Color(0xFF1E73D8),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,51 +126,32 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                               patient.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.headlineMedium
+                              style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     color: const Color(0xFF0A1430),
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: <Widget>[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _statusColor(
-                                      diseaseLabel,
-                                    ).withValues(alpha: 0.16),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    diseaseLabel.toUpperCase(),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: _statusColor(diseaseLabel),
-                                          letterSpacing: 1.4,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    '• ${_diseaseStateLabel(patient.disease)}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          color: const Color(0xFF61728E),
-                                        ),
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _statusColor(
+                                  diseaseLabel,
+                                ).withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                diseaseLabel,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: _statusColor(diseaseLabel),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
                             ),
                           ],
                         ),
@@ -165,7 +159,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                       const Icon(
                         Icons.chevron_right_rounded,
                         color: Color(0xFF95A5BC),
-                        size: 34,
+                        size: 30,
                       ),
                     ],
                   ),
@@ -198,10 +192,6 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
       return const Color(0xFF1E73D8);
     }
     return const Color(0xFFB45309);
-  }
-
-  String _diseaseStateLabel(DiseaseType type) {
-    return type == DiseaseType.dengue ? 'Stable' : 'Monitoring';
   }
 }
 

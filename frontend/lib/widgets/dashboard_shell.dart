@@ -28,24 +28,23 @@ class AdaptiveDashboardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool wide = isWide(context);
-    final bool showSearch = destinations.length <= 3;
 
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 16,
+        titleSpacing: 14,
         title: Row(
           children: <Widget>[
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
                 'assets/images/vitaltrack_logo_symbol.png',
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => const Icon(Icons.monitor_heart),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 title,
@@ -60,16 +59,17 @@ class AdaptiveDashboardShell extends StatelessWidget {
           ],
         ),
         actions: <Widget>[
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications, color: Color(0xFF152440)),
-          ),
-          if (showSearch)
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.search_rounded, color: Color(0xFF152440)),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9F1FF),
+              borderRadius: BorderRadius.circular(12),
             ),
-          const SizedBox(width: 4),
+            child: IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.notifications, color: Color(0xFF152440)),
+            ),
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
