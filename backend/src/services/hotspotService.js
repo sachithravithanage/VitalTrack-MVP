@@ -429,14 +429,104 @@ function toRegion(rawValue) {
     return null;
   }
 
+  const compactNormalized = normalized.replace(/\s+/g, "");
+
+  // 1) Exact alias match (strongest and deterministic)
   for (const district of SRI_LANKA_DISTRICTS) {
     const keywords = DISTRICT_KEYWORDS[district] || [district];
-    if (keywords.some((keyword) => normalized.includes(keyword))) {
+    if (
+      keywords.some(
+        (keyword) => compactNormalized === String(keyword).replace(/\s+/g, ""),
+      )
+    ) {
       return district;
     }
   }
 
+  // 2) Word-boundary alias match (prevents "kegalle" matching "galle")
+  const boundaryCandidates = [];
+  for (const district of SRI_LANKA_DISTRICTS) {
+    const keywords = DISTRICT_KEYWORDS[district] || [district];
+    for (const keyword of keywords) {
+      const normalizedKeyword = String(keyword).trim().toLowerCase();
+      const boundaryRegex = new RegExp(
+        `(^|\\s)${escapeRegExp(normalizedKeyword)}($|\\s)`,
+      );
+      if (boundaryRegex.test(normalized)) {
+        boundaryCandidates.push({
+          district,
+          keywordLength: normalizedKeyword.length,
+        });
+      }
+    }
+  }
+
+  if (boundaryCandidates.length > 0) {
+    boundaryCandidates.sort((a, b) => b.keywordLength - a.keywordLength);
+    return boundaryCandidates[0].district;
+  }
+
+  // 3) Conservative fuzzy fallback for small typos only
+  let bestDistrict = null;
+  let bestDistance = Infinity;
+
+  for (const district of SRI_LANKA_DISTRICTS) {
+    const keywords = DISTRICT_KEYWORDS[district] || [district];
+    for (const keyword of keywords) {
+      const candidate = String(keyword).replace(/\s+/g, "");
+      const distance = levenshteinDistance(compactNormalized, candidate);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestDistrict = district;
+      }
+    }
+  }
+
+  if (bestDistance <= 2) {
+    return bestDistrict;
+  }
+
   return null;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function levenshteinDistance(a, b) {
+  if (a === b) {
+    return 0;
+  }
+  if (a.length === 0) {
+    return b.length;
+  }
+  if (b.length === 0) {
+    return a.length;
+  }
+
+  const matrix = Array.from({ length: a.length + 1 }, () =>
+    Array(b.length + 1).fill(0),
+  );
+
+  for (let i = 0; i <= a.length; i += 1) {
+    matrix[i][0] = i;
+  }
+  for (let j = 0; j <= b.length; j += 1) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[a.length][b.length];
 }
 
 function toDate(value) {

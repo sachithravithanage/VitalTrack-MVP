@@ -581,6 +581,7 @@ class HotspotMapScreen extends StatefulWidget {
 
 class _HotspotMapScreenState extends State<HotspotMapScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final MapController _mapController = MapController();
   bool _saving = false;
   bool _loadingMap = false;
   bool _showLegend = true;
@@ -773,6 +774,16 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
     return null;
   }
 
+  void _zoomMapBy(double delta) {
+    try {
+      final camera = _mapController.camera;
+      final nextZoom = (camera.zoom + delta).clamp(5.5, 14.0).toDouble();
+      _mapController.move(camera.center, nextZoom);
+    } catch (_) {
+      // Ignore zoom interactions until map camera is ready.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
@@ -821,6 +832,8 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
       _selectedDistrict,
     );
 
+    final double mapHeight = _showDetails ? 360 : 520;
+
     return ResponsiveListView(
       children: <Widget>[
         InputSection(
@@ -854,20 +867,27 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: <Widget>[
                   FilterChip(
                     label: const Text('Legend'),
                     selected: _showLegend,
                     onSelected: (v) => setState(() => _showLegend = v),
                   ),
-                  const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('Details'),
                     selected: _showDetails,
-                    onSelected: (v) => setState(() => _showDetails = v),
+                    onSelected: (v) {
+                      setState(() {
+                        _showDetails = v;
+                        if (!v) {
+                          _showTopHotspots = false;
+                        }
+                      });
+                    },
                   ),
-                  const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('Top Areas'),
                     selected: _showTopHotspots,
@@ -875,67 +895,103 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                   ),
                 ],
               ),
+              if (!_showDetails)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Large map mode enabled (details hidden)',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               const SizedBox(height: 12),
               SizedBox(
-                height: 290,
+                height: mapHeight,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: _loadingMap
                       ? const Center(child: CircularProgressIndicator())
-                      : FlutterMap(
-                          options: MapOptions(
-                            initialCenter: _sriLankaCenter,
-                            initialZoom: 7,
-                            minZoom: 6,
-                            maxZoom: 10,
-                          ),
+                      : Stack(
                           children: <Widget>[
-                            TileLayer(
-                              urlTemplate:
-                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              userAgentPackageName: 'com.vitaltrack.app',
-                            ),
-                            MarkerLayer(
-                              markers: regionalSummary
-                                  .where(
-                                    (r) =>
-                                        r.totalEvents > 0 &&
-                                        _districtCenters.containsKey(
-                                          r.district,
-                                        ),
-                                  )
-                                  .map((region) {
-                                    final color = _riskColor(region.riskLevel);
-                                    final size = (14 + (region.score * 1.2))
-                                        .clamp(14, 34)
-                                        .toDouble();
-                                    return Marker(
-                                      point: _districtCenters[region.district]!,
-                                      width: size,
-                                      height: size,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setState(
-                                            () => _selectedDistrict =
-                                                region.district,
-                                          );
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: color.withValues(
-                                              alpha: 0.82,
+                            FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCenter: _sriLankaCenter,
+                                initialZoom: 7,
+                                minZoom: 5.5,
+                                maxZoom: 14,
+                              ),
+                              children: <Widget>[
+                                TileLayer(
+                                  urlTemplate:
+                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.vitaltrack.app',
+                                ),
+                                MarkerLayer(
+                                  markers: regionalSummary
+                                      .where(
+                                        (r) =>
+                                            r.totalEvents > 0 &&
+                                            _districtCenters.containsKey(
+                                              r.district,
                                             ),
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 1.5,
+                                      )
+                                      .map((region) {
+                                        final color = _riskColor(
+                                          region.riskLevel,
+                                        );
+                                        final size = (14 + (region.score * 1.2))
+                                            .clamp(14, 34)
+                                            .toDouble();
+                                        return Marker(
+                                          point:
+                                              _districtCenters[region
+                                                  .district]!,
+                                          width: size,
+                                          height: size,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              setState(
+                                                () => _selectedDistrict =
+                                                    region.district,
+                                              );
+                                            },
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: color.withValues(
+                                                  alpha: 0.82,
+                                                ),
+                                                border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 1.5,
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
+                                        );
+                                      })
+                                      .toList(),
+                                ),
+                              ],
+                            ),
+                            Positioned(
+                              right: 12,
+                              bottom: 12,
+                              child: Column(
+                                children: <Widget>[
+                                  FloatingActionButton.small(
+                                    heroTag: 'hotspot_zoom_in',
+                                    onPressed: () => _zoomMapBy(0.7),
+                                    child: const Icon(Icons.add),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FloatingActionButton.small(
+                                    heroTag: 'hotspot_zoom_out',
+                                    onPressed: () => _zoomMapBy(-0.7),
+                                    child: const Icon(Icons.remove),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
