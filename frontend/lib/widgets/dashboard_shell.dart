@@ -32,6 +32,10 @@ class AdaptiveDashboardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool wide = isWide(context);
+    final double textScale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1, 1.3);
+    final double navBarHeight = 72 + ((textScale - 1) * 12);
 
     return Scaffold(
       appBar: AppBar(
@@ -143,13 +147,15 @@ class AdaptiveDashboardShell extends StatelessWidget {
                 border: Border(top: BorderSide(color: Color(0xFFE7ECF6))),
               ),
               child: NavigationBar(
-                height: 76,
+                height: navBarHeight,
                 selectedIndex: selectedIndex,
                 onDestinationSelected: onDestinationSelected,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: destinations
                     .map(
                       (DashboardDestination d) => NavigationDestination(
-                        icon: Icon(d.icon),
+                        icon: Icon(d.icon, size: 22),
+                        selectedIcon: Icon(d.icon, size: 22),
                         label: d.label,
                       ),
                     )

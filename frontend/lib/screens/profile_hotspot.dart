@@ -34,13 +34,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showOtpSentSnackBar({String? devOtp}) {
+    final AppState app = AppScope.of(context);
     final String suffix = (devOtp != null && devOtp.isNotEmpty)
         ? ' • DEV: $devOtp'
         : '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        content: Text('OTP sent • ${_otpTimestampText()}$suffix'),
+        content: Text(
+          '${app.t('otp_sent_at')} • ${_otpTimestampText()}$suffix',
+        ),
       ),
     );
   }
@@ -127,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Caregiver mode enabled')));
+      ).showSnackBar(SnackBar(content: Text(app.t('caregiver_mode_enabled'))));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -147,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           content: TextField(
             controller: localEmailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(hintText: 'name@example.com'),
+            decoration: InputDecoration(hintText: app.t('email')),
           ),
           actions: <Widget>[
             TextButton(
@@ -223,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           MaterialPageRoute<bool>(
             builder: (_) => OtpVerificationScreen(
               title: app.t('otp_verification'),
-              subtitle: 'Enter the OTP sent to your email',
+              subtitle: app.t('enter_otp_sent_email'),
               credential: email,
               devModeOtp: otpFromResponse,
               onVerifyOtp: (otp) => app.confirmEmailVerification(otp: otp),
@@ -236,9 +239,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
 
     if (verified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email verified successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(app.t('email_verified_success'))));
     }
   }
 
@@ -313,12 +316,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             FilledButton.tonalIcon(
               onPressed: () => _startEmailVerification(app),
               icon: const Icon(Icons.mark_email_read_outlined),
-              label: const Text('Verify Email'),
+              label: Text(app.t('verify_email')),
             ),
         ] else
           FilledButton.tonal(
             onPressed: () => _addEmail(app),
-            child: const Text('Add Email'),
+            child: Text(app.t('add_email')),
           ),
         UiSpace.xs,
         Card(
@@ -328,7 +331,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Text(
-                  'Caregiver Options',
+                  app.t('language'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SegmentedButton<AppLanguage>(
+                  showSelectedIcon: false,
+                  segments: <ButtonSegment<AppLanguage>>[
+                    ButtonSegment<AppLanguage>(
+                      value: AppLanguage.english,
+                      label: Text(app.t('language_english_title')),
+                    ),
+                    ButtonSegment<AppLanguage>(
+                      value: AppLanguage.sinhala,
+                      label: Text(app.t('language_sinhala_title')),
+                    ),
+                  ],
+                  selected: <AppLanguage>{
+                    app.selectedLanguage ?? AppLanguage.english,
+                  },
+                  onSelectionChanged: (selection) {
+                    final nextLanguage = selection.first;
+                    if (nextLanguage == app.selectedLanguage) return;
+                    app.setLanguage(nextLanguage);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(app.t('language_changed'))),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        UiSpace.xs,
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  app.t('caregiver_options'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
@@ -374,7 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   FilledButton.tonalIcon(
                     onPressed: () => _enableCaregiver(app),
                     icon: const Icon(Icons.add_moderator_outlined),
-                    label: const Text('Enable Caregiver Mode'),
+                    label: Text(app.t('enable_caregiver_mode')),
                   ),
               ],
             ),
@@ -393,7 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Patient Caregiver Settings',
+                  app.t('patient_caregiver_settings'),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: const Color(0xFF0A1430),
                     fontWeight: FontWeight.w700,
@@ -420,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
-                            'Connect with Caregiver',
+                            app.t('connect_with_caregiver'),
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
                                   color: const Color(0xFF0A1430),
@@ -429,7 +475,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Share real-time health data with caregivers',
+                            app.t('share_realtime_health_data'),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: const Color(0xFF5F7391)),
                           ),
@@ -643,6 +689,8 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
         if (patients.isNotEmpty) {
           _selectedPatientId ??= patients.first.id;
           await app.loadPatientHotspots(_selectedPatientId!);
+        } else if (app.hasRole(UserRole.patient)) {
+          await app.loadPatientHotspots(app.currentUser!.id);
         }
       } else {
         await app.loadPatientHotspots(app.currentUser!.id);
@@ -726,18 +774,22 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
   }
 
   String _diseaseLabel(DiseaseType disease) {
-    return disease == DiseaseType.ratFever ? 'Rat Fever' : 'Dengue';
+    final AppState app = AppScope.of(context);
+    return disease == DiseaseType.ratFever
+        ? app.t('rat_fever')
+        : app.t('dengue');
   }
 
   String _diseaseTextFromApi(String disease) {
+    final AppState app = AppScope.of(context);
     final normalized = disease.toLowerCase();
     if (normalized == 'ratfever' || normalized == 'rat_fever') {
-      return 'Rat Fever';
+      return app.t('rat_fever');
     }
     if (normalized == 'dengue') {
-      return 'Dengue';
+      return app.t('dengue');
     }
-    return 'Unknown';
+    return app.t('unknown');
   }
 
   bool _matchesSelectedMapDisease(String disease) {
@@ -798,20 +850,28 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
         widget.forCaregiverPatientData
         ? app.caregiverPatients(currentUser.id)
         : <PatientSummary>[];
+    final bool showCaregiverPatientPicker =
+        widget.forCaregiverPatientData && caregiverPatients.isNotEmpty;
 
-    final PatientSummary? selectedPatient = widget.forCaregiverPatientData
+    final PatientSummary? selectedPatient = showCaregiverPatientPicker
         ? _findSelectedPatient(caregiverPatients)
         : null;
 
-    final DiseaseType submissionDisease = widget.forCaregiverPatientData
+    final DiseaseType submissionDisease = showCaregiverPatientPicker
         ? (selectedPatient?.disease ?? DiseaseType.dengue)
         : _selectedMapDisease;
 
-    final String? selectedPatientId = selectedPatient?.id ?? _selectedPatientId;
+    final String? selectedPatientId = showCaregiverPatientPicker
+        ? (selectedPatient?.id ?? _selectedPatientId)
+        : currentUser.id;
 
-    final List<HotspotResponse> rawHistory = widget.forCaregiverPatientData
+    final List<HotspotResponse> rawHistory = showCaregiverPatientPicker
         ? app.hotspotResponses
               .where((h) => h.patientId == selectedPatientId)
+              .toList()
+        : widget.forCaregiverPatientData
+        ? app.hotspotResponses
+              .where((h) => h.patientId == currentUser.id)
               .toList()
         : app.hotspotResponsesForSubject(defaultSubject);
 
@@ -841,17 +901,20 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text('Map View', style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                app.t('map_view'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 8),
               SegmentedButton<DiseaseType>(
-                segments: const <ButtonSegment<DiseaseType>>[
+                segments: <ButtonSegment<DiseaseType>>[
                   ButtonSegment<DiseaseType>(
                     value: DiseaseType.dengue,
-                    label: Text('Dengue'),
+                    label: Text(app.t('dengue')),
                   ),
                   ButtonSegment<DiseaseType>(
                     value: DiseaseType.ratFever,
-                    label: Text('Rat Fever'),
+                    label: Text(app.t('rat_fever')),
                   ),
                 ],
                 selected: <DiseaseType>{_selectedMapDisease},
@@ -863,7 +926,12 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Showing ${_diseaseLabel(_selectedMapDisease)} hotspots',
+                app
+                    .t('showing_hotspots')
+                    .replaceAll(
+                      '{disease}',
+                      _diseaseLabel(_selectedMapDisease),
+                    ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
@@ -872,12 +940,12 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                 runSpacing: 8,
                 children: <Widget>[
                   FilterChip(
-                    label: const Text('Legend'),
+                    label: Text(app.t('legend')),
                     selected: _showLegend,
                     onSelected: (v) => setState(() => _showLegend = v),
                   ),
                   FilterChip(
-                    label: const Text('Details'),
+                    label: Text(app.t('details')),
                     selected: _showDetails,
                     onSelected: (v) {
                       setState(() {
@@ -889,7 +957,7 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                     },
                   ),
                   FilterChip(
-                    label: const Text('Top Areas'),
+                    label: Text(app.t('top_areas')),
                     selected: _showTopHotspots,
                     onSelected: (v) => setState(() => _showTopHotspots = v),
                   ),
@@ -899,7 +967,7 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Large map mode enabled (details hidden)',
+                    app.t('large_map_mode_enabled'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -1003,10 +1071,10 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                   spacing: 8,
                   runSpacing: 6,
                   children: <Widget>[
-                    _legendItem('Low', _riskColor('low')),
-                    _legendItem('Medium', _riskColor('medium')),
-                    _legendItem('High', _riskColor('high')),
-                    _legendItem('Critical', _riskColor('critical')),
+                    _legendItem(app.t('risk_low'), _riskColor('low')),
+                    _legendItem(app.t('risk_medium'), _riskColor('medium')),
+                    _legendItem(app.t('risk_high'), _riskColor('high')),
+                    _legendItem(app.t('risk_critical'), _riskColor('critical')),
                   ],
                 ),
               ],
@@ -1024,13 +1092,44 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Risk: ${selectedRegion.riskLevel.toUpperCase()} • Score: ${selectedRegion.score.toStringAsFixed(1)}',
+                          app
+                              .t('risk_score_line')
+                              .replaceAll(
+                                '{risk}',
+                                selectedRegion.riskLevel.toUpperCase(),
+                              )
+                              .replaceAll(
+                                '{score}',
+                                selectedRegion.score.toStringAsFixed(1),
+                              ),
                         ),
                         Text(
-                          'Patients: ${selectedRegion.patients} • Events: ${selectedRegion.totalEvents}',
+                          app
+                              .t('patients_events_line')
+                              .replaceAll(
+                                '{patients}',
+                                selectedRegion.patients.toString(),
+                              )
+                              .replaceAll(
+                                '{events}',
+                                selectedRegion.totalEvents.toString(),
+                              ),
                         ),
                         Text(
-                          'Home: ${selectedRegion.hometownCount}, Work: ${selectedRegion.workplaceCount}, Visits: ${selectedRegion.visitCount}',
+                          app
+                              .t('home_work_visits_line')
+                              .replaceAll(
+                                '{home}',
+                                selectedRegion.hometownCount.toString(),
+                              )
+                              .replaceAll(
+                                '{work}',
+                                selectedRegion.workplaceCount.toString(),
+                              )
+                              .replaceAll(
+                                '{visits}',
+                                selectedRegion.visitCount.toString(),
+                              ),
                         ),
                       ],
                     ),
@@ -1040,7 +1139,7 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
               if (_showTopHotspots && topHotspots.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 12),
                 Text(
-                  'Top Hotspot Districts',
+                  app.t('top_hotspot_districts'),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
@@ -1054,7 +1153,10 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                     ),
                     title: Text(_prettyDistrict(r.district)),
                     subtitle: Text(
-                      'Score ${r.score.toStringAsFixed(1)} • ${r.totalEvents} events',
+                      app
+                          .t('score_events_line')
+                          .replaceAll('{score}', r.score.toStringAsFixed(1))
+                          .replaceAll('{events}', r.totalEvents.toString()),
                     ),
                     onTap: () => setState(() => _selectedDistrict = r.district),
                   ),
@@ -1064,14 +1166,14 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
           ),
         ),
         InputSection(
-          title: widget.forCaregiverPatientData
+          title: showCaregiverPatientPicker
               ? app.t('add_patient_hotspot_data')
               : app.t('add_hotspot_data'),
           child: Form(
             key: _formKey,
             child: Column(
               children: <Widget>[
-                if (widget.forCaregiverPatientData) ...<Widget>[
+                if (showCaregiverPatientPicker) ...<Widget>[
                   DropdownButtonFormField<String>(
                     initialValue: selectedPatientId,
                     decoration: InputDecoration(
@@ -1096,7 +1198,12 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Submission disease: ${_diseaseLabel(submissionDisease)}',
+                      app
+                          .t('submission_disease')
+                          .replaceAll(
+                            '{disease}',
+                            _diseaseLabel(submissionDisease),
+                          ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -1105,7 +1212,8 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                 TextFormField(
                   controller: _hometownController,
                   decoration: InputDecoration(
-                    labelText: '${app.t('hometown')} (town / district)',
+                    labelText:
+                        '${app.t('hometown')} (${app.t('town_district')})',
                   ),
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
@@ -1116,7 +1224,8 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                 TextFormField(
                   controller: _workplaceController,
                   decoration: InputDecoration(
-                    labelText: '${app.t('workplace')} (town / district)',
+                    labelText:
+                        '${app.t('workplace')} (${app.t('town_district')})',
                   ),
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
@@ -1142,13 +1251,13 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                   onPressed: () async {
                     if (_formKey.currentState?.validate() != true) return;
                     setState(() => _saving = true);
-                    final String subject = widget.forCaregiverPatientData
-                        ? (selectedPatient?.name ?? 'Patient')
+                    final String subject = showCaregiverPatientPicker
+                        ? (selectedPatient?.name ?? app.t('patient'))
                         : defaultSubject;
                     try {
                       await app.submitHotspot(
                         subject: subject,
-                        subjectPatientId: widget.forCaregiverPatientData
+                        subjectPatientId: showCaregiverPatientPicker
                             ? selectedPatientId
                             : null,
                         disease: submissionDisease == DiseaseType.ratFever
@@ -1193,14 +1302,24 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
           EmptyStateCard(
             icon: Icons.location_off_outlined,
             title: app.t('no_data'),
-            subtitle:
-                'No ${_diseaseLabel(_selectedMapDisease).toLowerCase()} submissions yet',
+            subtitle: app
+                .t('no_submissions_yet')
+                .replaceAll(
+                  '{disease}',
+                  _diseaseLabel(_selectedMapDisease).toLowerCase(),
+                ),
           )
         else
           ...history.take(5).map((HotspotResponse h) {
             final String when = DateFormat(
-              'yyyy-MM-dd hh:mm a',
+              'yyyy-MM-dd HH:mm',
             ).format(h.createdAt);
+            final String normalizedDisease = h.disease.toLowerCase();
+            final bool isRatFever =
+                normalizedDisease == 'ratfever' ||
+                normalizedDisease == 'rat_fever' ||
+                normalizedDisease == 'rat fever';
+            final bool isDengue = normalizedDisease == 'dengue';
             final String diseaseLabel = _diseaseTextFromApi(h.disease);
             return Card(
               child: ListTile(
@@ -1213,9 +1332,9 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: diseaseLabel == 'Rat Fever'
+                        color: isRatFever
                             ? const Color(0xFFFDECEC)
-                            : diseaseLabel == 'Dengue'
+                            : isDengue
                             ? const Color(0xFFFFF5DF)
                             : const Color(0xFFF2F4F7),
                         borderRadius: BorderRadius.circular(999),

@@ -440,16 +440,45 @@ class ApiClient {
     String? stepUpToken,
   }) async {
     try {
-      final data = {'code': code};
+      final data = <String, dynamic>{'code': code};
       if (disease != null) data['disease'] = disease;
-      final response = await _dio.post(
+      final Options? requestOptions = stepUpToken == null
+          ? null
+          : Options(headers: {'x-step-up-token': stepUpToken});
+
+      final List<String> candidatePaths = <String>[
         '/relationships/add-patient',
-        data: data,
-        options: stepUpToken == null
-            ? null
-            : Options(headers: {'x-step-up-token': stepUpToken}),
+        '/relationships/patients/add-patient',
+        '/relationships/patients/link',
+      ];
+
+      DioException? lastNotFound;
+      for (final path in candidatePaths) {
+        try {
+          final response = await _dio.post(
+            path,
+            data: data,
+            options: requestOptions,
+          );
+          return _unwrapResponse(response.data);
+        } on DioException catch (error) {
+          final int? statusCode = error.response?.statusCode;
+          if (statusCode == 404) {
+            lastNotFound = error;
+            continue;
+          }
+          rethrow;
+        }
+      }
+
+      if (lastNotFound != null) {
+        throw lastNotFound;
+      }
+
+      throw DioException(
+        requestOptions: RequestOptions(path: '/relationships/add-patient'),
+        error: 'Failed to attach patient',
       );
-      return _unwrapResponse(response.data);
     } catch (e) {
       rethrow;
     }

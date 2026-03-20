@@ -18,7 +18,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
     final AppState app = AppScope.of(context);
     final String patientId = app.currentUser!.id;
     final String firstName = app.currentUser!.name.trim().isEmpty
-        ? 'Alex'
+        ? app.t('patient')
         : app.currentUser!.name.trim().split(' ').first;
 
     final RecordEntry? latest =
@@ -30,7 +30,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       children: <Widget>[
         Text(
-          'Good morning, $firstName',
+          app.t('good_morning_name').replaceAll('{name}', firstName),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w800,
             color: const Color(0xFF0A1430),
@@ -38,7 +38,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'How are you feeling today?',
+          app.t('how_feeling_today'),
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: const Color(0xFF5F7391)),
@@ -53,7 +53,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Select a condition to track your daily symptoms',
+          app.t('select_condition_track_daily'),
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(color: const Color(0xFF5F7391)),
@@ -114,7 +114,12 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Last entry: ${_relativeTimeLabel(latest.createdAt)}',
+                        app
+                            .t('last_entry_prefix')
+                            .replaceAll(
+                              '{time}',
+                              _relativeTimeLabel(context, latest.createdAt),
+                            ),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: const Color(0xFF24344F),
                           fontWeight: FontWeight.w700,
@@ -122,7 +127,14 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${latest.disease == DiseaseType.dengue ? app.t('dengue') : app.t('rat_fever')} monitoring',
+                        app
+                            .t('disease_monitoring')
+                            .replaceAll(
+                              '{disease}',
+                              latest.disease == DiseaseType.dengue
+                                  ? app.t('dengue')
+                                  : app.t('rat_fever'),
+                            ),
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(color: const Color(0xFF5F7391)),
                       ),
@@ -204,7 +216,9 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isDengue ? 'Record Taking - Dengue' : 'Record Taking - Rat Fever',
+          isDengue
+              ? app.t('record_taking_dengue')
+              : app.t('record_taking_rat_fever'),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontSize: 22,
             fontWeight: FontWeight.w600,
@@ -224,16 +238,16 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
             children: <Widget>[
               Text(
                 isDengue
-                    ? 'Enter the latest dengue-related measurements carefully and mark symptoms as Yes or No based on your current condition.'
-                    : 'Enter current rat fever measurements and symptom status carefully so the care team can monitor progress accurately.',
+                    ? app.t('dengue_instruction')
+                    : app.t('rat_instruction'),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: const Color(0xFF5F7391),
                 ),
               ),
               const SizedBox(height: 18),
               if (isDengue) ...<Widget>[
-                const _FieldLabel(
-                  text: 'Body Temperature (°C)',
+                _FieldLabel(
+                  text: app.t('body_temperature_c'),
                   icon: Icons.device_thermostat,
                 ),
                 const SizedBox(height: 8),
@@ -242,22 +256,22 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: _formDecoration(hint: 'e.g. 37.8'),
+                  decoration: _formDecoration(hint: '37.8'),
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
                       ? app.t('required_field')
                       : null,
                 ),
                 const SizedBox(height: 16),
-                const _FieldLabel(
-                  text: 'Fluid Intake (ml)',
+                _FieldLabel(
+                  text: app.t('fluid_intake_ml_label'),
                   icon: Icons.opacity_rounded,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _fluidController,
                   keyboardType: TextInputType.number,
-                  decoration: _formDecoration(hint: 'e.g. 250'),
+                  decoration: _formDecoration(hint: '250'),
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
                       ? app.t('required_field')
@@ -266,16 +280,14 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 const SizedBox(height: 16),
               ],
               _FieldLabel(
-                text: 'Urine Output (ml)',
+                text: app.t('urine_output_ml_label'),
                 icon: Icons.water_drop_outlined,
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _urineOutputController,
                 keyboardType: TextInputType.number,
-                decoration: _formDecoration(
-                  hint: isDengue ? 'e.g. 200' : 'e.g. 500',
-                ),
+                decoration: _formDecoration(hint: isDengue ? '200' : '500'),
                 validator: (String? value) =>
                     (value == null || value.trim().isEmpty)
                     ? app.t('required_field')
@@ -286,31 +298,48 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 ..._buildYesNoGroup(
                   context,
                   data: _dengueSymptoms,
-                  labels: const <String, String>{
-                    'feverDrop': 'Fever dropped from previous value',
-                    'coldClammyHandsFeet': 'Hands or feet cold and clammy',
-                    'vomiting': 'Vomiting',
-                    'dizziness': 'Dizziness',
-                    'severeRightUpperAbdominalPain':
-                        'Severe right-sided upper abdominal pain',
-                    'poorAppetite': 'Poor appetite',
-                    'suddenReturnOfAppetite': 'Sudden return of appetite',
+                  labels: <String, String>{
+                    'feverDrop': app.t('symptom_fever_drop'),
+                    'coldClammyHandsFeet': app.t(
+                      'symptom_cold_clammy_hands_feet',
+                    ),
+                    'vomiting': app.t('symptom_vomiting'),
+                    'dizziness': app.t('symptom_dizziness'),
+                    'severeRightUpperAbdominalPain': app.t(
+                      'symptom_severe_abdominal_pain',
+                    ),
+                    'poorAppetite': app.t('symptom_poor_appetite'),
+                    'suddenReturnOfAppetite': app.t(
+                      'symptom_return_of_appetite',
+                    ),
                   },
                 )
               else ...<Widget>[
-                const _FieldLabel(
-                  text: 'Urine Color',
+                _FieldLabel(
+                  text: app.t('urine_color'),
                   icon: Icons.colorize_outlined,
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _ratUrineColor,
-                  decoration: _formDecoration(hint: 'Urine color'),
-                  items: const <DropdownMenuItem<String>>[
-                    DropdownMenuItem(value: 'white', child: Text('White')),
-                    DropdownMenuItem(value: 'yellow', child: Text('Yellow')),
-                    DropdownMenuItem(value: 'brown', child: Text('Brown')),
-                    DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                  decoration: _formDecoration(hint: app.t('urine_color_hint')),
+                  items: <DropdownMenuItem<String>>[
+                    DropdownMenuItem(
+                      value: 'white',
+                      child: Text(app.t('color_white')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'yellow',
+                      child: Text(app.t('color_yellow')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'brown',
+                      child: Text(app.t('color_brown')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'dark',
+                      child: Text(app.t('color_dark')),
+                    ),
                   ],
                   onChanged: (String? value) {
                     if (value != null) {
@@ -319,18 +348,29 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                const _FieldLabel(
-                  text: 'Eye Coloration',
+                _FieldLabel(
+                  text: app.t('eye_coloration'),
                   icon: Icons.remove_red_eye_outlined,
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _eyeColoration,
-                  decoration: _formDecoration(hint: 'Eye coloration'),
-                  items: const <DropdownMenuItem<String>>[
-                    DropdownMenuItem(value: 'normal', child: Text('Normal')),
-                    DropdownMenuItem(value: 'red', child: Text('Red')),
-                    DropdownMenuItem(value: 'yellow', child: Text('Yellow')),
+                  decoration: _formDecoration(
+                    hint: app.t('eye_coloration_hint'),
+                  ),
+                  items: <DropdownMenuItem<String>>[
+                    DropdownMenuItem(
+                      value: 'normal',
+                      child: Text(app.t('color_normal')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'red',
+                      child: Text(app.t('color_red')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'yellow',
+                      child: Text(app.t('color_yellow')),
+                    ),
                   ],
                   onChanged: (String? value) {
                     if (value != null) {
@@ -342,25 +382,29 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 ..._buildYesNoGroup(
                   context,
                   data: _ratSymptoms,
-                  labels: const <String, String>{
-                    'suddenReductionUrineOutput':
-                        'Sudden reduction of urine output',
-                    'inabilityToPassUrine': 'Inability to pass urine',
-                    'musclePains': 'Muscle pains',
-                    'calfOrLowerBackTenderness':
-                        'Tenderness in calf muscles or lower back',
-                    'bloodshotEyes': 'Bloodshot appearance in eyes',
-                    'skinJaundice': 'Skin jaundice (yellowish skin tint)',
-                    'difficultyBreathing': 'Difficulty breathing',
-                    'rapidBreathing': 'Rapid breathing',
-                    'coughingUpBlood': 'Coughing up blood',
-                    'dizziness': 'Dizziness',
+                  labels: <String, String>{
+                    'suddenReductionUrineOutput': app.t(
+                      'symptom_reduced_urine',
+                    ),
+                    'inabilityToPassUrine': app.t('symptom_no_urine'),
+                    'musclePains': app.t('symptom_muscle_pains'),
+                    'calfOrLowerBackTenderness': app.t(
+                      'symptom_tenderness_calf_back',
+                    ),
+                    'bloodshotEyes': app.t('symptom_bloodshot_eyes'),
+                    'skinJaundice': app.t('symptom_skin_jaundice'),
+                    'difficultyBreathing': app.t(
+                      'symptom_difficulty_breathing',
+                    ),
+                    'rapidBreathing': app.t('symptom_rapid_breathing'),
+                    'coughingUpBlood': app.t('symptom_coughing_blood'),
+                    'dizziness': app.t('symptom_dizziness'),
                   },
                 ),
               ],
               const SizedBox(height: 20),
-              const _FieldLabel(
-                text: 'Additional Notes',
+              _FieldLabel(
+                text: app.t('additional_notes_label'),
                 icon: Icons.edit_note_rounded,
               ),
               const SizedBox(height: 8),
@@ -369,14 +413,14 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
                 maxLines: 4,
                 decoration: _formDecoration(
                   hint: isDengue
-                      ? 'Record other symptoms like rashes, headaches, or pain...'
-                      : 'Describe any other symptoms or feelings here...',
+                      ? app.t('notes_hint_dengue')
+                      : app.t('notes_hint_rat'),
                 ),
               ),
               const SizedBox(height: 24),
               BusyFilledButton(
                 isBusy: _saving,
-                label: 'Save Record',
+                label: app.t('save_record'),
                 onPressed: () async {
                   if (_formKey.currentState?.validate() != true) return;
                   final isDengue = widget.disease == DiseaseType.dengue;
@@ -562,7 +606,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       children: <Widget>[
         Text(
-          'RECENT LOGS',
+          app.t('recent_logs'),
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             letterSpacing: 1.2,
             color: const Color(0xFF62728C),
@@ -571,7 +615,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Disease records with entered date and time',
+          app.t('disease_records_datetime'),
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: const Color(0xFF7A8BA3)),
@@ -591,7 +635,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             DropdownMenuItem<TimelineFilter>(
               value: TimelineFilter.last24h,
               child: Text(
-                'Last 24 Hours',
+                app.t('last_24h'),
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(color: const Color(0xFF0A1430)),
@@ -600,7 +644,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             DropdownMenuItem<TimelineFilter>(
               value: TimelineFilter.last3Days,
               child: Text(
-                'Last 3 Days',
+                app.t('last_3_days'),
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(color: const Color(0xFF0A1430)),
@@ -609,7 +653,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             DropdownMenuItem<TimelineFilter>(
               value: TimelineFilter.last7Days,
               child: Text(
-                'Last 7 Days',
+                app.t('last_7_days'),
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(color: const Color(0xFF0A1430)),
@@ -663,10 +707,14 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
         else
           ...records.map((RecordEntry record) {
             final String title = record.disease == DiseaseType.dengue
-                ? 'Dengue Records'
-                : 'Rat Fever Records';
-            final String subtitle =
-                'Entered ${DateFormat('yyyy-MM-dd hh:mm a').format(record.createdAt)}';
+                ? app.t('dengue_records')
+                : app.t('rat_fever_records');
+            final String subtitle = app
+                .t('entered_datetime')
+                .replaceAll(
+                  '{datetime}',
+                  DateFormat('yyyy-MM-dd HH:mm').format(record.createdAt),
+                );
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: InkWell(
@@ -731,7 +779,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
         const SizedBox(height: 14),
         BusyFilledButton(
           isBusy: _exporting,
-          label: 'Export to PDF',
+          label: app.t('export_pdf'),
           onPressed: records.isEmpty
               ? null
               : () async {
@@ -804,7 +852,7 @@ class RecordDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Record Details',
+          app.t('record_details'),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: const Color(0xFF0A1430),
@@ -820,23 +868,21 @@ class RecordDetailScreen extends StatelessWidget {
         children: <Widget>[
           _DetailHeader(
             title: diseaseLabel,
-            subtitle: DateFormat(
-              'MMM d, yyyy • hh:mm a',
-            ).format(record.createdAt),
+            subtitle: DateFormat('yyyy-MM-dd • HH:mm').format(record.createdAt),
           ),
           const SizedBox(height: 10),
           _LowPriorityMetaBlock(
             patientId: record.patientId,
             createdBy: record.createdBy,
             recordedAt: DateFormat(
-              'yyyy-MM-dd hh:mm:ss a',
+              'yyyy-MM-dd HH:mm:ss',
             ).format(record.createdAt),
           ),
           const SizedBox(height: 14),
           const Divider(height: 1, color: Color(0xFFDCE4F2)),
           const SizedBox(height: 14),
           if (record.values.isEmpty)
-            _DetailItem(title: 'Data', value: app.t('no_data'))
+            _DetailItem(title: app.t('data'), value: app.t('no_data'))
           else
             ...record.values.entries.map(
               (MapEntry<String, String> entry) => Padding(
@@ -849,7 +895,7 @@ class RecordDetailScreen extends StatelessWidget {
             ),
           const SizedBox(height: 6),
           Text(
-            'NOTES',
+            app.t('notes'),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               letterSpacing: 1.2,
               color: const Color(0xFF62728C),
@@ -858,7 +904,7 @@ class RecordDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _DetailItem(
-            title: 'Additional Notes',
+            title: app.t('additional_notes_label'),
             value: record.notes.trim().isEmpty ? '-' : record.notes,
           ),
         ],
@@ -978,7 +1024,9 @@ class _LowPriorityMetaBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Patient ID: $patientId',
+            AppScope.of(
+              context,
+            ).t('patient_id_line').replaceAll('{value}', patientId),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: const Color(0xFF70819A),
               fontSize: 11,
@@ -986,7 +1034,9 @@ class _LowPriorityMetaBlock extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            'Created By: $createdBy',
+            AppScope.of(
+              context,
+            ).t('created_by_line').replaceAll('{value}', createdBy),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: const Color(0xFF70819A),
               fontSize: 11,
@@ -994,7 +1044,9 @@ class _LowPriorityMetaBlock extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            'Recorded At: $recordedAt',
+            AppScope.of(
+              context,
+            ).t('recorded_at_line').replaceAll('{value}', recordedAt),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: const Color(0xFF70819A),
               fontSize: 11,
@@ -1006,12 +1058,19 @@ class _LowPriorityMetaBlock extends StatelessWidget {
   }
 }
 
-String _relativeTimeLabel(DateTime timestamp) {
+String _relativeTimeLabel(BuildContext context, DateTime timestamp) {
+  final AppState app = AppScope.of(context);
   final Duration diff = DateTime.now().difference(timestamp);
-  if (diff.inMinutes < 60) return '${diff.inMinutes.clamp(1, 59)} mins ago';
-  if (diff.inHours < 24) return '${diff.inHours} hours ago';
-  if (diff.inDays == 1) return '1 day ago';
-  return '${diff.inDays} days ago';
+  if (diff.inMinutes < 60) {
+    return app
+        .t('minutes_ago')
+        .replaceAll('{count}', diff.inMinutes.clamp(1, 59).toString());
+  }
+  if (diff.inHours < 24) {
+    return app.t('hours_ago').replaceAll('{count}', diff.inHours.toString());
+  }
+  if (diff.inDays == 1) return app.t('one_day_ago');
+  return app.t('days_ago').replaceAll('{count}', diff.inDays.toString());
 }
 
 class _DiseaseSelectorTile extends StatelessWidget {
@@ -1109,9 +1168,15 @@ class _YesNoSelector extends StatelessWidget {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
-            segments: const <ButtonSegment<bool>>[
-              ButtonSegment<bool>(value: true, label: Text('Yes')),
-              ButtonSegment<bool>(value: false, label: Text('No')),
+            segments: <ButtonSegment<bool>>[
+              ButtonSegment<bool>(
+                value: true,
+                label: Text(AppScope.of(context).t('yes')),
+              ),
+              ButtonSegment<bool>(
+                value: false,
+                label: Text(AppScope.of(context).t('no')),
+              ),
             ],
             selected: <bool>{value},
             onSelectionChanged: (Set<bool> selected) =>

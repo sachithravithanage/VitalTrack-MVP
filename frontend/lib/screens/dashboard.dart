@@ -91,12 +91,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final List<DashboardDestination> destinations = <DashboardDestination>[
       DashboardDestination(icon: Icons.edit_note, label: app.t('keep_records')),
       DashboardDestination(icon: Icons.list_alt, label: app.t('show_records')),
-      DashboardDestination(icon: Icons.person, label: app.t('profile')),
+      DashboardDestination(icon: Icons.person_outline, label: app.t('profile')),
       DashboardDestination(icon: Icons.map, label: app.t('hotspot_map')),
     ];
 
     return AdaptiveDashboardShell(
-      title: 'VitalTrack',
+      title: app.t('app_title'),
       selectedIndex: _index,
       onDestinationSelected: (int value) => setState(() => _index = value),
       onNotificationsPressed: () async {
@@ -193,12 +193,12 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     ];
     final List<DashboardDestination> destinations = <DashboardDestination>[
       DashboardDestination(icon: Icons.people, label: app.t('patients')),
-      DashboardDestination(icon: Icons.person, label: app.t('profile')),
+      DashboardDestination(icon: Icons.person_outline, label: app.t('profile')),
       DashboardDestination(icon: Icons.map, label: app.t('hotspot_map')),
     ];
 
     return AdaptiveDashboardShell(
-      title: 'VitalTrack',
+      title: app.t('app_title'),
       selectedIndex: _index,
       onDestinationSelected: (int value) => setState(() => _index = value),
       onNotificationsPressed: () async {
@@ -266,7 +266,7 @@ void _showInAppNotificationBanner(
         actions: <Widget>[
           TextButton(
             onPressed: messenger.clearMaterialBanners,
-            child: const Text('Dismiss'),
+            child: Text(AppScope.of(context).t('dismiss')),
           ),
         ],
       ),

@@ -79,14 +79,26 @@ class ResponsiveListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double width = MediaQuery.sizeOf(context).width;
+    final EdgeInsets adaptiveDefaultPadding = EdgeInsets.all(
+      width < 380
+          ? 14
+          : width >= 1200
+          ? 22
+          : 18,
+    );
+    final EdgeInsetsGeometry resolvedPadding =
+        padding == const EdgeInsets.all(18) ? adaptiveDefaultPadding : padding;
+
     return SafeArea(
       child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: <Widget>[
           Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
               child: Padding(
-                padding: padding,
+                padding: resolvedPadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: children,

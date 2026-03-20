@@ -48,7 +48,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Notifications',
+          app.t('notifications'),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: const Color(0xFF0A1430),
@@ -70,10 +70,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (notifications.isEmpty)
-              const EmptyStateCard(
+              EmptyStateCard(
                 icon: Icons.notifications_none,
-                title: 'No notifications yet',
-                subtitle: 'You will see reminders and alerts here.',
+                title: app.t('no_notifications_yet'),
+                subtitle: app.t('notifications_empty_subtitle'),
               )
             else
               ...notifications.map(
@@ -144,7 +144,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   DateFormat(
-                                    'MMM d, yyyy • hh:mm a',
+                                    'yyyy-MM-dd • HH:mm',
                                   ).format(notification.sentAt),
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(

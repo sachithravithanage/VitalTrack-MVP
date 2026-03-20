@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -50,7 +51,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
       children: <Widget>[
         Text(
-          'Patient Directory',
+          app.t('patient_directory'),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: const Color(0xFF0A1430),
             fontWeight: FontWeight.w700,
@@ -58,7 +59,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Review linked patients and open their options.',
+          app.t('review_linked_patients'),
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607089)),
@@ -73,7 +74,9 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              '${patients.length} Active Patients',
+              app
+                  .t('active_patients_count')
+                  .replaceAll('{count}', patients.length.toString()),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: const Color(0xFF1E73D8),
                 fontWeight: FontWeight.w600,
@@ -177,7 +180,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
         const SizedBox(height: 10),
         BusyFilledButton(
           isBusy: false,
-          label: 'Add Patient',
+          label: app.t('add_patient'),
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const AddPatientScreen()),
@@ -216,6 +219,44 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   DiseaseType _disease = DiseaseType.dengue;
+
+  String _friendlyAttachPatientError(Object error, AppState app) {
+    if (error is DioException) {
+      final int? statusCode = error.response?.statusCode;
+
+      String backendCode = '';
+      String backendMessage = '';
+      final Object? responseData = error.response?.data;
+      if (responseData is Map<String, dynamic>) {
+        final Object? errorObj = responseData['error'];
+        if (errorObj is Map<String, dynamic>) {
+          backendCode = (errorObj['code'] ?? '').toString().toLowerCase();
+          backendMessage = (errorObj['message'] ?? '').toString();
+        }
+      }
+
+      final String messageLower = backendMessage.toLowerCase();
+      final bool invalidCodeError =
+          (statusCode == 404 &&
+              (backendCode == 'not_found' ||
+                  messageLower.contains('invalid link code'))) ||
+          (statusCode == 400 && messageLower.contains('expired'));
+
+      if (invalidCodeError) {
+        return app.t('invalid_code');
+      }
+
+      if (statusCode == 409 && messageLower.contains('already linked')) {
+        return app.t('patient_linked');
+      }
+
+      if (backendMessage.isNotEmpty) {
+        return backendMessage;
+      }
+    }
+
+    return '${app.t('error')}: ${error.toString()}';
+  }
 
   @override
   void dispose() {
@@ -270,8 +311,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                       Expanded(
                         child: Text(
                           _useCode
-                              ? 'Enter Caregiver Code'
-                              : 'Create Patient Profile',
+                              ? app.t('enter_caregiver_code')
+                              : app.t('create_patient_profile'),
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
                                 color: const Color(0xFF0A1430),
@@ -311,8 +352,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                       const SizedBox(height: 12),
                       Text(
                         _useCode
-                            ? 'Enter the 6-digit code shared by the patient.'
-                            : 'Create and link a new patient profile manually.',
+                            ? app.t('enter_code_shared_by_patient')
+                            : app.t('create_link_patient_manually'),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: const Color(0xFF607089),
                           height: 1.35,
@@ -358,9 +399,9 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                       if (!_useCode) ...<Widget>[
                         TextFormField(
                           controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Patient Name',
-                            hintText: 'Enter patient full name',
+                          decoration: InputDecoration(
+                            labelText: app.t('patient_name'),
+                            hintText: app.t('patient_name'),
                           ),
                           validator: (String? value) =>
                               (value == null || value.trim().isEmpty)
@@ -370,8 +411,8 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                         const SizedBox(height: 12),
                         DropdownButtonFormField<DiseaseType>(
                           initialValue: _disease,
-                          decoration: const InputDecoration(
-                            labelText: 'Condition',
+                          decoration: InputDecoration(
+                            labelText: app.t('condition'),
                           ),
                           items: <DropdownMenuItem<DiseaseType>>[
                             DropdownMenuItem<DiseaseType>(
@@ -411,7 +452,9 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                     } catch (e) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${app.t('error')}: $e')),
+                        SnackBar(
+                          content: Text(_friendlyAttachPatientError(e, app)),
+                        ),
                       );
                       setState(() => _saving = false);
                       return;
@@ -485,7 +528,7 @@ class _CaregiverPatientRecordsScreenState
     ];
 
     return AdaptiveDashboardShell(
-      title: 'You are in patient options',
+      title: app.t('patient_options_title'),
       selectedIndex: _tab,
       onDestinationSelected: (int value) => setState(() => _tab = value),
       destinations: destinations,

@@ -15,7 +15,7 @@ String _friendlyAuthError(
 }) {
   if (error is DioException) {
     if (error.response?.statusCode == 409) {
-      return 'Account already exists. Please login.';
+      return app.t('account_exists_login');
     }
 
     final Object? responseData = error.response?.data;
@@ -39,7 +39,7 @@ String _friendlyAuthError(
         if (code == 'USER_ALREADY_EXISTS' ||
             message.toLowerCase().contains('already registered') ||
             message.toLowerCase().contains('user already')) {
-          return 'Account already exists. Please login.';
+          return app.t('account_exists_login');
         }
 
         if (message.isNotEmpty) {
@@ -57,13 +57,13 @@ String _friendlyAuthError(
     return app.t('phone_exists_error');
   }
   if (raw.contains('already registered') || raw.contains('user already')) {
-    return 'Account already exists. Please login.';
+    return app.t('account_exists_login');
   }
   if (raw.contains('invalid otp')) {
     return app.t('invalid_otp_error');
   }
   if (raw.contains('not verified')) {
-    return 'Email is not verified yet. Please verify email from Profile first.';
+    return app.t('email_not_verified_profile');
   }
   if (raw.contains('otp has expired') || raw.contains('otp not found')) {
     return app.t('otp_expired_error');
@@ -87,6 +87,7 @@ String _otpTimestampText() {
 }
 
 void _showOtpSentSnackBar(BuildContext context, {String? devOtp}) {
+  final AppState app = AppScope.of(context);
   final String ts = _otpTimestampText();
   final String codeSuffix = (devOtp != null && devOtp.isNotEmpty)
       ? ' • DEV: $devOtp'
@@ -94,7 +95,7 @@ void _showOtpSentSnackBar(BuildContext context, {String? devOtp}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
-      content: Text('OTP sent • $ts$codeSuffix'),
+      content: Text('${app.t('otp_sent_at')} • $ts$codeSuffix'),
     ),
   );
 }
@@ -167,16 +168,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: newPasswordController,
                         obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'New Password',
+                        decoration: InputDecoration(
+                          labelText: app.t('forgot_new_password'),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: confirmPasswordController,
                         obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Confirm Password',
+                        decoration: InputDecoration(
+                          labelText: app.t('forgot_confirm_password'),
                         ),
                       ),
                     ],
@@ -187,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: submitting
                         ? null
                         : () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(app.t('cancel')),
                   ),
                   FilledButton(
                     onPressed: submitting
@@ -243,8 +244,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             if (newPassword != confirmPassword) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Passwords do not match'),
+                                SnackBar(
+                                  content: Text(app.t('password_mismatch')),
                                 ),
                               );
                               return;
@@ -267,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Send OTP'),
+                        : Text(app.t('send_otp')),
                   ),
                 ],
               );
@@ -316,7 +317,7 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute<bool>(
             builder: (_) => OtpVerificationScreen(
               title: app.t('otp_verification'),
-              subtitle: 'Enter the 6-digit code to reset your password',
+              subtitle: app.t('reset_password_otp_subtitle'),
               credential: credential,
               devModeOtp: devOtp,
               onVerifyOtp: (String otp) async {
@@ -339,11 +340,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
     if (resetOk) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset successful. Please login again.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(app.t('password_reset_success'))));
     }
   }
 
@@ -499,8 +498,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                hintText: '07XXXXXXXX',
+                              autofillHints: const <String>[
+                                AutofillHints.telephoneNumber,
+                              ],
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                              decoration: InputDecoration(
+                                hintText: app.t('phone_number_example'),
                                 prefixIcon: Icon(Icons.phone_outlined),
                               ),
                               validator: (String? value) {
@@ -531,8 +537,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                hintText: 'example@email.com',
+                              decoration: InputDecoration(
+                                hintText: app.t('email'),
                                 prefixIcon: Icon(Icons.email_outlined),
                               ),
                               validator: (String? value) {
@@ -970,8 +976,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(height: 8),
                           Text(
                             _phoneVerified
-                                ? 'Phone verified. Complete your profile.'
-                                : 'Verify your phone number first.',
+                                ? app.t('phone_verified_complete_profile')
+                                : app.t('verify_phone_first'),
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
@@ -1015,8 +1021,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   TextFormField(
                                     controller: _phoneController,
                                     keyboardType: TextInputType.phone,
-                                    decoration: const InputDecoration(
-                                      hintText: '07XXXXXXXX',
+                                    autofillHints: const <String>[
+                                      AutofillHints.telephoneNumber,
+                                    ],
+                                    inputFormatters: <TextInputFormatter>[
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(10),
+                                    ],
+                                    decoration: InputDecoration(
+                                      hintText: app.t('phone_number_example'),
                                       prefixIcon: Icon(Icons.phone_outlined),
                                     ),
                                     validator: (String? value) {
@@ -1061,7 +1074,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                                     >(Colors.white),
                                               ),
                                             )
-                                          : const Text('Verify Phone'),
+                                          : Text(app.t('verify_phone')),
                                     ),
                                   ),
                                 ],
@@ -1098,7 +1111,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                             : () => setState(() {
                                                 _phoneVerified = false;
                                               }),
-                                        child: const Text('Change'),
+                                        child: Text(app.t('change')),
                                       ),
                                     ],
                                   ),
@@ -1144,8 +1157,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   TextFormField(
                                     controller: _emailController,
                                     keyboardType: TextInputType.emailAddress,
-                                    decoration: const InputDecoration(
-                                      hintText: 'name@example.com',
+                                    decoration: InputDecoration(
+                                      hintText: app.t('email'),
                                       prefixIcon: Icon(Icons.email_outlined),
                                     ),
                                     validator: (String? value) {
@@ -1513,7 +1526,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                 ),
                                 SizedBox(height: isSmall ? 22 : 30),
                                 Text(
-                                  'Verify your number',
+                                  app.t('verify_your_number'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: isSmall ? 26 : 30,
@@ -1655,7 +1668,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                     child: Column(
                                       children: <Widget>[
                                         Text(
-                                          'Development Mode - OTP:',
+                                          app.t('dev_mode_otp'),
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -1679,7 +1692,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   SizedBox(height: isSmall ? 24 : 30),
                                 ],
                                 Text(
-                                  "Didn't receive a code?",
+                                  app.t('didnt_receive_code'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: isSmall ? 14 : 15,
@@ -1697,7 +1710,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                     color: Color(0xFF1F78D1),
                                   ),
                                   label: Text(
-                                    'Resend Code',
+                                    app.t('resend_code'),
                                     style: TextStyle(
                                       fontSize: isSmall ? 15 : 16,
                                       fontWeight: FontWeight.w700,

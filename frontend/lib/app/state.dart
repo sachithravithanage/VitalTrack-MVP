@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../services/index.dart';
 import 'localization.dart';
@@ -24,16 +26,31 @@ class AppState extends ChangeNotifier {
 
   void setLanguage(AppLanguage language) {
     selectedLanguage = language;
+    unawaited(
+      storageService.saveLanguage(
+        language == AppLanguage.sinhala ? 'si' : 'en',
+      ),
+    );
     notifyListeners();
   }
 
   /// Initialize user from local storage (on app startup)
   void initializeUser() {
+    final String? languageCode = storageService.getLanguage();
+    if (languageCode == 'si') {
+      selectedLanguage = AppLanguage.sinhala;
+    } else {
+      selectedLanguage = AppLanguage.english;
+    }
+
     final userData = authService.getCurrentUser();
     if (userData != null) {
       currentUser = _toUserProfile(userData);
       notifyListeners();
+      return;
     }
+
+    notifyListeners();
   }
 
   /// Login with email and password

@@ -269,7 +269,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
 
                         // Subtitle in Sinhala
                         Text(
-                          'ඔබේ කැමති භාෂාව තෝරන්න',
+                          app.t('select_language_subtitle'),
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(
                                 fontSize: subtitleFontSize,
@@ -330,7 +330,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                   SizedBox(width: horizontalPadding * 0.6),
                                   Expanded(
                                     child: Text(
-                                      'English',
+                                      app.t('language_english_title'),
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleMedium
@@ -404,7 +404,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                   SizedBox(width: horizontalPadding * 0.6),
                                   Expanded(
                                     child: Text(
-                                      'සිංහල',
+                                      app.t('language_sinhala_title'),
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleMedium

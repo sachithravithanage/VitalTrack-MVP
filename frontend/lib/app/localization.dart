@@ -25,6 +25,12 @@ localized = <String, Map<String, String>>{
     'en': 'Continue / ඉදිරියට',
     'si': 'ඉදිරියට / Continue',
   },
+  'color_white': {'en': 'White', 'si': 'සුදු'},
+  'color_yellow': {'en': 'Yellow', 'si': 'කහ'},
+  'color_brown': {'en': 'Brown', 'si': 'දුඹුරු'},
+  'color_dark': {'en': 'Dark', 'si': 'අඳුරු'},
+  'color_normal': {'en': 'Normal', 'si': 'සාමාන්‍ය'},
+  'color_red': {'en': 'Red', 'si': 'රතු'},
   'login': {'en': 'Login', 'si': 'පිවිසීම'},
   'signup': {'en': 'SignUp', 'si': 'ලියාපදිංචි වීම'},
   'login_subtitle': {
@@ -128,6 +134,7 @@ localized = <String, Map<String, String>>{
   },
   'name': {'en': 'Name', 'si': 'නම'},
   'phone_number_lk': {'en': 'Mobile Number', 'si': 'ජංගම දුරකථන අංකය'},
+  'phone_number_example': {'en': '07XXXXXXXX', 'si': '07XXXXXXXX'},
   'optional': {'en': 'optional', 'si': 'අවශ්‍ය නැත'},
   're_enter_password': {
     'en': 'Re-enter Password',
@@ -268,4 +275,309 @@ localized = <String, Map<String, String>>{
     'en': 'Cannot open PDF. Please try again.',
     'si': 'PDF විවෘත කළ නොහැක. කරුණාකර නැවත උත්සාහ කරන්න.',
   },
+  'app_title': {'en': 'VitalTrack', 'si': 'VitalTrack'},
+  'dismiss': {'en': 'Dismiss', 'si': 'වසන්න'},
+  'notifications': {'en': 'Notifications', 'si': 'දැනුම්දීම්'},
+  'no_notifications_yet': {
+    'en': 'No notifications yet',
+    'si': 'තවම දැනුම්දීම් නොමැත',
+  },
+  'notifications_empty_subtitle': {
+    'en': 'You will see reminders and alerts here.',
+    'si': 'මතක් කිරීම් සහ අනතුරු ඇඟවීම් මෙහි දිස්වේ.',
+  },
+  'language': {'en': 'Language', 'si': 'භාෂාව'},
+  'language_changed': {
+    'en': 'Language updated',
+    'si': 'භාෂාව යාවත්කාලීන කරන ලදී',
+  },
+  'otp_sent_at': {'en': 'OTP sent at', 'si': 'OTP යැවූ වේලාව'},
+  'account_exists_login': {
+    'en': 'Account already exists. Please login.',
+    'si': 'ගිණුම දැනටමත් පවතී. කරුණාකර පිවිසෙන්න.',
+  },
+  'email_not_verified_profile': {
+    'en': 'Email is not verified yet. Please verify email from Profile first.',
+    'si':
+        'ඊමේල් තහවුරු කර නැත. කරුණාකර පළමුව Profile තුළින් ඊමේල් තහවුරු කරන්න.',
+  },
+  'forgot_new_password': {'en': 'New Password', 'si': 'නව මුරපදය'},
+  'forgot_confirm_password': {
+    'en': 'Confirm Password',
+    'si': 'මුරපදය තහවුරු කරන්න',
+  },
+  'send_otp': {'en': 'Send OTP', 'si': 'OTP යවන්න'},
+  'reset_password_otp_subtitle': {
+    'en': 'Enter the 6-digit code to reset your password',
+    'si': 'ඔබගේ මුරපදය නැවත සකස් කිරීමට ඉලක්කම් 6 ක කේතය ඇතුල් කරන්න',
+  },
+  'password_reset_success': {
+    'en': 'Password reset successful. Please login again.',
+    'si': 'මුරපදය සාර්ථකව නැවත සකස් විය. කරුණාකර නැවත පිවිසෙන්න.',
+  },
+  'verify_phone': {'en': 'Verify Phone', 'si': 'දුරකථනය තහවුරු කරන්න'},
+  'change': {'en': 'Change', 'si': 'වෙනස් කරන්න'},
+  'phone_verified_complete_profile': {
+    'en': 'Phone verified. Complete your profile.',
+    'si': 'දුරකථනය තහවුරු විය. ඔබගේ පැතිකඩ සම්පූර්ණ කරන්න.',
+  },
+  'verify_phone_first': {
+    'en': 'Verify your phone number first.',
+    'si': 'පළමුව ඔබගේ දුරකථන අංකය තහවුරු කරන්න.',
+  },
+  'verify_your_number': {
+    'en': 'Verify your number',
+    'si': 'ඔබගේ අංකය තහවුරු කරන්න',
+  },
+  'dev_mode_otp': {
+    'en': 'Development Mode - OTP:',
+    'si': 'සංවර්ධන ප්‍රකාරය - OTP:',
+  },
+  'didnt_receive_code': {
+    'en': 'Didn\'t receive a code?',
+    'si': 'කේතය ලැබුණේ නැද්ද?',
+  },
+  'resend_code': {'en': 'Resend Code', 'si': 'කේතය නැවත යවන්න'},
+  'signup_failed': {
+    'en': 'Sign up failed. Please try again.',
+    'si': 'ලියාපදිංචි වීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+  },
+  'caregiver_mode_enabled': {
+    'en': 'Caregiver mode enabled',
+    'si': 'භාරකරු ප්‍රකාරය සක්‍රීය කරන ලදී',
+  },
+  'enter_otp_sent_email': {
+    'en': 'Enter the OTP sent to your email',
+    'si': 'ඔබගේ ඊමේල් වෙත එවූ OTP ඇතුල් කරන්න',
+  },
+  'email_verified_success': {
+    'en': 'Email verified successfully',
+    'si': 'ඊමේල් සාර්ථකව තහවුරු කරන ලදී',
+  },
+  'add_email': {'en': 'Add Email', 'si': 'ඊමේල් එකතු කරන්න'},
+  'caregiver_options': {'en': 'Caregiver Options', 'si': 'භාරකරු විකල්ප'},
+  'enable_caregiver_mode': {
+    'en': 'Enable Caregiver Mode',
+    'si': 'භාරකරු ප්‍රකාරය සක්‍රීය කරන්න',
+  },
+  'patient_caregiver_settings': {
+    'en': 'Patient Caregiver Settings',
+    'si': 'රෝගියා-භාරකරු සැකසුම්',
+  },
+  'connect_with_caregiver': {
+    'en': 'Connect with Caregiver',
+    'si': 'භාරකරු සමඟ සම්බන්ධ වන්න',
+  },
+  'share_realtime_health_data': {
+    'en': 'Share real-time health data with caregivers',
+    'si': 'තත්‍ය කාලීන සෞඛ්‍ය දත්ත භාරකරුවන් සමඟ බෙදා ගන්න',
+  },
+  'map_view': {'en': 'Map View', 'si': 'සිතියම් දසුන'},
+  'showing_hotspots': {
+    'en': 'Showing {disease} hotspots',
+    'si': '{disease} හොට්ස්පොට් පෙන්වයි',
+  },
+  'legend': {'en': 'Legend', 'si': 'සංකේත'},
+  'details': {'en': 'Details', 'si': 'විස්තර'},
+  'top_areas': {'en': 'Top Areas', 'si': 'ප්‍රමුඛ ප්‍රදේශ'},
+  'large_map_mode_enabled': {
+    'en': 'Large map mode enabled (details hidden)',
+    'si': 'විශාල සිතියම් ප්‍රකාරය සක්‍රීයයි (විස්තර සඟවා ඇත)',
+  },
+  'risk_low': {'en': 'Low', 'si': 'අඩු'},
+  'risk_medium': {'en': 'Medium', 'si': 'මධ්‍යම'},
+  'risk_high': {'en': 'High', 'si': 'ඉහළ'},
+  'risk_critical': {'en': 'Critical', 'si': 'අති අවදානම්'},
+  'risk_score_line': {
+    'en': 'Risk: {risk} • Score: {score}',
+    'si': 'අවදානම: {risk} • ලකුණු: {score}',
+  },
+  'patients_events_line': {
+    'en': 'Patients: {patients} • Events: {events}',
+    'si': 'රෝගීන්: {patients} • සිදුවීම්: {events}',
+  },
+  'home_work_visits_line': {
+    'en': 'Home: {home}, Work: {work}, Visits: {visits}',
+    'si': 'නිවස: {home}, වැඩබිම: {work}, ගමන්: {visits}',
+  },
+  'top_hotspot_districts': {
+    'en': 'Top Hotspot Districts',
+    'si': 'ප්‍රමුඛ හොට්ස්පොට් දිස්ත්‍රික්ක',
+  },
+  'score_events_line': {
+    'en': 'Score {score} • {events} events',
+    'si': 'ලකුණු {score} • සිදුවීම් {events}',
+  },
+  'submission_disease': {
+    'en': 'Submission disease: {disease}',
+    'si': 'ඉදිරිපත් කළ රෝගය: {disease}',
+  },
+  'town_district': {'en': 'town / district', 'si': 'නගරය / දිස්ත්‍රික්කය'},
+  'no_submissions_yet': {
+    'en': 'No {disease} submissions yet',
+    'si': 'තවම {disease} සම්බන්ධ ඉදිරිපත් කිරීම් නොමැත',
+  },
+  'unknown': {'en': 'Unknown', 'si': 'නොදන්නා'},
+  'patient_directory': {'en': 'Patient Directory', 'si': 'රෝගී නාමාවලිය'},
+  'review_linked_patients': {
+    'en': 'Review linked patients and open their options.',
+    'si': 'සම්බන්ධිත රෝගීන් සමාලෝචනය කර ඔවුන්ගේ විකල්ප විවෘත කරන්න.',
+  },
+  'active_patients_count': {
+    'en': '{count} Active Patients',
+    'si': 'සක්‍රීය රෝගීන් {count}',
+  },
+  'enter_caregiver_code': {
+    'en': 'Enter Caregiver Code',
+    'si': 'භාරකරු කේතය ඇතුල් කරන්න',
+  },
+  'create_patient_profile': {
+    'en': 'Create Patient Profile',
+    'si': 'රෝගී පැතිකඩ සාදන්න',
+  },
+  'enter_code_shared_by_patient': {
+    'en': 'Enter the 6-digit code shared by the patient.',
+    'si': 'රෝගියා බෙදාගත් ඉලක්කම් 6 ක කේතය ඇතුල් කරන්න.',
+  },
+  'create_link_patient_manually': {
+    'en': 'Create and link a new patient profile manually.',
+    'si': 'නව රෝගී පැතිකඩක් අතින් සාදා සම්බන්ධ කරන්න.',
+  },
+  'condition': {'en': 'Condition', 'si': 'තත්ත්වය'},
+  'patient_options_title': {
+    'en': 'You are in patient options',
+    'si': 'ඔබ රෝගී විකල්ප තුළ සිටී',
+  },
+  'good_morning_name': {
+    'en': 'Good morning, {name}',
+    'si': 'සුබ උදෑසනක්, {name}',
+  },
+  'how_feeling_today': {
+    'en': 'How are you feeling today?',
+    'si': 'අද ඔබට කොහොමද දැනෙන්නේ?',
+  },
+  'select_condition_track_daily': {
+    'en': 'Select a condition to track your daily symptoms',
+    'si': 'දෛනික ලක්ෂණ සටහන් කිරීමට රෝග තත්ත්වයක් තෝරන්න',
+  },
+  'last_entry_prefix': {'en': 'Last entry: {time}', 'si': 'අවසාන සටහන: {time}'},
+  'disease_monitoring': {
+    'en': '{disease} monitoring',
+    'si': '{disease} නිරීක්ෂණය',
+  },
+  'record_taking_dengue': {
+    'en': 'Record Taking - Dengue',
+    'si': 'වාර්තා කිරීම - ඩෙංගු',
+  },
+  'record_taking_rat_fever': {
+    'en': 'Record Taking - Rat Fever',
+    'si': 'වාර්තා කිරීම - මී උණ',
+  },
+  'dengue_instruction': {
+    'en':
+        'Enter the latest dengue-related measurements carefully and mark symptoms as Yes or No based on your current condition.',
+    'si':
+        'ඩෙංගුට අදාළ නවතම මිනුම් සැලකිල්ලෙන් ඇතුල් කර ඔබගේ වත්මන් තත්ත්වය අනුව ලක්ෂණ ඔව්/නැහැ ලෙස සලකුණු කරන්න.',
+  },
+  'rat_instruction': {
+    'en':
+        'Enter current rat fever measurements and symptom status carefully so the care team can monitor progress accurately.',
+    'si':
+        'භාරකරු කණ්ඩායමට ප්‍රගතිය නිවැරදිව නිරීක්ෂණය කළ හැකි ලෙස දැනට පවතින මී උණ මිනුම් සහ ලක්ෂණ තත්ත්වය සවිස්තරව ඇතුල් කරන්න.',
+  },
+  'body_temperature_c': {
+    'en': 'Body Temperature (°C)',
+    'si': 'ශරීර උෂ්ණත්වය (°C)',
+  },
+  'fluid_intake_ml_label': {
+    'en': 'Fluid Intake (ml)',
+    'si': 'දියර ප්‍රමාණය (ml)',
+  },
+  'urine_output_ml_label': {
+    'en': 'Urine Output (ml)',
+    'si': 'මුත්‍රා ප්‍රමාණය (ml)',
+  },
+  'eye_coloration': {'en': 'Eye Coloration', 'si': 'ඇස් වර්ණ වෙනස'},
+  'urine_color_hint': {'en': 'Urine color', 'si': 'මුත්‍රා වර්ණය'},
+  'eye_coloration_hint': {'en': 'Eye coloration', 'si': 'ඇස් වර්ණය'},
+  'additional_notes_label': {'en': 'Additional Notes', 'si': 'අමතර සටහන්'},
+  'notes_hint_dengue': {
+    'en': 'Record other symptoms like rashes, headaches, or pain...',
+    'si': 'කුෂ්ඨ, හිසරදය, වේදනාව වැනි වෙනත් ලක්ෂණ සටහන් කරන්න...',
+  },
+  'notes_hint_rat': {
+    'en': 'Describe any other symptoms or feelings here...',
+    'si': 'වෙනත් ලක්ෂණ හෝ හැඟීම් මෙහි ලියන්න...',
+  },
+  'save_record': {'en': 'Save Record', 'si': 'වාර්තාව සුරකින්න'},
+  'recent_logs': {'en': 'RECENT LOGS', 'si': 'නවතම වාර්තා'},
+  'disease_records_datetime': {
+    'en': 'Disease records with entered date and time',
+    'si': 'ඇතුල් කළ දිනය හා වේලාව සමඟ රෝග වාර්තා',
+  },
+  'dengue_records': {'en': 'Dengue Records', 'si': 'ඩෙංගු වාර්තා'},
+  'rat_fever_records': {'en': 'Rat Fever Records', 'si': 'මී උණ වාර්තා'},
+  'entered_datetime': {
+    'en': 'Entered {datetime}',
+    'si': 'ඇතුල් කළේ {datetime}',
+  },
+  'record_details': {'en': 'Record Details', 'si': 'වාර්තා විස්තර'},
+  'data': {'en': 'Data', 'si': 'දත්ත'},
+  'notes': {'en': 'NOTES', 'si': 'සටහන්'},
+  'patient_id_line': {'en': 'Patient ID: {value}', 'si': 'රෝගී අංකය: {value}'},
+  'created_by_line': {'en': 'Created By: {value}', 'si': 'සාදන ලද්දේ: {value}'},
+  'recorded_at_line': {
+    'en': 'Recorded At: {value}',
+    'si': 'වාර්තා කළ වේලාව: {value}',
+  },
+  'minutes_ago': {'en': '{count} mins ago', 'si': 'මිනිත්තු {count} කට පෙර'},
+  'hours_ago': {'en': '{count} hours ago', 'si': 'පැය {count} කට පෙර'},
+  'one_day_ago': {'en': '1 day ago', 'si': 'දින 1 කට පෙර'},
+  'days_ago': {'en': '{count} days ago', 'si': 'දින {count} කට පෙර'},
+  'symptom_fever_drop': {
+    'en': 'Fever dropped from previous value',
+    'si': 'පෙර අගයට සාපේක්ෂව උණ අඩුවී ඇත',
+  },
+  'symptom_cold_clammy_hands_feet': {
+    'en': 'Hands or feet cold and clammy',
+    'si': 'අත් හෝ පාද සීතල හා තෙත් බව',
+  },
+  'symptom_vomiting': {'en': 'Vomiting', 'si': 'වමනය'},
+  'symptom_dizziness': {'en': 'Dizziness', 'si': 'මතලීම'},
+  'symptom_severe_abdominal_pain': {
+    'en': 'Severe right-sided upper abdominal pain',
+    'si': 'දකුණු ඉහළ උදරයේ තද වේදනාව',
+  },
+  'symptom_poor_appetite': {'en': 'Poor appetite', 'si': 'ආහාර රුචිය අඩුවීම'},
+  'symptom_return_of_appetite': {
+    'en': 'Sudden return of appetite',
+    'si': 'අचानक ආහාර රුචිය වැඩිවීම',
+  },
+  'symptom_reduced_urine': {
+    'en': 'Sudden reduction of urine output',
+    'si': 'මුත්‍රා ප්‍රමාණය අचानक අඩුවීම',
+  },
+  'symptom_no_urine': {
+    'en': 'Inability to pass urine',
+    'si': 'මුත්‍රා කිරීමට අපහසුතාව',
+  },
+  'symptom_muscle_pains': {'en': 'Muscle pains', 'si': 'පේශි වේදනා'},
+  'symptom_tenderness_calf_back': {
+    'en': 'Tenderness in calf muscles or lower back',
+    'si': 'කැල්ෆ් පේශි හෝ පහළ පිටුපස වේදනාව',
+  },
+  'symptom_bloodshot_eyes': {
+    'en': 'Bloodshot appearance in eyes',
+    'si': 'ඇස් රතු පැහැයෙන් පෙනීම',
+  },
+  'symptom_skin_jaundice': {
+    'en': 'Skin jaundice (yellowish skin tint)',
+    'si': 'සම කහ පැහැය (ජොන්ඩිස් ලක්ෂණ)',
+  },
+  'symptom_difficulty_breathing': {
+    'en': 'Difficulty breathing',
+    'si': 'ශ්වසනය අපහසු වීම',
+  },
+  'symptom_rapid_breathing': {'en': 'Rapid breathing', 'si': 'වේගවත් ශ්වසනය'},
+  'symptom_coughing_blood': {'en': 'Coughing up blood', 'si': 'ලේ සමඟ කැස්ස'},
 };
