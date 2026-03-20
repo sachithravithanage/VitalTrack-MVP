@@ -156,6 +156,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Refresh current user profile from backend
+  Future<void> refreshCurrentUserProfile() async {
+    if (currentUser == null) return;
+
+    final response = await authService.getUserProfile();
+    final userData = response['profile'] ?? response['user'];
+    if (userData is Map<String, dynamic>) {
+      currentUser = _toUserProfile(userData);
+      notifyListeners();
+    }
+  }
+
   /// Send verification OTP to current email and return response with OTP if in dev mode
   Future<Map<String, dynamic>> sendEmailVerificationOtp() async {
     final response = await authService.verifyEmail();
@@ -165,7 +177,7 @@ class AppState extends ChangeNotifier {
   /// Confirm email verification using OTP
   Future<void> confirmEmailVerification({required String otp}) async {
     await authService.confirmEmailVerification(otp: otp);
-    markEmailVerified();
+    await refreshCurrentUserProfile();
   }
 
   /// Parse user role string

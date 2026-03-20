@@ -284,10 +284,18 @@ class AuthService {
     try {
       final response = await _apiClient.confirmEmailVerification(otp: otp);
 
-      final currentUser = _storage.getCurrentUser();
-      if (currentUser != null) {
-        currentUser['emailVerified'] = true;
-        await _storage.saveCurrentUser(currentUser);
+      try {
+        final profileResponse = await _apiClient.getUserProfile();
+        final user = profileResponse['profile'] ?? profileResponse['user'];
+        if (user is Map<String, dynamic>) {
+          await _storage.saveCurrentUser(user);
+        }
+      } catch (_) {
+        final currentUser = _storage.getCurrentUser();
+        if (currentUser != null) {
+          currentUser['emailVerified'] = true;
+          await _storage.saveCurrentUser(currentUser);
+        }
       }
 
       return response;
