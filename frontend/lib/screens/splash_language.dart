@@ -479,16 +479,6 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                           ),
                         ),
                         SizedBox(height: isSmallScreen ? 12 : 16),
-                        Text(
-                          app.t('splash_continue_note'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                fontSize: isSmallScreen ? 11 : 13,
-                                color: const Color(0xFF98A2B3),
-                                fontWeight: FontWeight.w500,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
                       ],
                     ),
                   ],

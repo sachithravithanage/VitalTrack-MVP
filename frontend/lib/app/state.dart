@@ -14,6 +14,7 @@ class AppState extends ChangeNotifier {
   final Map<String, List<Map<String, dynamic>>> _caregiversByPatient =
       <String, List<Map<String, dynamic>>>{};
   final List<HotspotResponse> _hotspots = <HotspotResponse>[];
+  final List<AppNotification> _notifications = <AppNotification>[];
 
   String t(String key) {
     final bool isSi = selectedLanguage == AppLanguage.sinhala;
@@ -96,6 +97,7 @@ class AppState extends ChangeNotifier {
       _caregiverPatients.clear();
       _caregiversByPatient.clear();
       _hotspots.clear();
+      _notifications.clear();
       notifyListeners();
     } catch (e) {
       debugPrint('Logout error: $e');
@@ -118,6 +120,8 @@ class AppState extends ChangeNotifier {
         await loadPatientCaregivers();
         await loadPatientHotspots(currentUser!.id);
       }
+
+      await loadNotificationHistory();
     } catch (e) {
       debugPrint('Error reloading user data: $e');
       // Don't rethrow - this is optional data
@@ -743,6 +747,76 @@ class AppState extends ChangeNotifier {
       otp: otp,
       channel: channel,
     );
+  }
+
+  // ============ Notifications ============
+
+  List<AppNotification> get notifications =>
+      List<AppNotification>.unmodifiable(_notifications);
+
+  int get unreadNotificationCount =>
+      _notifications.where((n) => !n.read).length;
+
+  Future<void> loadNotificationHistory({int limit = 50}) async {
+    try {
+      final rows = await notificationService.getNotificationHistory(
+        limit: limit,
+      );
+
+      _notifications
+        ..clear()
+        ..addAll(
+          rows.map((dynamic row) {
+            final map = row as Map<String, dynamic>;
+            final rawData = map['data'];
+            return AppNotification(
+              id: (map['id'] ?? '').toString(),
+              title: (map['title'] ?? '').toString(),
+              body: (map['body'] ?? '').toString(),
+              sentAt: _parseTimestamp(map['sentAt']),
+              read: map['read'] == true,
+              data: rawData is Map
+                  ? Map<String, dynamic>.from(rawData)
+                  : const <String, dynamic>{},
+              status: map['status']?.toString(),
+            );
+          }),
+        )
+        ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Load notifications error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await notificationService.markNotificationAsRead(
+        notificationId: notificationId,
+      );
+
+      final int index = _notifications.indexWhere(
+        (n) => n.id == notificationId,
+      );
+      if (index >= 0) {
+        final AppNotification existing = _notifications[index];
+        _notifications[index] = AppNotification(
+          id: existing.id,
+          title: existing.title,
+          body: existing.body,
+          sentAt: existing.sentAt,
+          read: true,
+          data: existing.data,
+          status: existing.status,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Mark notification as read error: $e');
+      rethrow;
+    }
   }
 
   // ============ Helpers ============

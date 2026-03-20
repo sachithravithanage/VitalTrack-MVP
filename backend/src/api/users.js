@@ -144,6 +144,10 @@ router.post("/verify-email", async (req, res) => {
 
     const otp = await authService.createOTP(userProfile.email, "email");
 
+    if ((process.env.NODE_ENV || "development") !== "production") {
+      console.log(`Email verification OTP for ${userProfile.email}: ${otp}`);
+    }
+
     // Send OTP via email
     try {
       await emailService.sendOtpEmail(userProfile.email, otp, "email");

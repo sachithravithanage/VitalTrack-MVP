@@ -1,6 +1,7 @@
 import express from "express";
 import * as notificationService from "../services/notificationService.js";
-import { verifyFirebaseToken, requireRole } from "../middleware/auth.js";
+import * as authService from "../services/authService.js";
+import { verifyFirebaseToken } from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 
 const router = express.Router();
@@ -54,6 +55,13 @@ router.post("/register-token", async (req, res) => {
 router.get("/history", async (req, res) => {
   try {
     const { limit } = req.query;
+
+    const userProfile = await authService.getUserProfile(req.user.uid);
+    if (userProfile.role === "patient") {
+      await notificationService.generateMissingRecordNotifications(
+        req.user.uid,
+      );
+    }
 
     const notifications = await notificationService.getNotificationHistory(
       req.user.uid,

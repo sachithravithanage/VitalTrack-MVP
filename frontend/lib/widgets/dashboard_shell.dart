@@ -17,6 +17,8 @@ class AdaptiveDashboardShell extends StatelessWidget {
     required this.onDestinationSelected,
     required this.destinations,
     required this.pages,
+    this.onNotificationsPressed,
+    this.unreadNotificationCount = 0,
   });
 
   final String title;
@@ -24,6 +26,8 @@ class AdaptiveDashboardShell extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final List<DashboardDestination> destinations;
   final List<Widget> pages;
+  final VoidCallback? onNotificationsPressed;
+  final int unreadNotificationCount;
 
   @override
   Widget build(BuildContext context) {
@@ -59,16 +63,51 @@ class AdaptiveDashboardShell extends StatelessWidget {
           ],
         ),
         actions: <Widget>[
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9F1FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.notifications, color: Color(0xFF152440)),
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE9F1FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  onPressed: onNotificationsPressed,
+                  icon: const Icon(
+                    Icons.notifications,
+                    color: Color(0xFF152440),
+                  ),
+                ),
+              ),
+              if (unreadNotificationCount > 0)
+                Positioned(
+                  right: 10,
+                  top: 6,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE34B5B),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadNotificationCount > 99
+                          ? '99+'
+                          : unreadNotificationCount.toString(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
         bottom: PreferredSize(

@@ -10,6 +10,7 @@ import recordsRoutes from "./api/records.js";
 import relationshipsRoutes from "./api/relationships.js";
 import notificationsRoutes from "./api/notifications.js";
 import hotspotRoutes from "./api/hotspot.js";
+import { generateMissingRecordNotificationsForAllPatients } from "./services/notificationService.js";
 
 // Load environment variables
 dotenv.config();
@@ -89,6 +90,22 @@ app.listen(PORT, () => {
   console.log(
     `Available at: http://localhost:${PORT}/api/${config.apiVersion}`,
   );
+
+  const runInactivitySweep = async () => {
+    try {
+      const result = await generateMissingRecordNotificationsForAllPatients();
+      console.log(
+        `[notifications] inactivity sweep checked ${result.patientsChecked} patients, generated ${result.generatedTotal}`,
+      );
+    } catch (error) {
+      console.error("[notifications] inactivity sweep failed:", error);
+    }
+  };
+
+  if (config.useFirebaseEmulators) {
+    runInactivitySweep();
+    setInterval(runInactivitySweep, 15 * 60 * 1000);
+  }
 });
 
 export default app;

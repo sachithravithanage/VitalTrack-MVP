@@ -122,12 +122,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _enableCaregiver(AppState app) async {
     try {
       await app.enableCaregiverRole();
-      await app.switchActiveRole(UserRole.caregiver);
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const DashboardRouter()),
-        (Route<dynamic> route) => false,
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Caregiver mode enabled')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

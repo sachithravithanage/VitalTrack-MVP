@@ -1,8 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
+
+const bool _enableLocalFcm = bool.fromEnvironment(
+  'ENABLE_LOCAL_FCM',
+  defaultValue: false,
+);
+
+bool get _isLocalFcmDisabled => kDebugMode && !_enableLocalFcm;
 
 /// Initialize Firebase for the application
 Future<void> initializeFirebase() async {
@@ -11,13 +19,27 @@ Future<void> initializeFirebase() async {
   // Connect to Firebase emulators in debug mode
   if (kDebugMode) {
     try {
-      // Connect to Auth emulator (runs on localhost:9099 by default)
-      await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+      final String emulatorHost =
+          (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+          ? '10.0.2.2'
+          : 'localhost';
+
+      // Connect to Auth emulator (runs on port 9099 by default)
+      await FirebaseAuth.instance.useAuthEmulator(emulatorHost, 9099);
+
+      // Connect to Firestore emulator (runs on port 8080 by default)
+      FirebaseFirestore.instance.useFirestoreEmulator(emulatorHost, 8080);
+
       debugPrint('✓ Connected to Firebase Auth Emulator');
     } catch (e) {
       // Emulator might not be running, continue anyway
       debugPrint('⚠ Auth Emulator not available: $e');
     }
+  }
+
+  if (_isLocalFcmDisabled) {
+    debugPrint('ℹ FCM disabled for local debug (ENABLE_LOCAL_FCM=false)');
+    return;
   }
 
   // Request notification permissions
@@ -115,9 +137,18 @@ class FirebaseAuthService {
 
   /// Get FCM Token for push notifications
   Future<String?> getFCMToken() async {
+    if (_isLocalFcmDisabled) {
+      return null;
+    }
+
     try {
       return await _messaging.getToken();
     } catch (e) {
+      final message = e.toString();
+      if (kDebugMode && message.contains('API key not valid')) {
+        debugPrint('ℹ Skipping FCM token in local debug (invalid API key).');
+        return null;
+      }
       debugPrint("Error getting FCM token: $e");
       return null;
     }
@@ -125,16 +156,25 @@ class FirebaseAuthService {
 
   /// Listen to FCM token changes
   void listenToFCMTokenChanges(Function(String) onTokenChanged) {
+    if (_isLocalFcmDisabled) {
+      return;
+    }
     _messaging.onTokenRefresh.listen(onTokenChanged);
   }
 
   /// Listen to incoming messages (foreground)
   void listenToMessages(Function(RemoteMessage) onMessage) {
+    if (_isLocalFcmDisabled) {
+      return;
+    }
     FirebaseMessaging.onMessage.listen(onMessage);
   }
 
   /// Handle notification tap
   void handleNotificationTap(Function(RemoteMessage) onNotificationTapped) {
+    if (_isLocalFcmDisabled) {
+      return;
+    }
     FirebaseMessaging.onMessageOpenedApp.listen(onNotificationTapped);
   }
 

@@ -4,6 +4,7 @@ import * as pdfService from "../services/pdfService.js";
 import * as notificationService from "../services/notificationService.js";
 import * as authService from "../services/authService.js";
 import * as relationshipService from "../services/relationshipService.js";
+import { config } from "../config/env.js";
 import {
   verifyFirebaseToken,
   requireRole,
@@ -16,6 +17,38 @@ import {
 } from "../utils/errors.js";
 
 const router = express.Router();
+
+const maybeRequireStepUp = (purpose) => {
+  if (config.useFirebaseEmulators) {
+    return (req, res, next) => next();
+  }
+
+  return requireStepUp(purpose);
+};
+
+/**
+ * GET /api/v1/records/export/pdf/local/:localPdfId
+ * Download a locally generated PDF buffer (development/local only)
+ */
+router.get("/export/pdf/local/:localPdfId", async (req, res) => {
+  try {
+    if (!config.useFirebaseEmulators && config.nodeEnv === "production") {
+      throw new AuthenticationError("Local PDF endpoint is not available");
+    }
+
+    const localPdf = pdfService.getLocalPdf(req.params.localPdfId);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${localPdf.fileName}"`,
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.send(localPdf.buffer);
+  } catch (error) {
+    handleError(error, res);
+  }
+});
 
 // Require authentication for all routes
 router.use(verifyFirebaseToken);
@@ -282,7 +315,7 @@ router.get("/stats/:patientId", verifyFirebaseToken, async (req, res) => {
 router.get(
   "/export/pdf",
   requireRole("patient", "caregiver"),
-  requireStepUp("export_records"),
+  maybeRequireStepUp("export_records"),
   async (req, res) => {
     try {
       const { timelineFilter, patientId } = req.query;
@@ -328,7 +361,14 @@ router.get(
         records,
         userProfile,
       );
-      const signedUrl = await pdfService.getPDFDownloadUrl(pdfInfo.filePath);
+
+      let signedUrl = pdfInfo.url;
+      if (!signedUrl && pdfInfo.local === true && pdfInfo.localPdfId) {
+        signedUrl = `${req.protocol}://${req.get("host")}/api/${config.apiVersion}/records/export/pdf/local/${pdfInfo.localPdfId}`;
+      }
+      if (!signedUrl && pdfInfo.filePath) {
+        signedUrl = await pdfService.getPDFDownloadUrl(pdfInfo.filePath);
+      }
 
       res.json({
         success: true,

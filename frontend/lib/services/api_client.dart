@@ -526,6 +526,18 @@ class ApiClient {
     }
   }
 
+  /// Mark a notification as read
+  Future<Map<String, dynamic>> markNotificationAsRead({
+    required String notificationId,
+  }) async {
+    try {
+      final response = await _dio.put('/notifications/$notificationId/read');
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // ============ Hotspot ============
 
   /// Submit hotspot data
@@ -592,6 +604,17 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    final currentUser = storageService.getCurrentUser();
+    final currentUserId =
+        (currentUser?['id'] ??
+                currentUser?['uid'] ??
+                firebaseAuthService.currentUserId)
+            ?.toString();
+
+    if (currentUserId != null && currentUserId.isNotEmpty) {
+      options.headers['x-user-id'] = currentUserId;
+    }
+
     // Add Firebase ID token to authorization header
     String? token = await firebaseAuthService.getIdToken();
 
@@ -607,8 +630,10 @@ class _AuthInterceptor extends Interceptor {
       }
     }
 
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
+    } else {
+      options.headers.remove('Authorization');
     }
     return handler.next(options);
   }

@@ -195,6 +195,16 @@ class NotificationService {
       rethrow;
     }
   }
+
+  /// Mark notification as read
+  Future<void> markNotificationAsRead({required String notificationId}) async {
+    try {
+      await _apiClient.markNotificationAsRead(notificationId: notificationId);
+    } catch (e) {
+      debugPrint("Error marking notification as read: $e");
+      rethrow;
+    }
+  }
 }
 
 /// Service for hotspot location data

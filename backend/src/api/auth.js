@@ -89,6 +89,13 @@ router.post("/send-otp", async (req, res) => {
 
     const otp = await authService.createOTP(normalizedCredential, type);
 
+    if (
+      type === "email" &&
+      (process.env.NODE_ENV || "development") !== "production"
+    ) {
+      console.log(`Email OTP for ${normalizedCredential}: ${otp}`);
+    }
+
     // Send OTP via email or SMS
     if (type === "email") {
       try {

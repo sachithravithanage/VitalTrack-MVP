@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "npx firebase emulators:start",
+    "start": "npx firebase emulators:start --project vitaltrack-vcode --only auth,firestore,storage,pubsub",
     "dev": "node --watch src/index.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",

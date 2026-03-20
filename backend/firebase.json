@@ -1,7 +1,4 @@
 {
-  "projects": {
-    "default": "vitaltrack-vcode"
-  },
   "firestore": {
     "rules": "src/firestore/firestore.rules",
     "indexes": "src/firestore/firestore.indexes.json"

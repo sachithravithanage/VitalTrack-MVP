@@ -75,3 +75,23 @@ class HotspotResponse {
   final String places;
   final DateTime createdAt;
 }
+
+class AppNotification {
+  AppNotification({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.sentAt,
+    required this.read,
+    this.data = const <String, dynamic>{},
+    this.status,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final DateTime sentAt;
+  final bool read;
+  final Map<String, dynamic> data;
+  final String? status;
+}
