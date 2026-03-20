@@ -543,6 +543,7 @@ class ApiClient {
   /// Submit hotspot data
   Future<Map<String, dynamic>> submitHotspot({
     required String subject,
+    String? subjectPatientId,
     required String hometown,
     required String workplace,
     String? places,
@@ -555,6 +556,7 @@ class ApiClient {
         'hometown': hometown,
         'workplace': workplace,
       };
+      if (subjectPatientId != null) data['subjectPatientId'] = subjectPatientId;
       if (places != null) data['places'] = places;
       if (disease != null) data['disease'] = disease;
       if (coordinates != null) data['coordinates'] = coordinates;
@@ -584,6 +586,21 @@ class ApiClient {
       if (disease != null) params['disease'] = disease;
       final response = await _dio.get(
         '/hotspot/heatmap/data',
+        queryParameters: params,
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get district-level regional hotspot summary
+  Future<Map<String, dynamic>> getRegionalHeatmapData({String? disease}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (disease != null) params['disease'] = disease;
+      final response = await _dio.get(
+        '/hotspot/heatmap/regions',
         queryParameters: params,
       );
       return _unwrapResponse(response.data);

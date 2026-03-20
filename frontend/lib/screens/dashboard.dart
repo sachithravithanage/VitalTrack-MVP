@@ -189,7 +189,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
     final List<Widget> pages = const <Widget>[
       CaregiverPatientsScreen(),
       ProfileScreen(),
-      HotspotMapScreen(forCaregiverPatientData: false),
+      HotspotMapScreen(forCaregiverPatientData: true),
     ];
     final List<DashboardDestination> destinations = <DashboardDestination>[
       DashboardDestination(icon: Icons.people, label: app.t('patients')),

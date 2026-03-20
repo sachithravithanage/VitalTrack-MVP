@@ -214,6 +214,7 @@ class HotspotService {
   /// Submit hotspot data
   Future<Map<String, dynamic>> submitHotspot({
     required String subject,
+    String? subjectPatientId,
     required String hometown,
     required String workplace,
     String? places,
@@ -223,6 +224,7 @@ class HotspotService {
     try {
       final response = await _apiClient.submitHotspot(
         subject: subject,
+        subjectPatientId: subjectPatientId,
         hometown: hometown,
         workplace: workplace,
         places: places,
@@ -256,6 +258,19 @@ class HotspotService {
       return response;
     } catch (e) {
       debugPrint("Error getting heatmap data: $e");
+      rethrow;
+    }
+  }
+
+  /// Get district-level regional heatmap summary
+  Future<Map<String, dynamic>> getRegionalHeatmapData({String? disease}) async {
+    try {
+      final response = await _apiClient.getRegionalHeatmapData(
+        disease: disease,
+      );
+      return response;
+    } catch (e) {
+      debugPrint("Error getting regional heatmap data: $e");
       rethrow;
     }
   }

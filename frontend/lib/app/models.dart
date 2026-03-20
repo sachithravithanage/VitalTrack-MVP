@@ -63,6 +63,8 @@ class UserProfileData {
 class HotspotResponse {
   HotspotResponse({
     required this.subject,
+    required this.patientId,
+    required this.disease,
     required this.hometown,
     required this.workplace,
     required this.places,
@@ -70,10 +72,34 @@ class HotspotResponse {
   });
 
   final String subject;
+  final String patientId;
+  final String disease;
   final String hometown;
   final String workplace;
   final String places;
   final DateTime createdAt;
+}
+
+class HotspotRegionSummary {
+  HotspotRegionSummary({
+    required this.district,
+    required this.score,
+    required this.riskLevel,
+    required this.totalEvents,
+    required this.hometownCount,
+    required this.workplaceCount,
+    required this.visitCount,
+    required this.patients,
+  });
+
+  final String district;
+  final double score;
+  final String riskLevel;
+  final int totalEvents;
+  final int hometownCount;
+  final int workplaceCount;
+  final int visitCount;
+  final int patients;
 }
 
 class AppNotification {

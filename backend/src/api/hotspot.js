@@ -18,17 +18,55 @@ router.post(
   requireRole("patient", "caregiver"),
   async (req, res) => {
     try {
-      const { subject, hometown, workplace, places, disease, coordinates } =
-        req.body;
+      const {
+        subject,
+        subjectPatientId,
+        hometown,
+        workplace,
+        places,
+        disease,
+        coordinates,
+      } = req.body;
 
-      if (!subject || !hometown) {
+      if (!hometown) {
         return res.status(400).json({
           success: false,
           error: {
             code: "VALIDATION_ERROR",
-            message: "Subject and hometown are required",
+            message: "Hometown is required",
           },
         });
+      }
+
+      let patientId = req.user.uid;
+      let resolvedSubject = subject;
+
+      if (req.userRole === "caregiver") {
+        if (!subjectPatientId || String(subjectPatientId).trim().length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Caregiver submissions must include subjectPatientId",
+            },
+          });
+        }
+
+        patientId = String(subjectPatientId).trim();
+        await hotspotService.validateCaregiverPatientAccess(
+          req.user.uid,
+          patientId,
+        );
+      }
+
+      if (!resolvedSubject || String(resolvedSubject).trim().length === 0) {
+        const { db } = await import("../config/firebase.js").then((m) => ({
+          db: m.db,
+        }));
+        const userDoc = await db.collection("users").doc(patientId).get();
+        resolvedSubject = userDoc.exists
+          ? String(userDoc.data()?.name || "patient")
+          : "patient";
       }
 
       // Validate coordinates if provided
@@ -40,8 +78,11 @@ router.post(
         );
       }
 
-      const data = await hotspotService.submitHotspotData(req.user.uid, {
-        subject,
+      const data = await hotspotService.submitHotspotData(patientId, {
+        subject: resolvedSubject,
+        subjectPatientId: patientId,
+        submittedBy: req.user.uid,
+        submittedByRole: req.userRole,
         hometown,
         workplace,
         places,
@@ -91,6 +132,25 @@ router.get("/heatmap/data", verifyFirebaseToken, async (req, res) => {
     res.json({
       success: true,
       data: { heatmapData },
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * GET /api/v1/hotspot/heatmap/regions
+ * Get district-level hotspot risk summary for Sri Lanka
+ */
+router.get("/heatmap/regions", verifyFirebaseToken, async (req, res) => {
+  try {
+    const { disease } = req.query;
+
+    const summary = await hotspotService.getRegionalHeatmapData(disease);
+
+    res.json({
+      success: true,
+      data: summary,
     });
   } catch (error) {
     handleError(error, res);

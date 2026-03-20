@@ -14,6 +14,7 @@ class AppState extends ChangeNotifier {
   final Map<String, List<Map<String, dynamic>>> _caregiversByPatient =
       <String, List<Map<String, dynamic>>>{};
   final List<HotspotResponse> _hotspots = <HotspotResponse>[];
+  final List<HotspotRegionSummary> _hotspotRegions = <HotspotRegionSummary>[];
   final List<AppNotification> _notifications = <AppNotification>[];
 
   String t(String key) {
@@ -114,11 +115,13 @@ class AppState extends ChangeNotifier {
         // Caregivers: load linked patients. Individual patient records are
         // loaded when a patient is opened.
         await loadCaregiverPatients();
+        await loadRegionalHeatmapData();
       } else {
         // Patients: load own records, linked caregivers, and hotspots.
         await loadPatientRecords(currentUser!.id);
         await loadPatientCaregivers();
         await loadPatientHotspots(currentUser!.id);
+        await loadRegionalHeatmapData();
       }
 
       await loadNotificationHistory();
@@ -652,6 +655,7 @@ class AppState extends ChangeNotifier {
   /// Submit hotspot data
   Future<void> submitHotspot({
     required String subject,
+    String? subjectPatientId,
     required String hometown,
     required String workplace,
     String? places,
@@ -661,6 +665,7 @@ class AppState extends ChangeNotifier {
     try {
       final response = await hotspotService.submitHotspot(
         subject: subject,
+        subjectPatientId: subjectPatientId,
         hometown: hometown,
         workplace: workplace,
         places: places,
@@ -671,12 +676,15 @@ class AppState extends ChangeNotifier {
       if (response['hotspot'] != null) {
         final hotspot = HotspotResponse(
           subject: subject,
+          patientId: subjectPatientId ?? currentUser?.id ?? '',
+          disease: (disease ?? 'unknown').toString(),
           hometown: hometown,
           workplace: workplace,
           places: places ?? '',
           createdAt: DateTime.now(),
         );
         _hotspots.add(hotspot);
+        await loadRegionalHeatmapData(disease: disease);
         notifyListeners();
       }
     } catch (e) {
@@ -696,6 +704,12 @@ class AppState extends ChangeNotifier {
         final hotspotData = h as Map<String, dynamic>;
         return HotspotResponse(
           subject: hotspotData['subject'] ?? '',
+          patientId:
+              (hotspotData['subjectPatientId'] ??
+                      hotspotData['patientId'] ??
+                      '')
+                  .toString(),
+          disease: (hotspotData['disease'] ?? 'unknown').toString(),
           hometown: hotspotData['hometown'] ?? '',
           workplace: hotspotData['workplace'] ?? '',
           places: hotspotData['places'] ?? '',
@@ -727,6 +741,42 @@ class AppState extends ChangeNotifier {
             b.createdAt.compareTo(a.createdAt),
       );
   }
+
+  Future<void> loadRegionalHeatmapData({String? disease}) async {
+    try {
+      final response = await hotspotService.getRegionalHeatmapData(
+        disease: disease,
+      );
+      final rows = response['regions'] as List<dynamic>? ?? <dynamic>[];
+
+      _hotspotRegions
+        ..clear()
+        ..addAll(
+          rows.map((dynamic row) {
+            final map = row as Map<String, dynamic>;
+            return HotspotRegionSummary(
+              district: (map['district'] ?? '').toString(),
+              score: (map['score'] as num?)?.toDouble() ?? 0,
+              riskLevel: (map['riskLevel'] ?? 'low').toString(),
+              totalEvents: (map['totalEvents'] as num?)?.toInt() ?? 0,
+              hometownCount: (map['hometownCount'] as num?)?.toInt() ?? 0,
+              workplaceCount: (map['workplaceCount'] as num?)?.toInt() ?? 0,
+              visitCount: (map['visitCount'] as num?)?.toInt() ?? 0,
+              patients: (map['patients'] as num?)?.toInt() ?? 0,
+            );
+          }),
+        )
+        ..sort((a, b) => b.score.compareTo(a.score));
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Load regional heatmap error: $e');
+      rethrow;
+    }
+  }
+
+  List<HotspotRegionSummary> get regionalHotspotSummary =>
+      List<HotspotRegionSummary>.unmodifiable(_hotspotRegions);
 
   /// Send step-up OTP for sensitive actions
   Future<void> sendStepUpOtp({

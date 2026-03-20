@@ -1,23 +1,103 @@
 import { db } from "../config/firebase.js";
 import { generateId } from "../utils/helpers.js";
-import { NotFoundError } from "../utils/errors.js";
+import { AuthorizationError, ValidationError } from "../utils/errors.js";
+
+const SRI_LANKA_DISTRICTS = [
+  "ampara",
+  "anuradhapura",
+  "badulla",
+  "batticaloa",
+  "colombo",
+  "galle",
+  "gampaha",
+  "hambantota",
+  "jaffna",
+  "kalutara",
+  "kandy",
+  "kegalle",
+  "kilinochchi",
+  "kurunegala",
+  "mannar",
+  "matale",
+  "matara",
+  "monaragala",
+  "mullaitivu",
+  "nuwara eliya",
+  "polonnaruwa",
+  "puttalam",
+  "ratnapura",
+  "trincomalee",
+  "vavuniya",
+];
+
+const DISTRICT_KEYWORDS = {
+  ampara: ["ampara", "ampaarai"],
+  anuradhapura: ["anuradhapura"],
+  badulla: ["badulla"],
+  batticaloa: ["batticaloa", "mattakalappu"],
+  colombo: ["colombo", "kolamba"],
+  galle: ["galle", "gaala"],
+  gampaha: ["gampaha"],
+  hambantota: ["hambantota"],
+  jaffna: ["jaffna", "yaal", "yapanaya", "yarl"],
+  kalutara: ["kalutara"],
+  kandy: ["kandy", "maha nuwara"],
+  kegalle: ["kegalle", "kegalla"],
+  kilinochchi: ["kilinochchi", "kilinochi"],
+  kurunegala: ["kurunegala", "kurunagala"],
+  mannar: ["mannar", "mannaram"],
+  matale: ["matale", "mathale"],
+  matara: ["matara"],
+  monaragala: ["monaragala", "monaragala"],
+  mullaitivu: ["mullaitivu", "mullaittivu"],
+  "nuwara eliya": ["nuwara eliya", "nuwaraeliya", "nuwara"],
+  polonnaruwa: ["polonnaruwa", "polonnaruva"],
+  puttalam: ["puttalam", "putlam"],
+  ratnapura: ["ratnapura", "rathnapura"],
+  trincomalee: ["trincomalee", "trinco", "thirukonamalai"],
+  vavuniya: ["vavuniya", "vavniya"],
+};
+
+const PLACE_WEIGHTS = {
+  hometown: 1,
+  workplace: 0.8,
+  visit: 0.6,
+};
+
+const RECENCY_WEIGHTS = [1, 0.8, 0.6, 0.4];
 
 /**
  * Submit hotspot location data
  */
 export async function submitHotspotData(patientId, hotspotData) {
+  if (!hotspotData.hometown || String(hotspotData.hometown).trim().length < 2) {
+    throw new ValidationError("Hometown is required");
+  }
+
   const dataId = generateId();
+  const now = new Date();
+
+  const normalizedPlaces = splitPlaces(hotspotData.places);
+  const placeRegions = {
+    hometown: toRegion(hotspotData.hometown),
+    workplace: toRegion(hotspotData.workplace),
+    visits: normalizedPlaces.map((place) => toRegion(place)),
+  };
 
   const data = {
     id: dataId,
     patientId,
     subject: hotspotData.subject,
+    subjectPatientId: hotspotData.subjectPatientId || patientId,
+    submittedBy: hotspotData.submittedBy || patientId,
+    submittedByRole: hotspotData.submittedByRole || "patient",
     hometown: hotspotData.hometown,
     workplace: hotspotData.workplace,
-    places: hotspotData.places,
+    places: normalizedPlaces.join(", "),
+    placeRegions,
     disease: hotspotData.disease || "unknown",
     coordinates: hotspotData.coordinates || null, // { latitude, longitude }
-    createdAt: new Date(),
+    createdAt: now,
   };
 
   await db.collection("hotspotData").doc(dataId).set(data);
@@ -87,6 +167,94 @@ export async function getHeatmapData(bounds = null, disease = null) {
   });
 
   return heatmapData;
+}
+
+/**
+ * Get regional heatmap summary for Sri Lanka districts
+ */
+export async function getRegionalHeatmapData(disease = null) {
+  let query = db.collection("hotspotData");
+
+  if (disease) {
+    query = query.where("disease", "==", disease);
+  }
+
+  const snapshot = await query.get();
+
+  const districtAgg = new Map();
+  for (const district of SRI_LANKA_DISTRICTS) {
+    districtAgg.set(district, {
+      district,
+      score: 0,
+      totalEvents: 0,
+      hometownCount: 0,
+      workplaceCount: 0,
+      visitCount: 0,
+      uniquePatients: new Set(),
+    });
+  }
+
+  snapshot.forEach((doc) => {
+    const row = doc.data();
+    const createdAt = toDate(row.createdAt);
+    const recencyWeight = getRecencyWeight(createdAt);
+
+    const regions = row.placeRegions || {
+      hometown: toRegion(row.hometown),
+      workplace: toRegion(row.workplace),
+      visits: splitPlaces(row.places).map((place) => toRegion(place)),
+    };
+
+    addRegionEvent(
+      districtAgg,
+      regions.hometown,
+      PLACE_WEIGHTS.hometown * recencyWeight,
+      "hometownCount",
+      row.subjectPatientId || row.patientId,
+    );
+    addRegionEvent(
+      districtAgg,
+      regions.workplace,
+      PLACE_WEIGHTS.workplace * recencyWeight,
+      "workplaceCount",
+      row.subjectPatientId || row.patientId,
+    );
+    for (const visitDistrict of regions.visits || []) {
+      addRegionEvent(
+        districtAgg,
+        visitDistrict,
+        PLACE_WEIGHTS.visit * recencyWeight,
+        "visitCount",
+        row.subjectPatientId || row.patientId,
+      );
+    }
+  });
+
+  const regions = Array.from(districtAgg.values()).map((item) => {
+    const patients = item.uniquePatients.size;
+    const level = determineRiskLevel(item.score);
+    return {
+      district: item.district,
+      score: Number(item.score.toFixed(2)),
+      riskLevel: level,
+      totalEvents: item.totalEvents,
+      hometownCount: item.hometownCount,
+      workplaceCount: item.workplaceCount,
+      visitCount: item.visitCount,
+      patients,
+    };
+  });
+
+  const hotspots = regions
+    .filter((item) => item.totalEvents > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  return {
+    regions,
+    hotspots,
+    lastUpdatedAt: new Date().toISOString(),
+  };
 }
 
 /**
@@ -229,11 +397,129 @@ function toRad(degrees) {
   return degrees * (Math.PI / 180);
 }
 
+function splitPlaces(placesValue) {
+  if (!placesValue) {
+    return [];
+  }
+
+  if (Array.isArray(placesValue)) {
+    return placesValue
+      .map((place) => String(place || "").trim())
+      .filter((place) => place.length > 0);
+  }
+
+  return String(placesValue)
+    .split(",")
+    .map((place) => place.trim())
+    .filter((place) => place.length > 0);
+}
+
+function toRegion(rawValue) {
+  if (!rawValue) {
+    return null;
+  }
+
+  const normalized = String(rawValue)
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  for (const district of SRI_LANKA_DISTRICTS) {
+    const keywords = DISTRICT_KEYWORDS[district] || [district];
+    if (keywords.some((keyword) => normalized.includes(keyword))) {
+      return district;
+    }
+  }
+
+  return null;
+}
+
+function toDate(value) {
+  if (!value) {
+    return new Date();
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value.toDate === "function") {
+    return value.toDate();
+  }
+  return new Date(value);
+}
+
+function getRecencyWeight(date) {
+  const now = new Date();
+  const dayDiff = Math.floor(
+    (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (dayDiff < 0) {
+    return RECENCY_WEIGHTS[0];
+  }
+  if (dayDiff >= RECENCY_WEIGHTS.length) {
+    return 0.2;
+  }
+  return RECENCY_WEIGHTS[dayDiff];
+}
+
+function addRegionEvent(aggMap, district, weightedScore, countKey, patientId) {
+  if (!district || !aggMap.has(district)) {
+    return;
+  }
+
+  const row = aggMap.get(district);
+  row.score += weightedScore;
+  row.totalEvents += 1;
+  row[countKey] += 1;
+  if (patientId) {
+    row.uniquePatients.add(String(patientId));
+  }
+}
+
+function determineRiskLevel(score) {
+  if (score >= 8) {
+    return "critical";
+  }
+  if (score >= 4) {
+    return "high";
+  }
+  if (score >= 2) {
+    return "medium";
+  }
+  return "low";
+}
+
+export async function validateCaregiverPatientAccess(caregiverId, patientId) {
+  const relationships = await db
+    .collection("relationships")
+    .where("caregiverId", "==", caregiverId)
+    .where("patientId", "==", patientId)
+    .get();
+
+  const hasAccess = relationships.docs.some(
+    (doc) => String(doc.data().status || "active") === "active",
+  );
+
+  if (!hasAccess) {
+    throw new AuthorizationError(
+      "Caregiver does not have access to this patient",
+    );
+  }
+
+  return true;
+}
+
 export default {
   submitHotspotData,
   getPatientHotspots,
   getHeatmapData,
+  getRegionalHeatmapData,
   getHotspotStats,
   findPotentialHotspots,
   getNearByCases,
+  validateCaregiverPatientAccess,
 };

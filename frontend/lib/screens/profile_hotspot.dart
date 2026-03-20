@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../app/models.dart';
 import '../app/scope.dart';
@@ -580,18 +582,195 @@ class HotspotMapScreen extends StatefulWidget {
 class _HotspotMapScreenState extends State<HotspotMapScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _saving = false;
-  final TextEditingController _subjectController = TextEditingController();
+  bool _loadingMap = false;
+  bool _showLegend = true;
+  bool _showDetails = true;
+  bool _showTopHotspots = true;
+  DiseaseType _selectedMapDisease = DiseaseType.dengue;
+  String? _selectedPatientId;
+  String? _selectedDistrict;
+
   final TextEditingController _hometownController = TextEditingController();
   final TextEditingController _workplaceController = TextEditingController();
   final TextEditingController _placesController = TextEditingController();
 
+  static const LatLng _sriLankaCenter = LatLng(7.8731, 80.7718);
+
+  static final Map<String, LatLng> _districtCenters = <String, LatLng>{
+    'ampara': const LatLng(7.2965, 81.6820),
+    'anuradhapura': const LatLng(8.3114, 80.4037),
+    'badulla': const LatLng(6.9934, 81.0550),
+    'batticaloa': const LatLng(7.7170, 81.7000),
+    'colombo': const LatLng(6.9271, 79.8612),
+    'galle': const LatLng(6.0535, 80.2210),
+    'gampaha': const LatLng(7.0917, 79.9992),
+    'hambantota': const LatLng(6.1241, 81.1185),
+    'jaffna': const LatLng(9.6615, 80.0255),
+    'kalutara': const LatLng(6.5854, 79.9607),
+    'kandy': const LatLng(7.2906, 80.6337),
+    'kegalle': const LatLng(7.2513, 80.3464),
+    'kilinochchi': const LatLng(9.3964, 80.3982),
+    'kurunegala': const LatLng(7.4863, 80.3647),
+    'mannar': const LatLng(8.9770, 79.9042),
+    'matale': const LatLng(7.4675, 80.6234),
+    'matara': const LatLng(5.9549, 80.5550),
+    'monaragala': const LatLng(6.8728, 81.3507),
+    'mullaitivu': const LatLng(9.2671, 80.8128),
+    'nuwara eliya': const LatLng(6.9497, 80.7891),
+    'polonnaruwa': const LatLng(7.9396, 81.0000),
+    'puttalam': const LatLng(8.0362, 79.8283),
+    'ratnapura': const LatLng(6.6828, 80.3992),
+    'trincomalee': const LatLng(8.5874, 81.2152),
+    'vavuniya': const LatLng(8.7514, 80.4971),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadMapData());
+  }
+
+  Future<void> _loadMapData() async {
+    setState(() => _loadingMap = true);
+    final AppState app = AppScope.of(context);
+
+    try {
+      if (widget.forCaregiverPatientData) {
+        await app.loadCaregiverPatients();
+        if (!mounted) return;
+        final patients = app.caregiverPatients(app.currentUser!.id);
+        if (patients.isNotEmpty) {
+          _selectedPatientId ??= patients.first.id;
+          await app.loadPatientHotspots(_selectedPatientId!);
+        }
+      } else {
+        await app.loadPatientHotspots(app.currentUser!.id);
+      }
+
+      await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+    } catch (_) {
+      // Keep UI usable even if map data loading fails.
+    } finally {
+      if (mounted) {
+        setState(() => _loadingMap = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
-    _subjectController.dispose();
     _hometownController.dispose();
     _workplaceController.dispose();
     _placesController.dispose();
     super.dispose();
+  }
+
+  Color _riskColor(String riskLevel) {
+    switch (riskLevel.toLowerCase()) {
+      case 'critical':
+        return const Color(0xFFB42318);
+      case 'high':
+        return const Color(0xFFDD6B20);
+      case 'medium':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF1D9A6C);
+    }
+  }
+
+  String _prettyDistrict(String district) {
+    return district
+        .split(' ')
+        .where((p) => p.trim().isNotEmpty)
+        .map((p) => '${p[0].toUpperCase()}${p.substring(1)}')
+        .join(' ');
+  }
+
+  Future<void> _onCaregiverPatientChanged(
+    AppState app,
+    String? patientId,
+  ) async {
+    if (patientId == null || patientId == _selectedPatientId) {
+      return;
+    }
+    setState(() => _selectedPatientId = patientId);
+    try {
+      await app.loadPatientHotspots(patientId);
+    } catch (_) {}
+  }
+
+  Future<void> _switchMapDisease(AppState app, DiseaseType disease) async {
+    if (_selectedMapDisease == disease) {
+      return;
+    }
+    setState(() {
+      _selectedMapDisease = disease;
+      _selectedDistrict = null;
+      _loadingMap = true;
+    });
+
+    try {
+      await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+    } catch (_) {
+      // Keep UI usable even if disease-specific fetch fails.
+    } finally {
+      if (mounted) {
+        setState(() => _loadingMap = false);
+      }
+    }
+  }
+
+  String _selectedDiseaseApiValue() {
+    return _selectedMapDisease == DiseaseType.ratFever ? 'ratFever' : 'dengue';
+  }
+
+  String _diseaseLabel(DiseaseType disease) {
+    return disease == DiseaseType.ratFever ? 'Rat Fever' : 'Dengue';
+  }
+
+  String _diseaseTextFromApi(String disease) {
+    final normalized = disease.toLowerCase();
+    if (normalized == 'ratfever' || normalized == 'rat_fever') {
+      return 'Rat Fever';
+    }
+    if (normalized == 'dengue') {
+      return 'Dengue';
+    }
+    return 'Unknown';
+  }
+
+  bool _matchesSelectedMapDisease(String disease) {
+    final normalized = disease.toLowerCase();
+    if (_selectedMapDisease == DiseaseType.ratFever) {
+      return normalized == 'ratfever' ||
+          normalized == 'rat_fever' ||
+          normalized == 'rat fever';
+    }
+    return normalized == 'dengue';
+  }
+
+  PatientSummary? _findSelectedPatient(List<PatientSummary> patients) {
+    for (final patient in patients) {
+      if (patient.id == _selectedPatientId) {
+        return patient;
+      }
+    }
+    return null;
+  }
+
+  HotspotRegionSummary? _findRegionByDistrict(
+    List<HotspotRegionSummary> regions,
+    String? district,
+  ) {
+    if (district == null) {
+      return null;
+    }
+    for (final region in regions) {
+      if (region.district == district) {
+        return region;
+      }
+    }
+    return null;
   }
 
   @override
@@ -604,12 +783,230 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
     }
 
     final String defaultSubject = currentUser.name;
-    final List<HotspotResponse> history = widget.forCaregiverPatientData
+    final List<PatientSummary> caregiverPatients =
+        widget.forCaregiverPatientData
+        ? app.caregiverPatients(currentUser.id)
+        : <PatientSummary>[];
+
+    final PatientSummary? selectedPatient = widget.forCaregiverPatientData
+        ? _findSelectedPatient(caregiverPatients)
+        : null;
+
+    final DiseaseType submissionDisease = widget.forCaregiverPatientData
+        ? (selectedPatient?.disease ?? DiseaseType.dengue)
+        : _selectedMapDisease;
+
+    final String? selectedPatientId = selectedPatient?.id ?? _selectedPatientId;
+
+    final List<HotspotResponse> rawHistory = widget.forCaregiverPatientData
         ? app.hotspotResponses
+              .where((h) => h.patientId == selectedPatientId)
+              .toList()
         : app.hotspotResponsesForSubject(defaultSubject);
+
+    final List<HotspotResponse> history = rawHistory
+        .where((h) => _matchesSelectedMapDisease(h.disease))
+        .toList();
+
+    final List<HotspotRegionSummary> regionalSummary =
+        app.regionalHotspotSummary;
+
+    final List<HotspotRegionSummary> topHotspots = regionalSummary
+        .where((r) => r.totalEvents > 0)
+        .take(5)
+        .toList();
+
+    final HotspotRegionSummary? selectedRegion = _findRegionByDistrict(
+      regionalSummary,
+      _selectedDistrict,
+    );
 
     return ResponsiveListView(
       children: <Widget>[
+        InputSection(
+          title: app.t('hotspot_map'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Map View', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              SegmentedButton<DiseaseType>(
+                segments: const <ButtonSegment<DiseaseType>>[
+                  ButtonSegment<DiseaseType>(
+                    value: DiseaseType.dengue,
+                    label: Text('Dengue'),
+                  ),
+                  ButtonSegment<DiseaseType>(
+                    value: DiseaseType.ratFever,
+                    label: Text('Rat Fever'),
+                  ),
+                ],
+                selected: <DiseaseType>{_selectedMapDisease},
+                onSelectionChanged: (selection) {
+                  final next = selection.first;
+                  unawaited(_switchMapDisease(app, next));
+                },
+                showSelectedIcon: false,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Showing ${_diseaseLabel(_selectedMapDisease)} hotspots',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  FilterChip(
+                    label: const Text('Legend'),
+                    selected: _showLegend,
+                    onSelected: (v) => setState(() => _showLegend = v),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: const Text('Details'),
+                    selected: _showDetails,
+                    onSelected: (v) => setState(() => _showDetails = v),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: const Text('Top Areas'),
+                    selected: _showTopHotspots,
+                    onSelected: (v) => setState(() => _showTopHotspots = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 290,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _loadingMap
+                      ? const Center(child: CircularProgressIndicator())
+                      : FlutterMap(
+                          options: MapOptions(
+                            initialCenter: _sriLankaCenter,
+                            initialZoom: 7,
+                            minZoom: 6,
+                            maxZoom: 10,
+                          ),
+                          children: <Widget>[
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.vitaltrack.app',
+                            ),
+                            MarkerLayer(
+                              markers: regionalSummary
+                                  .where(
+                                    (r) =>
+                                        r.totalEvents > 0 &&
+                                        _districtCenters.containsKey(
+                                          r.district,
+                                        ),
+                                  )
+                                  .map((region) {
+                                    final color = _riskColor(region.riskLevel);
+                                    final size = (14 + (region.score * 1.2))
+                                        .clamp(14, 34)
+                                        .toDouble();
+                                    return Marker(
+                                      point: _districtCenters[region.district]!,
+                                      width: size,
+                                      height: size,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(
+                                            () => _selectedDistrict =
+                                                region.district,
+                                          );
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: color.withValues(
+                                              alpha: 0.82,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              if (_showLegend) ...<Widget>[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: <Widget>[
+                    _legendItem('Low', _riskColor('low')),
+                    _legendItem('Medium', _riskColor('medium')),
+                    _legendItem('High', _riskColor('high')),
+                    _legendItem('Critical', _riskColor('critical')),
+                  ],
+                ),
+              ],
+              if (_showDetails && selectedRegion != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          _prettyDistrict(selectedRegion.district),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Risk: ${selectedRegion.riskLevel.toUpperCase()} • Score: ${selectedRegion.score.toStringAsFixed(1)}',
+                        ),
+                        Text(
+                          'Patients: ${selectedRegion.patients} • Events: ${selectedRegion.totalEvents}',
+                        ),
+                        Text(
+                          'Home: ${selectedRegion.hometownCount}, Work: ${selectedRegion.workplaceCount}, Visits: ${selectedRegion.visitCount}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (_showTopHotspots && topHotspots.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(
+                  'Top Hotspot Districts',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                ...topHotspots.map(
+                  (r) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 8,
+                      backgroundColor: _riskColor(r.riskLevel),
+                    ),
+                    title: Text(_prettyDistrict(r.district)),
+                    subtitle: Text(
+                      'Score ${r.score.toStringAsFixed(1)} • ${r.totalEvents} events',
+                    ),
+                    onTap: () => setState(() => _selectedDistrict = r.district),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
         InputSection(
           title: widget.forCaregiverPatientData
               ? app.t('add_patient_hotspot_data')
@@ -618,33 +1015,42 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
             key: _formKey,
             child: Column(
               children: <Widget>[
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search for hotspots',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFB),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (widget.forCaregiverPatientData)
-                  TextFormField(
-                    controller: _subjectController,
+                if (widget.forCaregiverPatientData) ...<Widget>[
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedPatientId,
                     decoration: InputDecoration(
                       labelText: app.t('patient_name'),
                     ),
-                    validator: (String? value) =>
-                        (value == null || value.trim().isEmpty)
+                    items: caregiverPatients
+                        .map(
+                          (patient) => DropdownMenuItem<String>(
+                            value: patient.id,
+                            child: Text(patient.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      unawaited(_onCaregiverPatientChanged(app, value));
+                    },
+                    validator: (value) => (value == null || value.isEmpty)
                         ? app.t('required_field')
                         : null,
                   ),
-                if (widget.forCaregiverPatientData) UiSpace.xs,
+                  UiSpace.xs,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Submission disease: ${_diseaseLabel(submissionDisease)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  UiSpace.xs,
+                ],
                 TextFormField(
                   controller: _hometownController,
-                  decoration: InputDecoration(labelText: app.t('hometown')),
+                  decoration: InputDecoration(
+                    labelText: '${app.t('hometown')} (town / district)',
+                  ),
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
                       ? app.t('required_field')
@@ -653,7 +1059,9 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                 UiSpace.xs,
                 TextFormField(
                   controller: _workplaceController,
-                  decoration: InputDecoration(labelText: app.t('workplace')),
+                  decoration: InputDecoration(
+                    labelText: '${app.t('workplace')} (town / district)',
+                  ),
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
                       ? app.t('required_field')
@@ -679,11 +1087,17 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                     if (_formKey.currentState?.validate() != true) return;
                     setState(() => _saving = true);
                     final String subject = widget.forCaregiverPatientData
-                        ? _subjectController.text.trim()
+                        ? (selectedPatient?.name ?? 'Patient')
                         : defaultSubject;
                     try {
                       await app.submitHotspot(
                         subject: subject,
+                        subjectPatientId: widget.forCaregiverPatientData
+                            ? selectedPatientId
+                            : null,
+                        disease: submissionDisease == DiseaseType.ratFever
+                            ? 'ratFever'
+                            : 'dengue',
                         hometown: _hometownController.text.trim(),
                         workplace: _workplaceController.text.trim(),
                         places: _placesController.text.trim(),
@@ -696,10 +1110,12 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                       );
                       return;
                     }
-                    _subjectController.clear();
                     _hometownController.clear();
                     _workplaceController.clear();
                     _placesController.clear();
+                    await app.loadRegionalHeatmapData(
+                      disease: _selectedDiseaseApiValue(),
+                    );
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(
                       context,
@@ -721,21 +1137,67 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
           EmptyStateCard(
             icon: Icons.location_off_outlined,
             title: app.t('no_data'),
-            subtitle: app.t('add_hotspot_data'),
+            subtitle:
+                'No ${_diseaseLabel(_selectedMapDisease).toLowerCase()} submissions yet',
           )
         else
           ...history.take(5).map((HotspotResponse h) {
             final String when = DateFormat(
               'yyyy-MM-dd hh:mm a',
             ).format(h.createdAt);
+            final String diseaseLabel = _diseaseTextFromApi(h.disease);
             return Card(
               child: ListTile(
-                title: Text('${h.hometown} • ${h.workplace}'),
+                title: Row(
+                  children: <Widget>[
+                    Expanded(child: Text('${h.hometown} • ${h.workplace}')),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: diseaseLabel == 'Rat Fever'
+                            ? const Color(0xFFFDECEC)
+                            : diseaseLabel == 'Dengue'
+                            ? const Color(0xFFFFF5DF)
+                            : const Color(0xFFF2F4F7),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        diseaseLabel,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ),
+                  ],
+                ),
                 subtitle: Text('${h.places}\n$when'),
               ),
             );
           }),
       ],
+    );
+  }
+
+  Widget _legendItem(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
     );
   }
 }
