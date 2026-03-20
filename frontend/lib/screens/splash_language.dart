@@ -329,39 +329,18 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                   ),
                                   SizedBox(width: horizontalPadding * 0.6),
                                   Expanded(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          'English',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontSize: isSmallScreen
-                                                    ? 18
-                                                    : (isTablet ? 20 : 18),
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xFF1A3A52),
-                                              ),
-                                        ),
-                                        Text(
-                                          'UNITED STATES / UK',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                fontSize: isSmallScreen
-                                                    ? 11
-                                                    : (isTablet ? 13 : 12),
-                                                color: const Color(0xFF98A2B3),
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      'English',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontSize: isSmallScreen
+                                                ? 18
+                                                : (isTablet ? 20 : 18),
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF1A3A52),
+                                          ),
                                     ),
                                   ),
                                   Icon(
@@ -424,39 +403,18 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                   ),
                                   SizedBox(width: horizontalPadding * 0.6),
                                   Expanded(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          'සිංහල',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontSize: isSmallScreen
-                                                    ? 18
-                                                    : (isTablet ? 20 : 18),
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xFF1A3A52),
-                                              ),
-                                        ),
-                                        Text(
-                                          'SRI LANKA',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                fontSize: isSmallScreen
-                                                    ? 11
-                                                    : (isTablet ? 13 : 12),
-                                                color: const Color(0xFF98A2B3),
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      'සිංහල',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontSize: isSmallScreen
+                                                ? 18
+                                                : (isTablet ? 20 : 18),
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF1A3A52),
+                                          ),
                                     ),
                                   ),
                                   Icon(

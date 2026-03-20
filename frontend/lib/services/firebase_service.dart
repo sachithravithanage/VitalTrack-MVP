@@ -52,8 +52,21 @@ class FirebaseAuthService {
   User? get currentUser => _auth.currentUser;
 
   /// Get current user's ID token
-  Future<String?> getIdToken() async {
-    return await _auth.currentUser?.getIdToken();
+  Future<String?> getIdToken({bool forceRefresh = false}) async {
+    final current = _auth.currentUser;
+    if (current != null) {
+      return await current.getIdToken(forceRefresh);
+    }
+
+    try {
+      final restoredUser = await _auth
+          .authStateChanges()
+          .firstWhere((user) => user != null)
+          .timeout(const Duration(seconds: 2));
+      return await restoredUser?.getIdToken(forceRefresh);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Sign up with email and password

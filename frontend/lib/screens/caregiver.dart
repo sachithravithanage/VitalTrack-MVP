@@ -10,7 +10,6 @@ import '../app/ui.dart';
 import '../widgets/action_buttons.dart';
 import '../widgets/dashboard_shell.dart';
 import '../widgets/selection_controls.dart';
-import 'auth.dart';
 import 'records.dart';
 
 class CaregiverPatientsScreen extends StatefulWidget {
@@ -52,10 +51,17 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
       children: <Widget>[
         Text(
           'Patient Directory',
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: const Color(0xFF0A1430),
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Review linked patients and open their options.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607089)),
         ),
         const SizedBox(height: 8),
         Align(
@@ -68,7 +74,7 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
             ),
             child: Text(
               '${patients.length} Active Patients',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: const Color(0xFF1E73D8),
                 fontWeight: FontWeight.w600,
               ),
@@ -127,27 +133,27 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                               patient.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.headlineSmall
+                              style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: const Color(0xFF0A1430),
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                                horizontal: 10,
+                                vertical: 5,
                               ),
                               decoration: BoxDecoration(
                                 color: _statusColor(
                                   diseaseLabel,
                                 ).withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 diseaseLabel,
-                                style: Theme.of(context).textTheme.titleMedium
+                                style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: _statusColor(diseaseLabel),
                                       fontWeight: FontWeight.w700,
@@ -218,53 +224,6 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
     super.dispose();
   }
 
-  Future<String?> _getStepUpToken(AppState app) async {
-    try {
-      await app.sendStepUpOtp(
-        purpose: 'manage_relationships',
-        channel: 'phone',
-      );
-    } catch (e) {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
-      return null;
-    }
-
-    if (!mounted) return null;
-
-    String? token;
-    final bool verified =
-        await Navigator.of(context).push<bool>(
-          MaterialPageRoute<bool>(
-            builder: (_) => OtpVerificationScreen(
-              title: app.t('otp_verification'),
-              subtitle: 'Enter the OTP sent to your phone',
-              credential: app.currentUser?.phone ?? '',
-              onVerifyOtp: (otp) async {
-                token = await app.verifyStepUpOtp(
-                  purpose: 'manage_relationships',
-                  otp: otp,
-                  channel: 'phone',
-                );
-              },
-              onResendOtp: () => app.sendStepUpOtp(
-                purpose: 'manage_relationships',
-                channel: 'phone',
-              ),
-            ),
-          ),
-        ) ??
-        false;
-
-    if (!verified || token == null || token!.isEmpty) {
-      return null;
-    }
-
-    return token;
-  }
-
   @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
@@ -273,7 +232,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
       appBar: AppBar(
         title: Text(
           app.t('add_patient'),
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: const Color(0xFF0A1430),
           ),
@@ -289,130 +248,150 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Container(
-                    width: 62,
-                    height: 62,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE7EFFB),
-                      borderRadius: BorderRadius.circular(31),
-                    ),
-                    child: const Icon(
-                      Icons.pin_outlined,
-                      color: Color(0xFF1E73D8),
-                    ),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: <Widget>[
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE7EFFB),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.pin_outlined,
+                          color: Color(0xFF1E73D8),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _useCode
+                              ? 'Enter Caregiver Code'
+                              : 'Create Patient Profile',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: const Color(0xFF0A1430),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      _useCode
-                          ? 'Enter 6-Digit Patient Code'
-                          : 'Create New Patient Profile',
-                      style: Theme.of(context).textTheme.headlineLarge
-                          ?.copyWith(
-                            color: const Color(0xFF0A1430),
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _useCode
-                    ? 'If the patient is already registered, enter the unique code shared by them or their primary caregiver to link accounts.'
-                    : 'Set up a brand new profile to start tracking health metrics and medications for a new patient.',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: const Color(0xFF435874),
-                  height: 1.35,
                 ),
               ),
               const SizedBox(height: 20),
-              SegmentedInputSection<bool>(
-                label: app.t('use_6_digit_code'),
-                selected: _useCode,
-                segments: <ButtonSegment<bool>>[
-                  ButtonSegment<bool>(
-                    value: true,
-                    label: Text(app.t('use_6_digit_code')),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      SegmentedInputSection<bool>(
+                        label: app.t('use_6_digit_code'),
+                        selected: _useCode,
+                        segments: <ButtonSegment<bool>>[
+                          ButtonSegment<bool>(
+                            value: true,
+                            label: Text(app.t('use_6_digit_code')),
+                          ),
+                          ButtonSegment<bool>(
+                            value: false,
+                            label: Text(app.t('create_new_patient')),
+                          ),
+                        ],
+                        onSelectionChanged: (Set<bool> value) {
+                          setState(() => _useCode = value.first);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _useCode
+                            ? 'Enter the 6-digit code shared by the patient.'
+                            : 'Create and link a new patient profile manually.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF607089),
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (_useCode)
+                        TextFormField(
+                          controller: _codeController,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          maxLength: 6,
+                          textAlign: TextAlign.center,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          decoration: const InputDecoration(
+                            counterText: '',
+                            hintText: '000000',
+                            contentPadding: EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 8,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(14),
+                              ),
+                            ),
+                          ),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            letterSpacing: 3.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          validator: (String? value) {
+                            if (value == null || value.trim().length != 6) {
+                              return app.t('invalid_code');
+                            }
+                            return null;
+                          },
+                        ),
+                      if (!_useCode) ...<Widget>[
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Patient Name',
+                            hintText: 'Enter patient full name',
+                          ),
+                          validator: (String? value) =>
+                              (value == null || value.trim().isEmpty)
+                              ? app.t('required_field')
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<DiseaseType>(
+                          initialValue: _disease,
+                          decoration: const InputDecoration(
+                            labelText: 'Condition',
+                          ),
+                          items: <DropdownMenuItem<DiseaseType>>[
+                            DropdownMenuItem<DiseaseType>(
+                              value: DiseaseType.dengue,
+                              child: Text(app.t('dengue')),
+                            ),
+                            DropdownMenuItem<DiseaseType>(
+                              value: DiseaseType.ratFever,
+                              child: Text(app.t('rat_fever')),
+                            ),
+                          ],
+                          onChanged: (DiseaseType? value) {
+                            if (value != null) setState(() => _disease = value);
+                          },
+                        ),
+                      ],
+                    ],
                   ),
-                  ButtonSegment<bool>(
-                    value: false,
-                    label: Text(app.t('create_new_patient')),
-                  ),
-                ],
-                onSelectionChanged: (Set<bool> value) {
-                  setState(() => _useCode = value.first);
-                },
+                ),
               ),
-              const SizedBox(height: 18),
-              if (_useCode) ...<Widget>[
-                TextFormField(
-                  controller: _codeController,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  maxLength: 6,
-                  textAlign: TextAlign.center,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  decoration: const InputDecoration(
-                    counterText: '',
-                    hintText: '000000',
-                    contentPadding: EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 8,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(14)),
-                    ),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  validator: (String? value) {
-                    if (value == null || value.trim().length != 6) {
-                      return app.t('invalid_code');
-                    }
-                    return null;
-                  },
-                ),
-              ],
-              if (!_useCode) ...<Widget>[
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Patient Name',
-                    hintText: 'Enter patient full name',
-                  ),
-                  validator: (String? value) =>
-                      (value == null || value.trim().isEmpty)
-                      ? app.t('required_field')
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<DiseaseType>(
-                  initialValue: _disease,
-                  decoration: const InputDecoration(labelText: 'Condition'),
-                  items: <DropdownMenuItem<DiseaseType>>[
-                    DropdownMenuItem<DiseaseType>(
-                      value: DiseaseType.dengue,
-                      child: Text(app.t('dengue')),
-                    ),
-                    DropdownMenuItem<DiseaseType>(
-                      value: DiseaseType.ratFever,
-                      child: Text(app.t('rat_fever')),
-                    ),
-                  ],
-                  onChanged: (DiseaseType? value) {
-                    if (value != null) setState(() => _disease = value);
-                  },
-                ),
-              ],
               const SizedBox(height: 18),
               BusyFilledButton(
                 isBusy: _saving,
@@ -421,19 +400,12 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                   if (_formKey.currentState?.validate() != true) return;
                   setState(() => _saving = true);
 
-                  final String? stepUpToken = await _getStepUpToken(app);
-                  if (stepUpToken == null || stepUpToken.isEmpty) {
-                    if (mounted) setState(() => _saving = false);
-                    return;
-                  }
-
                   if (_useCode) {
                     final String code = _codeController.text.trim();
                     try {
                       await app.attachPatientToCaregiver(
                         code: code,
                         disease: _disease.toString().split('.').last,
-                        stepUpToken: stepUpToken,
                       );
                       await app.loadCaregiverPatients();
                     } catch (e) {
@@ -449,7 +421,6 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                       await app.createManagedPatient(
                         name: _nameController.text.trim(),
                         disease: _disease.toString().split('.').last,
-                        stepUpToken: stepUpToken,
                       );
                       await app.loadCaregiverPatients();
                     } catch (e) {
@@ -514,7 +485,7 @@ class _CaregiverPatientRecordsScreenState
     ];
 
     return AdaptiveDashboardShell(
-      title: widget.patient.name,
+      title: 'You are in patient options',
       selectedIndex: _tab,
       onDestinationSelected: (int value) => setState(() => _tab = value),
       destinations: destinations,

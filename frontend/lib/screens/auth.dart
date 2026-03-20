@@ -80,6 +80,25 @@ bool _isValidLkPhone(String phone) {
   return RegExp(r'^(07[0-9]{8}|7[0-9]{8}|94[0-9]{9})$').hasMatch(cleaned);
 }
 
+String _otpTimestampText() {
+  final DateTime now = DateTime.now();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${now.year}-${two(now.month)}-${two(now.day)} ${two(now.hour)}:${two(now.minute)}';
+}
+
+void _showOtpSentSnackBar(BuildContext context, {String? devOtp}) {
+  final String ts = _otpTimestampText();
+  final String codeSuffix = (devOtp != null && devOtp.isNotEmpty)
+      ? ' • DEV: $devOtp'
+      : '';
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      content: Text('OTP sent • $ts$codeSuffix'),
+    ),
+  );
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -270,12 +289,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final String type = result['type'] ?? 'phone';
     final String newPassword = result['newPassword'] ?? '';
 
+    String? devOtp;
     try {
-      await authService.sendForgotPasswordOtp(
+      final response = await authService.sendForgotPasswordOtp(
         credential: credential,
         type: type,
       );
+      devOtp = response['otp']?.toString();
       if (!mounted) return;
+      _showOtpSentSnackBar(context, devOtp: devOtp);
     } catch (e) {
       if (!mounted) return;
       final String friendly = _friendlyAuthError(
@@ -296,6 +318,7 @@ class _LoginScreenState extends State<LoginScreen> {
               title: app.t('otp_verification'),
               subtitle: 'Enter the 6-digit code to reset your password',
               credential: credential,
+              devModeOtp: devOtp,
               onVerifyOtp: (String otp) async {
                 await authService.resetPassword(
                   credential: credential,
@@ -588,11 +611,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                           _method == LoginMethod.email
                                           ? 'email'
                                           : 'phone';
+                                      String? devOtp;
 
                                       try {
-                                        await authService.sendOtp(
-                                          credential: credential,
-                                          type: otpType,
+                                        final response = await authService
+                                            .sendOtp(
+                                              credential: credential,
+                                              type: otpType,
+                                            );
+                                        devOtp = response['otp']?.toString();
+                                        if (!context.mounted) return;
+                                        _showOtpSentSnackBar(
+                                          context,
+                                          devOtp: devOtp,
                                         );
                                       } catch (e) {
                                         if (!context.mounted) return;
@@ -625,6 +656,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                                       'enter_otp_login',
                                                     ),
                                                     credential: credential,
+                                                    devModeOtp: devOtp,
                                                     navigateToDashboardOnSuccess:
                                                         true,
                                                     onVerifiedSuccess: () async {
@@ -719,15 +751,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     SizedBox(height: isSmall ? 14 : 20),
-                    Text(
-                      app.t('terms_privacy_notice'),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF98A2B3),
-                        fontSize: isSmall ? 14 : 15,
-                        height: 1.35,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -783,8 +806,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final NavigatorState navigator = Navigator.of(context);
     final String phone = _normalizeLkPhoneForApi(_phoneController.text.trim());
 
+    String? devOtp;
     try {
-      await authService.sendOtp(credential: phone, type: 'phone');
+      final response = await authService.sendOtp(
+        credential: phone,
+        type: 'phone',
+      );
+      devOtp = response['otp']?.toString();
+      if (!mounted) return;
+      _showOtpSentSnackBar(context, devOtp: devOtp);
     } catch (e) {
       if (!mounted) return;
       final String friendly = _friendlyAuthError(
@@ -806,6 +836,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               title: app.t('otp_verification'),
               subtitle: app.t('enter_otp_signup'),
               credential: phone,
+              devModeOtp: devOtp,
             ),
           ),
         ) ??
@@ -1271,6 +1302,7 @@ class OtpVerificationScreen extends StatefulWidget {
     this.onResendOtp,
     this.onVerifiedSuccess,
     this.navigateToDashboardOnSuccess = false,
+    this.devModeOtp,
   });
 
   final String title;
@@ -1280,6 +1312,7 @@ class OtpVerificationScreen extends StatefulWidget {
   final Future<void> Function()? onResendOtp;
   final Future<void> Function()? onVerifiedSuccess;
   final bool navigateToDashboardOnSuccess;
+  final String? devModeOtp;
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -1357,12 +1390,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         await widget.onResendOtp!();
       } else {
         final String type = widget.credential.contains('@') ? 'email' : 'phone';
-        await authService.sendOtp(credential: widget.credential, type: type);
+        final response = await authService.sendOtp(
+          credential: widget.credential,
+          type: type,
+        );
+        final String? devOtp = response['otp']?.toString();
+        if (!mounted) return;
+        _showOtpSentSnackBar(context, devOtp: devOtp);
+        return;
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('OTP sent')));
+      _showOtpSentSnackBar(context);
     } catch (e) {
       if (!mounted) return;
       final String friendly = _friendlyAuthError(
@@ -1390,263 +1428,306 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFE8EAED),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isSmall ? 14 : 24,
-                vertical: isSmall ? 14 : 18,
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F8FA),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const <BoxShadow>[
-                    BoxShadow(
-                      color: Color(0x1A0F172A),
-                      blurRadius: 26,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: <Widget>[
-                    Container(
-                      height: isSmall ? 74 : 84,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmall ? 14 : 20,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF7F8FA),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(24),
+        child: Stack(
+          children: <Widget>[
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isSmall ? 14 : 24,
+                    vertical: isSmall ? 14 : 18,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F8FA),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x1A0F172A),
+                          blurRadius: 26,
+                          offset: Offset(0, 10),
                         ),
-                      ),
-                      child: Row(
-                        children: <Widget>[
-                          IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: Color(0xFF344054),
-                            ),
-                            onPressed: () => Navigator.of(context).pop(),
+                      ],
+                    ),
+                    child: Column(
+                      children: <Widget>[
+                        Container(
+                          height: isSmall ? 74 : 84,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmall ? 14 : 20,
                           ),
-                          Expanded(
-                            child: Text(
-                              widget.title,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isSmall ? 17 : 19,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0B1736),
-                              ),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF7F8FA),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(24),
                             ),
                           ),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                    ),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Color(0xFFD9DEE8),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 56 : (isSmall ? 20 : 28),
-                          vertical: isSmall ? 26 : 36,
+                          child: Row(
+                            children: <Widget>[
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.arrow_back,
+                                  color: Color(0xFF344054),
+                                ),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  widget.title,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 17 : 19,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0B1736),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 48),
+                            ],
+                          ),
                         ),
-                        child: Column(
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/images/vitaltrack_logo_symbol.png',
-                              height: isSmall ? 120 : 146,
-                              fit: BoxFit.contain,
-                              semanticLabel: 'VitalTrack Logo',
-                              errorBuilder: (_, _, _) => const Icon(
-                                Icons.monitor_heart,
-                                size: 120,
-                                color: Color(0xFF1E5AA8),
-                              ),
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Color(0xFFD9DEE8),
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isTablet ? 56 : (isSmall ? 20 : 28),
+                              vertical: isSmall ? 26 : 36,
                             ),
-                            SizedBox(height: isSmall ? 22 : 30),
-                            Text(
-                              'Verify your number',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isSmall ? 30 : 34,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0B1736),
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 10 : 12),
-                            Text(
-                              widget.subtitle,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isSmall ? 14 : 16,
-                                height: 1.35,
-                                color: const Color(0xFF475467),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.credential,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isSmall ? 17 : 19,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF101828),
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 26 : 34),
-                            SizedBox(
-                              width: isTablet ? 420 : double.infinity,
-                              child: TextField(
-                                controller: _otpController,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                maxLength: 6,
-                                textAlign: TextAlign.center,
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
-                                ],
-                                onSubmitted: (_) => _verifyOtp(app),
-                                style: TextStyle(
-                                  fontSize: isSmall ? 24 : 28,
-                                  letterSpacing: 8,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0B1736),
-                                ),
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  hintText: '------',
-                                  hintStyle: TextStyle(
-                                    letterSpacing: 8,
-                                    color: const Color(0xFF98A2B3),
-                                    fontSize: isSmall ? 22 : 24,
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF7F8FA),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: isSmall ? 18 : 22,
-                                    horizontal: 16,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFD0D7E2),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFD0D7E2),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF2B77CB),
-                                      width: 2,
-                                    ),
+                            child: Column(
+                              children: <Widget>[
+                                Image.asset(
+                                  'assets/images/vitaltrack_logo_symbol.png',
+                                  height: isSmall ? 120 : 146,
+                                  fit: BoxFit.contain,
+                                  semanticLabel: 'VitalTrack Logo',
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.monitor_heart,
+                                    size: 120,
+                                    color: Color(0xFF1E5AA8),
                                   ),
                                 ),
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 30 : 38),
-                            SizedBox(
-                              width: double.infinity,
-                              height: isSmall ? 56 : 64,
-                              child: FilledButton(
-                                onPressed: _verifying
-                                    ? null
-                                    : () => _verifyOtp(app),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1F78D1),
-                                  disabledBackgroundColor: const Color(
-                                    0xFF1F78D1,
+                                SizedBox(height: isSmall ? 22 : 30),
+                                Text(
+                                  'Verify your number',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 26 : 30,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0B1736),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  elevation: 6,
-                                  shadowColor: const Color(0x3306458A),
                                 ),
-                                child: _verifying
-                                    ? const SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
-                                              ),
-                                        ),
-                                      )
-                                    : Text(
-                                        app.t('verify'),
-                                        style: TextStyle(
-                                          fontSize: isSmall ? 22 / 1.2 : 22,
-                                          fontWeight: FontWeight.w700,
+                                SizedBox(height: isSmall ? 10 : 12),
+                                Text(
+                                  widget.subtitle,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 14 : 16,
+                                    height: 1.35,
+                                    color: const Color(0xFF475467),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.credential,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 15 : 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF101828),
+                                  ),
+                                ),
+                                SizedBox(height: isSmall ? 26 : 34),
+                                SizedBox(
+                                  width: isTablet ? 420 : double.infinity,
+                                  child: TextField(
+                                    controller: _otpController,
+                                    keyboardType: TextInputType.number,
+                                    textInputAction: TextInputAction.done,
+                                    maxLength: 6,
+                                    textAlign: TextAlign.center,
+                                    inputFormatters: <TextInputFormatter>[
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(6),
+                                    ],
+                                    onSubmitted: (_) => _verifyOtp(app),
+                                    style: TextStyle(
+                                      fontSize: isSmall ? 22 : 24,
+                                      letterSpacing: 7,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF0B1736),
+                                    ),
+                                    decoration: InputDecoration(
+                                      counterText: '',
+                                      hintText: '------',
+                                      hintStyle: TextStyle(
+                                        letterSpacing: 7,
+                                        color: const Color(0xFF98A2B3),
+                                        fontSize: isSmall ? 20 : 22,
+                                      ),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF7F8FA),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: isSmall ? 18 : 22,
+                                        horizontal: 16,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFD0D7E2),
+                                          width: 1.5,
                                         ),
                                       ),
-                              ),
-                            ),
-                            SizedBox(height: isSmall ? 24 : 30),
-                            Text(
-                              "Didn't receive a code?",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: isSmall ? 15 : 16,
-                                color: const Color(0xFF667085),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton.icon(
-                              onPressed: _resending
-                                  ? null
-                                  : () => _resendOtp(app),
-                              icon: const Icon(
-                                Icons.refresh,
-                                size: 20,
-                                color: Color(0xFF1F78D1),
-                              ),
-                              label: Text(
-                                'Resend Code',
-                                style: TextStyle(
-                                  fontSize: isSmall ? 17 : 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1F78D1),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFD0D7E2),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF2B77CB),
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF1F78D1),
-                                disabledForegroundColor: const Color(
-                                  0xFF1F78D1,
+                                SizedBox(height: isSmall ? 30 : 38),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: isSmall ? 56 : 64,
+                                  child: FilledButton(
+                                    onPressed: _verifying
+                                        ? null
+                                        : () => _verifyOtp(app),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1F78D1),
+                                      disabledBackgroundColor: const Color(
+                                        0xFF1F78D1,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      elevation: 6,
+                                      shadowColor: const Color(0x3306458A),
+                                    ),
+                                    child: _verifying
+                                        ? const SizedBox(
+                                            height: 22,
+                                            width: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          )
+                                        : Text(
+                                            app.t('verify'),
+                                            style: TextStyle(
+                                              fontSize: isSmall ? 22 / 1.2 : 22,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                  ),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
+                                SizedBox(height: isSmall ? 24 : 30),
+                                // Dev mode OTP display
+                                if (widget.devModeOtp != null &&
+                                    widget.devModeOtp!.isNotEmpty) ...<Widget>[
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber[50],
+                                      border: Border.all(
+                                        color: Colors.amber[300]!,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Column(
+                                      children: <Widget>[
+                                        Text(
+                                          'Development Mode - OTP:',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.amber[900],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        SelectableText(
+                                          widget.devModeOtp!,
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.amber[900],
+                                            letterSpacing: 2,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(height: isSmall ? 24 : 30),
+                                ],
+                                Text(
+                                  "Didn't receive a code?",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: isSmall ? 14 : 15,
+                                    color: const Color(0xFF667085),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 8),
+                                TextButton.icon(
+                                  onPressed: _resending
+                                      ? null
+                                      : () => _resendOtp(app),
+                                  icon: const Icon(
+                                    Icons.refresh,
+                                    size: 20,
+                                    color: Color(0xFF1F78D1),
+                                  ),
+                                  label: Text(
+                                    'Resend Code',
+                                    style: TextStyle(
+                                      fontSize: isSmall ? 15 : 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF1F78D1),
+                                    ),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF1F78D1),
+                                    disabledForegroundColor: const Color(
+                                      0xFF1F78D1,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 6,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                        SizedBox(height: isSmall ? 16 : 20),
+                      ],
                     ),
-                    SizedBox(height: isSmall ? 16 : 20),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
+            const SizedBox.shrink(),
+          ],
         ),
       ),
     );

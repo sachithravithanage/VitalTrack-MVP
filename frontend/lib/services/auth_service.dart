@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'firebase_service.dart';
 import 'api_client.dart';
@@ -8,18 +10,16 @@ class AuthService {
   final ApiClient _apiClient = apiClient;
   final FirebaseAuthService _firebaseAuth = firebaseAuthService;
   final StorageService _storage = storageService;
+  bool _fcmRefreshListenerAttached = false;
+  static const String _customAuthTokenKey = 'custom_auth_token';
 
   /// Send OTP for phone or email
-  Future<bool> sendOtp({
+  Future<Map<String, dynamic>> sendOtp({
     required String credential,
     required String type, // 'phone' or 'email'
   }) async {
     try {
-      final response = await _apiClient.sendOtp(
-        credential: credential,
-        type: type,
-      );
-      return response['success'] ?? false;
+      return await _apiClient.sendOtp(credential: credential, type: type);
     } catch (e) {
       debugPrint("Error sending OTP: $e");
       rethrow;
@@ -72,6 +72,7 @@ class AuthService {
       final customToken = response['customToken'] as String?;
       if (customToken != null && customToken.isNotEmpty) {
         await _firebaseAuth.signInWithCustomToken(customToken);
+        await _storage.saveString(_customAuthTokenKey, customToken);
       }
 
       // Store user data locally
@@ -81,8 +82,8 @@ class AuthService {
         );
       }
 
-      // Register FCM token
-      await _registerFCMToken();
+      // Register FCM token without blocking auth completion
+      unawaited(_registerFCMToken());
 
       return response;
     } catch (e) {
@@ -106,6 +107,7 @@ class AuthService {
       final customToken = response['customToken'] as String?;
       if (customToken != null && customToken.isNotEmpty) {
         await _firebaseAuth.signInWithCustomToken(customToken);
+        await _storage.saveString(_customAuthTokenKey, customToken);
       }
 
       // Store user data locally
@@ -115,8 +117,8 @@ class AuthService {
         );
       }
 
-      // Register FCM token
-      await _registerFCMToken();
+      // Register FCM token without blocking auth completion
+      unawaited(_registerFCMToken());
 
       return response;
     } catch (e) {
@@ -126,16 +128,15 @@ class AuthService {
   }
 
   /// Send forgot-password OTP
-  Future<bool> sendForgotPasswordOtp({
+  Future<Map<String, dynamic>> sendForgotPasswordOtp({
     required String credential,
     required String type,
   }) async {
     try {
-      final response = await _apiClient.sendForgotPasswordOtp(
+      return await _apiClient.sendForgotPasswordOtp(
         credential: credential,
         type: type,
       );
-      return response['success'] ?? false;
     } catch (e) {
       debugPrint("Error sending forgot-password OTP: $e");
       rethrow;
@@ -318,6 +319,7 @@ class AuthService {
       await _firebaseAuth.signOut();
       await _storage.clearCurrentUser();
       await _storage.clearFCMToken();
+      await _storage.remove(_customAuthTokenKey);
     } catch (e) {
       debugPrint("Error logging out: $e");
       rethrow;
@@ -327,15 +329,21 @@ class AuthService {
   /// Register FCM token with backend
   Future<void> _registerFCMToken() async {
     try {
-      final fcmToken = await _firebaseAuth.getFCMToken();
+      final fcmToken = await _firebaseAuth.getFCMToken().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => null,
+      );
       if (fcmToken != null) {
         await _apiClient.registerFCMToken(token: fcmToken, platform: 'flutter');
         await _storage.saveFCMToken(fcmToken);
 
         // Listen to token refresh
-        _firebaseAuth.listenToFCMTokenChanges((newToken) {
-          _onFCMTokenRefresh(newToken);
-        });
+        if (!_fcmRefreshListenerAttached) {
+          _firebaseAuth.listenToFCMTokenChanges((newToken) {
+            _onFCMTokenRefresh(newToken);
+          });
+          _fcmRefreshListenerAttached = true;
+        }
       }
     } catch (e) {
       debugPrint("Error registering FCM token: $e");

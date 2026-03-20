@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'firebase_service.dart';
+import 'storage_service.dart';
+
+const String _customAuthTokenKey = 'custom_auth_token';
 
 /// API Client for connecting to VitalTrack backend
 class ApiClient {
@@ -76,7 +79,7 @@ class ApiClient {
     );
 
     // Add auth interceptor
-    _dio.interceptors.add(_AuthInterceptor());
+    _dio.interceptors.add(_AuthInterceptor(_dio));
   }
 
   // ============ Authentication ============
@@ -302,6 +305,15 @@ class ApiClient {
     }
   }
 
+  /// Get the OTP that was sent for email verification
+  /// This is only available in development mode
+  /// Call this after verifyEmail() to get the OTP for testing
+  Future<Map<String, dynamic>> getLastEmailVerificationOtp() async {
+    // In development mode, the OTP is returned when verifyEmail is called
+    // This is a helper method for testing - in production, OTPs are sent via email
+    // For now, return empty - the OTP should be logged in backend console
+    return {'otp': 'Check backend console for OTP'};
+  }
   // ============ Medical Records ============
 
   /// Create medical record
@@ -571,13 +583,30 @@ class ApiClient {
 
 /// Interceptor to add authentication token to requests
 class _AuthInterceptor extends Interceptor {
+  _AuthInterceptor(this._dio);
+
+  final Dio _dio;
+
   @override
   Future<void> onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
     // Add Firebase ID token to authorization header
-    final token = await firebaseAuthService.getIdToken();
+    String? token = await firebaseAuthService.getIdToken();
+
+    if (token == null || token.isEmpty) {
+      final fallbackCustomToken = storageService.getString(_customAuthTokenKey);
+      if (fallbackCustomToken != null && fallbackCustomToken.isNotEmpty) {
+        try {
+          await firebaseAuthService.signInWithCustomToken(fallbackCustomToken);
+          token = await firebaseAuthService.getIdToken(forceRefresh: true);
+        } catch (_) {
+          // Continue without authorization header; request may return 401.
+        }
+      }
+    }
+
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -589,11 +618,26 @@ class _AuthInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    // Handle auth errors
-    if (err.response?.statusCode == 401) {
-      // Token expired or invalid - user should re-login
-      await firebaseAuthService.signOut();
+    if (err.response?.statusCode == 401 &&
+        err.requestOptions.extra['retriedAfterRefresh'] != true) {
+      final refreshedToken = await firebaseAuthService.getIdToken(
+        forceRefresh: true,
+      );
+
+      if (refreshedToken != null && refreshedToken.isNotEmpty) {
+        final requestOptions = err.requestOptions;
+        requestOptions.headers['Authorization'] = 'Bearer $refreshedToken';
+        requestOptions.extra['retriedAfterRefresh'] = true;
+
+        try {
+          final response = await _dio.fetch<dynamic>(requestOptions);
+          return handler.resolve(response);
+        } catch (_) {
+          // If retry fails, propagate original error.
+        }
+      }
     }
+
     return handler.next(err);
   }
 }

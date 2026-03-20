@@ -9,7 +9,6 @@ import '../app/scope.dart';
 import '../app/state.dart';
 import '../app/ui.dart';
 import '../widgets/action_buttons.dart';
-import 'auth.dart';
 
 class KeepRecordsSelectorScreen extends StatelessWidget {
   const KeepRecordsSelectorScreen({super.key});
@@ -205,22 +204,13 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isDengue ? 'Dengue Symptom Tracking' : 'Rat Fever Symptom Tracking',
+          isDengue ? 'Record Taking - Dengue' : 'Record Taking - Rat Fever',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
             color: const Color(0xFF0A1430),
           ),
         ),
-        actions: <Widget>[
-          if (isDengue)
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(
-                Icons.history_toggle_off,
-                color: Color(0xFF1E73D8),
-              ),
-            ),
-        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: const Color(0xFFE4EAF3)),
@@ -232,34 +222,10 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(
-                    isDengue
-                        ? Icons.monitor_heart_outlined
-                        : Icons.favorite_border,
-                    color: const Color(0xFF1E73D8),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isDengue ? 'Vital Signs & Fluids' : 'Vital Signs',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0A1430),
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
               Text(
                 isDengue
-                    ? 'Record all dengue warning indicators with Yes / No selections.'
-                    : 'Record rat fever warning indicators with Yes / No selections.',
+                    ? 'Enter the latest dengue-related measurements carefully and mark symptoms as Yes or No based on your current condition.'
+                    : 'Enter current rat fever measurements and symptom status carefully so the care team can monitor progress accurately.',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: const Color(0xFF5F7391),
                 ),
@@ -597,11 +563,18 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
       children: <Widget>[
         Text(
           'RECENT LOGS',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
             letterSpacing: 1.2,
             color: const Color(0xFF62728C),
             fontWeight: FontWeight.w700,
           ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Disease records with entered date and time',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: const Color(0xFF7A8BA3)),
         ),
         const SizedBox(height: 14),
         if (widget.customTitle != null)
@@ -689,13 +662,11 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
           )
         else
           ...records.map((RecordEntry record) {
-            final String ts = DateFormat(
-              'yyyy-MM-dd hh:mm a',
-            ).format(record.createdAt);
-            final String title =
-                '${record.disease == DiseaseType.dengue ? 'Dengue Tracking' : 'Symptom Alert'} - ${DateFormat('hh:mm a').format(record.createdAt)}';
+            final String title = record.disease == DiseaseType.dengue
+                ? 'Dengue Records'
+                : 'Rat Fever Records';
             final String subtitle =
-                '${DateFormat('MMM d, yyyy').format(record.createdAt)} • ${_summaryText(record)}';
+                'Entered ${DateFormat('yyyy-MM-dd hh:mm a').format(record.createdAt)}';
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: InkWell(
@@ -715,18 +686,12 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: record.disease == DiseaseType.dengue
-                              ? const Color(0xFFE3EEFC)
-                              : const Color(0xFFF8EFE2),
+                          color: const Color(0xFFE3EEFC),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(
-                          record.disease == DiseaseType.dengue
-                              ? Icons.show_chart_rounded
-                              : Icons.medication_outlined,
-                          color: record.disease == DiseaseType.dengue
-                              ? const Color(0xFF1E73D8)
-                              : const Color(0xFFD97706),
+                        child: const Icon(
+                          Icons.receipt_long_rounded,
+                          color: Color(0xFF1E73D8),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -736,33 +701,18 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
                           children: <Widget>[
                             Text(
                               title,
-                              style: Theme.of(context).textTheme.headlineSmall
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 18,
                                     color: const Color(0xFF0A1430),
                                   ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               subtitle,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(color: const Color(0xFF61728E)),
-                            ),
-                            if (record.notes.isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 4),
-                              Text(
-                                record.notes,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: const Color(0xFF7B899E)),
-                              ),
-                            ],
-                            const SizedBox(height: 2),
-                            Text(
-                              ts,
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: const Color(0xFF94A2B7)),
+                                  ?.copyWith(color: const Color(0xFF61728E)),
                             ),
                           ],
                         ),
@@ -794,71 +744,16 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
     );
   }
 
-  String _summaryText(RecordEntry record) {
-    if (record.values['temperature'] != null &&
-        record.values['temperature']!.trim().isNotEmpty) {
-      return 'Temperature ${record.values['temperature']}°C';
-    }
-
-    if (record.values['urineOutput'] != null &&
-        record.values['urineOutput']!.trim().isNotEmpty) {
-      return 'Urine output ${record.values['urineOutput']} ml';
-    }
-
-    final Iterable<String> nonEmpty = record.values.values.where(
-      (String value) => value.trim().isNotEmpty,
-    );
-    if (nonEmpty.isNotEmpty) {
-      return nonEmpty.first;
-    }
-    return record.disease == DiseaseType.dengue
-        ? 'Follow-up Log'
-        : 'Normal Vitals';
-  }
-
   Future<void> _exportPdf(
     BuildContext context,
     AppState app,
     List<RecordEntry> records,
   ) async {
     try {
-      await app.sendStepUpOtp(purpose: 'export_records', channel: 'phone');
-
-      if (!context.mounted) return;
-
-      String? stepUpToken;
-      final bool verified =
-          await Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (_) => OtpVerificationScreen(
-                title: app.t('otp_verification'),
-                subtitle: 'Enter the OTP sent to your phone',
-                credential: app.currentUser?.phone ?? '',
-                onVerifyOtp: (otp) async {
-                  stepUpToken = await app.verifyStepUpOtp(
-                    purpose: 'export_records',
-                    otp: otp,
-                    channel: 'phone',
-                  );
-                },
-                onResendOtp: () => app.sendStepUpOtp(
-                  purpose: 'export_records',
-                  channel: 'phone',
-                ),
-              ),
-            ),
-          ) ??
-          false;
-
-      if (!verified || stepUpToken == null || stepUpToken!.isEmpty) {
-        return;
-      }
-
       // Call backend API to generate and download PDF
       final String pdfUrl = await app.exportRecordsPdf(
         filter: _filter,
         patientId: widget.patientId,
-        stepUpToken: stepUpToken,
       );
 
       if (pdfUrl.isEmpty) {
@@ -929,25 +824,17 @@ class RecordDetailScreen extends StatelessWidget {
               'MMM d, yyyy • hh:mm a',
             ).format(record.createdAt),
           ),
-          const SizedBox(height: 14),
-          _DetailItem(title: 'Patient ID', value: record.patientId),
           const SizedBox(height: 10),
-          _DetailItem(title: 'Created By', value: record.createdBy),
-          const SizedBox(height: 10),
-          _DetailItem(
-            title: 'Recorded At',
-            value: DateFormat('yyyy-MM-dd hh:mm:ss a').format(record.createdAt),
+          _LowPriorityMetaBlock(
+            patientId: record.patientId,
+            createdBy: record.createdBy,
+            recordedAt: DateFormat(
+              'yyyy-MM-dd hh:mm:ss a',
+            ).format(record.createdAt),
           ),
           const SizedBox(height: 14),
-          Text(
-            'MEASUREMENTS',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              letterSpacing: 1.2,
-              color: const Color(0xFF62728C),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
+          const Divider(height: 1, color: Color(0xFFDCE4F2)),
+          const SizedBox(height: 14),
           if (record.values.isEmpty)
             _DetailItem(title: 'Data', value: app.t('no_data'))
           else
@@ -1022,7 +909,7 @@ class _DetailHeader extends StatelessWidget {
             subtitle,
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(color: const Color(0xFF5F7391)),
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF5F7391)),
           ),
         ],
       ),
@@ -1041,26 +928,79 @@ class _DetailItem extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
               title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: const Color(0xFF5B6D89)),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF6B7B93),
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: const Color(0xFF0A1430),
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LowPriorityMetaBlock extends StatelessWidget {
+  const _LowPriorityMetaBlock({
+    required this.patientId,
+    required this.createdBy,
+    required this.recordedAt,
+  });
+
+  final String patientId;
+  final String createdBy;
+  final String recordedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Patient ID: $patientId',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF70819A),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Created By: $createdBy',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF70819A),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Recorded At: $recordedAt',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF70819A),
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }

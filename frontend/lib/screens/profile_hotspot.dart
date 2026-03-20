@@ -25,6 +25,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserRole? _loadedForRole;
   Timer? _refreshTimer;
 
+  String _otpTimestampText() {
+    final DateTime now = DateTime.now();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${now.year}-${two(now.month)}-${two(now.day)} ${two(now.hour)}:${two(now.minute)}';
+  }
+
+  void _showOtpSentSnackBar({String? devOtp}) {
+    final String suffix = (devOtp != null && devOtp.isNotEmpty)
+        ? ' • DEV: $devOtp'
+        : '';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('OTP sent • ${_otpTimestampText()}$suffix'),
+      ),
+    );
+  }
+
   String _formatPhoneForDisplay(String value) {
     final String digits = value.replaceAll(RegExp(r'\D'), '');
     if (digits.length == 11 && digits.startsWith('94')) {
@@ -119,13 +137,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _addEmail(AppState app) async {
+    final TextEditingController localEmailController = TextEditingController();
+
     final String? email = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(app.t('email')),
           content: TextField(
-            controller: emailController,
+            controller: localEmailController,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(hintText: 'name@example.com'),
           ),
@@ -135,13 +155,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Text(app.t('cancel')),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(emailController.text),
+              onPressed: () =>
+                  Navigator.of(context).pop(localEmailController.text),
               child: Text(app.t('save')),
             ),
           ],
         );
       },
     );
+    localEmailController.dispose();
 
     if (email == null) return;
     final String normalized = email.trim();
@@ -159,10 +181,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         phone: app.currentUser?.phone ?? '',
         email: normalized,
       );
+      await app.reloadUserData();
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(app.t('profile_updated'))));
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -177,8 +201,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    String? otpFromResponse;
     try {
-      await app.sendEmailVerificationOtp();
+      final response = await app.sendEmailVerificationOtp();
+      // Extract OTP if available (dev mode only)
+      otpFromResponse = response['otp'] as String?;
+      if (!mounted) return;
+      _showOtpSentSnackBar(devOtp: otpFromResponse);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -196,6 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: app.t('otp_verification'),
               subtitle: 'Enter the OTP sent to your email',
               credential: email,
+              devModeOtp: otpFromResponse,
               onVerifyOtp: (otp) => app.confirmEmailVerification(otp: otp),
               onResendOtp: () => app.sendEmailVerificationOtp(),
             ),
@@ -210,51 +240,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SnackBar(content: Text('Email verified successfully')),
       );
     }
-  }
-
-  Future<String?> _getStepUpToken({
-    required AppState app,
-    required String purpose,
-  }) async {
-    try {
-      await app.sendStepUpOtp(purpose: purpose, channel: 'phone');
-    } catch (e) {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
-      return null;
-    }
-
-    if (!mounted) return null;
-
-    String? token;
-    final bool verified =
-        await Navigator.of(context).push<bool>(
-          MaterialPageRoute<bool>(
-            builder: (_) => OtpVerificationScreen(
-              title: app.t('otp_verification'),
-              subtitle: 'Enter the OTP sent to your phone',
-              credential: app.currentUser?.phone ?? '',
-              onVerifyOtp: (otp) async {
-                final stepUpToken = await app.verifyStepUpOtp(
-                  purpose: purpose,
-                  otp: otp,
-                  channel: 'phone',
-                );
-                token = stepUpToken;
-              },
-              onResendOtp: () => app.sendStepUpOtp(purpose: purpose),
-            ),
-          ),
-        ) ??
-        false;
-
-    if (!verified || token == null || token!.isEmpty) {
-      return null;
-    }
-
-    return token;
   }
 
   Widget _profileInfoTile(
@@ -335,29 +320,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => _addEmail(app),
             child: const Text('Add Email'),
           ),
-        if (canSwitchRoles) ...<Widget>[
-          UiSpace.xs,
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Use app as',
-                    style: Theme.of(context).textTheme.titleSmall,
+        UiSpace.xs,
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  'Caregiver Options',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(height: 10),
+                ),
+                const SizedBox(height: 10),
+                if (canSwitchRoles)
                   SegmentedButton<UserRole>(
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.comfortable,
+                      textStyle: WidgetStatePropertyAll(
+                        Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                     segments: <ButtonSegment<UserRole>>[
                       ButtonSegment<UserRole>(
                         value: UserRole.patient,
-                        label: Text(app.t('patient')),
+                        label: Text(
+                          app.t('patient'),
+                          textAlign: TextAlign.center,
+                        ),
                         icon: const Icon(Icons.favorite_outline),
                       ),
                       ButtonSegment<UserRole>(
                         value: UserRole.caregiver,
-                        label: Text(app.t('caregiver')),
+                        label: Text(
+                          app.t('caregiver'),
+                          textAlign: TextAlign.center,
+                        ),
                         icon: const Icon(Icons.people_outline),
                       ),
                     ],
@@ -367,19 +369,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       unawaited(_switchRole(app, nextRole));
                     },
                     showSelectedIcon: false,
+                  )
+                else if (!hasCaregiverRole)
+                  FilledButton.tonalIcon(
+                    onPressed: () => _enableCaregiver(app),
+                    icon: const Icon(Icons.add_moderator_outlined),
+                    label: const Text('Enable Caregiver Mode'),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
-        ] else if (!hasCaregiverRole) ...<Widget>[
-          UiSpace.xs,
-          FilledButton.tonalIcon(
-            onPressed: () => _enableCaregiver(app),
-            icon: const Icon(Icons.add_moderator_outlined),
-            label: const Text('Enable Caregiver Mode'),
-          ),
-        ],
+        ),
         if (user.role == UserRole.patient) ...<Widget>[
           UiSpace.sm,
           Container(
@@ -392,6 +392,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                Text(
+                  'Patient Caregiver Settings',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: const Color(0xFF0A1430),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Row(
                   children: <Widget>[
                     Container(
@@ -413,7 +421,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: <Widget>[
                           Text(
                             'Connect with Caregiver',
-                            style: Theme.of(context).textTheme.titleMedium
+                            style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
                                   color: const Color(0xFF0A1430),
                                   fontWeight: FontWeight.w700,
@@ -437,19 +445,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: () async {
                       String code;
                       try {
-                        final String? token = await _getStepUpToken(
-                          app: app,
-                          purpose: 'manage_relationships',
-                        );
-                        if (token == null ||
-                            token.isEmpty ||
-                            !context.mounted) {
-                          return;
-                        }
-
-                        code = await app.generateCaregiverCodeSecured(
-                          stepUpToken: token,
-                        );
+                        code = await app.generateCaregiverCode();
                       } catch (e) {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -516,19 +512,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             UiSpace.xs,
             Text(
               app.t('caregivers_list'),
-              style: Theme.of(context).textTheme.titleSmall,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(
-                  linkedCaregivers
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: linkedCaregivers
                       .map(
                         (Map<String, dynamic> c) =>
-                            (c['name'] ?? '').toString(),
+                            (c['name'] ?? '').toString().trim(),
                       )
-                      .where((String n) => n.trim().isNotEmpty)
-                      .join(', '),
+                      .where((String n) => n.isNotEmpty)
+                      .map(
+                        (String n) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE9F1FF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            n,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: const Color(0xFF1E73D8),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ),

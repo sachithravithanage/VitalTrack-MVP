@@ -156,9 +156,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Send verification OTP to current email
-  Future<void> sendEmailVerificationOtp() async {
-    await authService.verifyEmail();
+  /// Send verification OTP to current email and return response with OTP if in dev mode
+  Future<Map<String, dynamic>> sendEmailVerificationOtp() async {
+    final response = await authService.verifyEmail();
+    return response;
   }
 
   /// Confirm email verification using OTP
