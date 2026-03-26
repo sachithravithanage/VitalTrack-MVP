@@ -23,15 +23,31 @@ class CaregiverPatientsScreen extends StatefulWidget {
 
 class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
   Timer? _refreshTimer;
+  bool _loadingPatients = false;
+
+  Future<void> _refreshPatients(AppState app) async {
+    if (_loadingPatients) {
+      return;
+    }
+
+    _loadingPatients = true;
+    try {
+      await app.loadCaregiverPatients();
+    } catch (_) {
+      // Ignore background refresh errors.
+    } finally {
+      _loadingPatients = false;
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final app = AppScope.of(context);
-    unawaited(app.loadCaregiverPatients());
-    _refreshTimer ??= Timer.periodic(const Duration(seconds: 12), (_) {
+    unawaited(_refreshPatients(app));
+    _refreshTimer ??= Timer.periodic(const Duration(seconds: 45), (_) {
       if (!mounted) return;
-      unawaited(app.loadCaregiverPatients());
+      unawaited(_refreshPatients(app));
     });
   }
 
@@ -373,7 +389,6 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                           ],
                           decoration: const InputDecoration(
                             counterText: '',
-                            hintText: '000000',
                             contentPadding: EdgeInsets.symmetric(
                               vertical: 12,
                               horizontal: 8,
@@ -448,7 +463,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                         code: code,
                         disease: _disease.toString().split('.').last,
                       );
-                      await app.loadCaregiverPatients();
+                      unawaited(app.loadCaregiverPatients());
                     } catch (e) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -465,7 +480,7 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                         name: _nameController.text.trim(),
                         disease: _disease.toString().split('.').last,
                       );
-                      await app.loadCaregiverPatients();
+                      unawaited(app.loadCaregiverPatients());
                     } catch (e) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

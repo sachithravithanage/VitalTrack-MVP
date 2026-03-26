@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "dev": "node scripts/dev.mjs",
     "test": "node --test src/**/*.test.js"
   },
   "dependencies": {

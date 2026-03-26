@@ -69,10 +69,10 @@ class AppState extends ChangeNotifier {
         final userData = response['user'] as Map<String, dynamic>;
         currentUser = _toUserProfile(userData);
         notifyListeners();
-        await syncStoredFcmToken();
+        unawaited(syncStoredFcmToken());
 
-        // Reload user data after successful login
-        await reloadUserData();
+        // Reload user data after successful login without blocking UI navigation.
+        unawaited(reloadUserData());
       }
     } catch (e) {
       debugPrint('Login error: $e');
@@ -82,19 +82,23 @@ class AppState extends ChangeNotifier {
 
   /// Sign up with new account
   Future<void> signup({
+    String? identifier,
     String? email,
-    required String phone,
+    String? phone,
     required String password,
     required String name,
     String role = 'patient',
+    String? verifiedCredentialType,
   }) async {
     try {
       final response = await authService.signUp(
+        identifier: identifier,
         email: email,
         phone: phone,
         password: password,
         name: name,
         role: role,
+        verifiedCredentialType: verifiedCredentialType,
       );
 
       if (response['user'] != null) {
@@ -147,15 +151,15 @@ class AppState extends ChangeNotifier {
       await syncStoredFcmToken();
       await loadNotificationHistory();
     } catch (e) {
-      debugPrint('Error reloading user data: $e');
+      debugPrint('Error reloading user data: ${e.toString().split('\n')[0]}');
       // Don't rethrow - this is optional data
     }
   }
 
   /// Update user profile
   Future<void> updateProfile({
-    required String name,
-    required String phone,
+    String? name,
+    String? phone,
     String? email,
   }) async {
     try {
@@ -208,6 +212,18 @@ class AppState extends ChangeNotifier {
     await refreshCurrentUserProfile();
   }
 
+  /// Send verification OTP to current phone and return response with OTP if in dev mode
+  Future<Map<String, dynamic>> sendPhoneVerificationOtp() async {
+    final response = await authService.verifyPhone();
+    return response;
+  }
+
+  /// Confirm phone verification using OTP
+  Future<void> confirmPhoneVerification({required String otp}) async {
+    await authService.confirmPhoneVerification(otp: otp);
+    await refreshCurrentUserProfile();
+  }
+
   /// Parse user role string
   UserRole _parseUserRole(dynamic roleValue) {
     if (roleValue is String) {
@@ -245,6 +261,7 @@ class AppState extends ChangeNotifier {
       phone: userData['phone'] ?? '',
       email: userData['email'],
       emailVerified: userData['emailVerified'] == true,
+      phoneVerified: userData['phoneVerified'] != false,
     );
   }
 
@@ -275,7 +292,7 @@ class AppState extends ChangeNotifier {
       if (userData is Map<String, dynamic>) {
         currentUser = _toUserProfile(userData);
         notifyListeners();
-        await reloadUserData();
+        unawaited(reloadUserData());
       }
     } catch (e) {
       debugPrint('Switch active role error: $e');
@@ -749,9 +766,11 @@ class AppState extends ChangeNotifier {
 
   /// Get hotspots for a subject
   List<HotspotResponse> get hotspotResponses =>
-      List<HotspotResponse>.unmodifiable(_hotspots)..sort(
-        (HotspotResponse a, HotspotResponse b) =>
-            b.createdAt.compareTo(a.createdAt),
+      List<HotspotResponse>.unmodifiable(
+        _hotspots.toList()..sort(
+          (HotspotResponse a, HotspotResponse b) =>
+              b.createdAt.compareTo(a.createdAt),
+        ),
       );
 
   /// Get hotspots for a subject

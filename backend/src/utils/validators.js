@@ -2,10 +2,16 @@ import validator from "validator";
 import { ValidationError, AuthenticationError } from "./errors.js";
 
 export function validateEmail(email) {
-  if (!email || !validator.isEmail(email)) {
+  const normalized = String(email || "").trim();
+  if (!normalized || normalized.includes(" ")) {
     throw new ValidationError("Invalid email address");
   }
-  return email.toLowerCase();
+
+  if (!validator.isEmail(normalized)) {
+    throw new ValidationError("Invalid email address");
+  }
+
+  return normalized.toLowerCase();
 }
 
 export function validatePhone(phone) {
@@ -33,10 +39,45 @@ export function validatePhone(phone) {
 }
 
 export function validatePassword(password) {
-  if (!password || password.length < 6) {
-    throw new ValidationError("Password must be at least 6 characters");
+  const raw = String(password || "");
+  const rules = [
+    {
+      ok: raw.length >= 8,
+      message: "at least 8 characters",
+    },
+    {
+      ok: /[A-Z]/.test(raw),
+      message: "at least 1 uppercase letter",
+    },
+    {
+      ok: /[a-z]/.test(raw),
+      message: "at least 1 lowercase letter",
+    },
+    {
+      ok: /\d/.test(raw),
+      message: "at least 1 number",
+    },
+    {
+      ok: /[^A-Za-z0-9]/.test(raw),
+      message: "at least 1 special character",
+    },
+    {
+      ok: !/\s/.test(raw),
+      message: "no spaces",
+    },
+  ];
+
+  const failedRules = rules
+    .filter((rule) => !rule.ok)
+    .map((rule) => rule.message);
+
+  if (failedRules.length > 0) {
+    throw new ValidationError(
+      `Password must include ${failedRules.join(", ")}`,
+    );
   }
-  return password;
+
+  return raw;
 }
 
 export function validateOTP(otp) {

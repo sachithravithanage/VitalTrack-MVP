@@ -100,8 +100,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: '$baseUrl/api/$apiVersion',
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
         contentType: Headers.jsonContentType,
       ),
     );
@@ -116,11 +116,12 @@ class ApiClient {
   Future<Map<String, dynamic>> sendOtp({
     required String credential,
     required String type, // 'phone' or 'email'
+    String purpose = 'login',
   }) async {
     try {
       final response = await _dio.post(
         '/auth/send-otp',
-        data: {'credential': credential, 'type': type},
+        data: {'credential': credential, 'type': type, 'purpose': purpose},
       );
       return _unwrapResponse(response.data);
     } catch (e) {
@@ -146,21 +147,25 @@ class ApiClient {
 
   /// Sign up
   Future<Map<String, dynamic>> signup({
+    String? identifier,
     String? email,
-    required String phone,
+    String? phone,
     required String password,
     required String name,
     String role = 'patient',
+    String? verifiedCredentialType,
   }) async {
     try {
       final response = await _dio.post(
         '/auth/signup',
         data: {
+          'identifier': identifier,
           'email': email,
           'phone': phone,
           'password': password,
           'name': name,
           'role': role,
+          'verifiedCredentialType': verifiedCredentialType,
         },
       );
       return _unwrapResponse(response.data);
@@ -177,6 +182,22 @@ class ApiClient {
     try {
       final response = await _dio.post(
         '/auth/login',
+        data: {'credential': credential, 'password': password},
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Validate login credentials before OTP
+  Future<Map<String, dynamic>> checkLoginCredentials({
+    required String credential,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login/check',
         data: {'credential': credential, 'password': password},
       );
       return _unwrapResponse(response.data);
@@ -335,6 +356,31 @@ class ApiClient {
     try {
       final response = await _dio.post(
         '/users/confirm-email-verification',
+        data: {'otp': otp},
+      );
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Verify phone (send OTP)
+  Future<Map<String, dynamic>> verifyPhone() async {
+    try {
+      final response = await _dio.post('/users/verify-phone');
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Confirm phone verification
+  Future<Map<String, dynamic>> confirmPhoneVerification({
+    required String otp,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/users/confirm-phone-verification',
         data: {'otp': otp},
       );
       return _unwrapResponse(response.data);
@@ -687,8 +733,8 @@ class _AuthInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     final currentUser = storageService.getCurrentUser();
-    final currentUserId =
-        (currentUser?['id'] ?? currentUser?['uid'])?.toString();
+    final currentUserId = (currentUser?['id'] ?? currentUser?['uid'])
+        ?.toString();
 
     if (currentUserId != null && currentUserId.isNotEmpty) {
       options.headers['x-user-id'] = currentUserId;

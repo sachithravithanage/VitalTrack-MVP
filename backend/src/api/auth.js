@@ -19,12 +19,73 @@ const router = express.Router();
  */
 router.post("/signup", async (req, res) => {
   try {
-    const { email, phone, password, name, role } = req.body;
+    const {
+      email,
+      phone,
+      identifier,
+      password,
+      name,
+      role,
+      verifiedCredentialType,
+    } = req.body;
     const normalizedRole = role ? String(role).toLowerCase() : "patient";
 
     // Validate inputs
-    const normalizedEmail = email ? validateEmail(email) : null;
-    const normalizedPhone = validatePhone(phone);
+    let normalizedEmail = email ? validateEmail(email) : null;
+    let normalizedPhone = phone ? validatePhone(phone) : null;
+
+    if (identifier) {
+      const identifierText = String(identifier).trim();
+      if (identifierText.includes("@")) {
+        normalizedEmail = validateEmail(identifierText);
+      } else {
+        normalizedPhone = validatePhone(identifierText);
+      }
+    }
+
+    if (!normalizedEmail && !normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Either email or phone is required",
+        },
+      });
+    }
+
+    if (
+      verifiedCredentialType &&
+      !["email", "phone"].includes(String(verifiedCredentialType))
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid verified credential type",
+        },
+      });
+    }
+
+    if (verifiedCredentialType === "email" && !normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Verified credential must exist on account",
+        },
+      });
+    }
+
+    if (verifiedCredentialType === "phone" && !normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Verified credential must exist on account",
+        },
+      });
+    }
+
     validatePassword(password);
     validateUserRole(normalizedRole);
 
@@ -38,13 +99,18 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    const user = await authService.registerUser(
-      normalizedEmail,
-      normalizedPhone,
+    const user = await authService.registerUser({
+      email: normalizedEmail,
+      phone: normalizedPhone,
       password,
       name,
-      normalizedRole,
-    );
+      role: normalizedRole,
+      verifiedCredentialType:
+        verifiedCredentialType &&
+        ["email", "phone"].includes(verifiedCredentialType)
+          ? verifiedCredentialType
+          : null,
+    });
     const customToken = await authService.createCustomAuthToken(user.uid);
 
     res.status(201).json({
@@ -65,14 +131,19 @@ router.post("/signup", async (req, res) => {
  */
 router.post("/send-otp", async (req, res) => {
   try {
-    const { credential, type } = req.body;
+    const { credential, type, purpose } = req.body;
+    const selectedType = ["phone", "email"].includes(type)
+      ? type
+      : String(credential || "").includes("@")
+        ? "email"
+        : "phone";
 
-    if (!credential || !type || !["phone", "email"].includes(type)) {
+    if (!credential) {
       return res.status(400).json({
         success: false,
         error: {
           code: "VALIDATION_ERROR",
-          message: "Invalid credential or type",
+          message: "Invalid credential",
         },
       });
     }
@@ -80,24 +151,30 @@ router.post("/send-otp", async (req, res) => {
     let normalizedCredential = credential;
 
     // Validate based on type
-    if (type === "email") {
+    if (selectedType === "email") {
       normalizedCredential = validateEmail(credential);
-      await authService.ensureVerifiedEmailCredential(normalizedCredential);
+      if (String(purpose || "login").toLowerCase() !== "signup") {
+        await authService.ensureVerifiedEmailCredential(normalizedCredential);
+      }
     } else {
       normalizedCredential = validatePhone(credential);
     }
 
-    const otp = await authService.createOTP(normalizedCredential, type);
+    const otpPayload = await authService.createOTP(
+      normalizedCredential,
+      selectedType,
+    );
+    const { otp, remainingAttempts, maxAttempts } = otpPayload;
 
     if (
-      type === "email" &&
+      selectedType === "email" &&
       (process.env.NODE_ENV || "development") !== "production"
     ) {
       console.log(`Email OTP for ${normalizedCredential}: ${otp}`);
     }
 
     // Send OTP via email or SMS
-    if (type === "email") {
+    if (selectedType === "email") {
       try {
         await emailService.sendOtpEmail(normalizedCredential, otp, "email");
       } catch (emailError) {
@@ -111,7 +188,9 @@ router.post("/send-otp", async (req, res) => {
 
     res.json({
       success: true,
-      message: `OTP sent to ${type}`,
+      message: `OTP sent to ${selectedType}`,
+      remainingAttempts,
+      maxAttempts,
       // Remove in production:
       ...(process.env.NODE_ENV === "development" && { otp }),
     });
@@ -127,22 +206,29 @@ router.post("/send-otp", async (req, res) => {
 router.post("/forgot-password/send-otp", async (req, res) => {
   try {
     const { credential, type } = req.body;
+    const selectedType = ["phone", "email"].includes(type)
+      ? type
+      : String(credential || "").includes("@")
+        ? "email"
+        : "phone";
 
-    if (!credential || !type || !["phone", "email"].includes(type)) {
+    if (!credential) {
       return res.status(400).json({
         success: false,
         error: {
           code: "VALIDATION_ERROR",
-          message: "Invalid credential or type",
+          message: "Invalid credential",
         },
       });
     }
 
     const normalizedCredential =
-      type === "email" ? validateEmail(credential) : validatePhone(credential);
+      selectedType === "email"
+        ? validateEmail(credential)
+        : validatePhone(credential);
 
     const user = await authService.findUserByCredential(normalizedCredential);
-    if (type === "email" && user.emailVerified !== true) {
+    if (selectedType === "email" && user.emailVerified !== true) {
       return res.status(401).json({
         success: false,
         error: {
@@ -151,9 +237,23 @@ router.post("/forgot-password/send-otp", async (req, res) => {
         },
       });
     }
-    const otp = await authService.createOTP(normalizedCredential, type);
+    if (selectedType === "phone" && user.phoneVerified === false) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "AUTHENTICATION_ERROR",
+          message: "Phone number is not verified for password recovery",
+        },
+      });
+    }
 
-    if (type === "email") {
+    const otpPayload = await authService.createOTP(
+      normalizedCredential,
+      selectedType,
+    );
+    const { otp, remainingAttempts, maxAttempts } = otpPayload;
+
+    if (selectedType === "email") {
       try {
         await emailService.sendOtpEmail(
           normalizedCredential,
@@ -169,7 +269,9 @@ router.post("/forgot-password/send-otp", async (req, res) => {
 
     res.json({
       success: true,
-      message: `Password reset OTP sent to ${type}`,
+      message: `Password reset OTP sent to ${selectedType}`,
+      remainingAttempts,
+      maxAttempts,
       ...(process.env.NODE_ENV === "development" && { otp }),
     });
   } catch (error) {
@@ -253,6 +355,37 @@ router.post("/verify-otp", async (req, res) => {
     res.json({
       success: true,
       message: "OTP verified successfully",
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * POST /api/v1/auth/login/check
+ * Validate login credentials before OTP dispatch
+ */
+router.post("/login/check", async (req, res) => {
+  try {
+    const { credential, password } = req.body;
+
+    if (!credential || !password) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Credential and password required",
+        },
+      });
+    }
+
+    await authService.loginUser(credential, password);
+
+    res.json({
+      success: true,
+      data: {
+        valid: true,
+      },
     });
   } catch (error) {
     handleError(error, res);
@@ -370,7 +503,8 @@ router.post("/step-up/send-otp", verifyFirebaseToken, async (req, res) => {
       credential = validatePhone(userProfile.phone);
     }
 
-    const otp = await authService.createOTP(credential, selectedChannel);
+    const otpPayload = await authService.createOTP(credential, selectedChannel);
+    const { otp, remainingAttempts, maxAttempts } = otpPayload;
 
     if (selectedChannel === "email") {
       try {
@@ -389,6 +523,8 @@ router.post("/step-up/send-otp", verifyFirebaseToken, async (req, res) => {
     res.json({
       success: true,
       message: `Step-up OTP sent to ${selectedChannel}`,
+      remainingAttempts,
+      maxAttempts,
       ...(process.env.NODE_ENV === "development" && { otp }),
     });
   } catch (error) {

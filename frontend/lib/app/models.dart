@@ -49,6 +49,7 @@ class UserProfileData {
     required this.phone,
     this.email,
     this.emailVerified = false,
+    this.phoneVerified = true,
   });
 
   final String id;
@@ -58,6 +59,7 @@ class UserProfileData {
   String phone;
   String? email;
   bool emailVerified;
+  bool phoneVerified;
 }
 
 class HotspotResponse {

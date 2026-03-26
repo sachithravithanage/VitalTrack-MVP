@@ -15,6 +15,7 @@ import {
 
 const OTP_EXPIRY_MINUTES = 5;
 const STEP_UP_EXPIRY_MINUTES = 10;
+const OTP_MAX_SEND_ATTEMPTS = 3;
 
 function normalizePhone(phone) {
   const digits = String(phone || "").replace(/\D/g, "");
@@ -118,23 +119,53 @@ async function ensureRoleDocument(uid, role) {
 export async function createOTP(credential, type) {
   const otp = generateOTP(6);
   const timestamp = Date.now();
+  const otpRef = db.collection("otps").doc(hashData(credential));
+  const existingOtpDoc = await otpRef.get();
+
+  let sendCount = 1;
+
+  if (existingOtpDoc.exists) {
+    const existingData = existingOtpDoc.data();
+    const expired = isExpired(existingData.createdAt, OTP_EXPIRY_MINUTES);
+
+    if (!expired) {
+      sendCount = Number(existingData.sendCount || 1) + 1;
+
+      if (sendCount > OTP_MAX_SEND_ATTEMPTS) {
+        const expiresAt = Number(existingData.expiresAt || 0);
+        const retryAfterSeconds = Math.max(
+          Math.ceil((expiresAt - timestamp) / 1000),
+          1,
+        );
+        throw new ValidationError("OTP request limit reached", {
+          retryAfterSeconds,
+          maxAttempts: OTP_MAX_SEND_ATTEMPTS,
+          attemptsUsed: Number(existingData.sendCount || OTP_MAX_SEND_ATTEMPTS),
+        });
+      }
+    }
+  }
 
   // Store OTP in Firestore (expires after 5 minutes)
-  await db
-    .collection("otps")
-    .doc(hashData(credential))
-    .set(
-      {
-        credential,
-        type, // 'phone' or 'email'
-        otp: hashData(otp),
-        createdAt: timestamp,
-        expiresAt: timestamp + OTP_EXPIRY_MINUTES * 60 * 1000,
-      },
-      { merge: true },
-    );
+  await otpRef.set(
+    {
+      credential,
+      type, // 'phone' or 'email'
+      otp: hashData(otp),
+      createdAt: timestamp,
+      expiresAt: timestamp + OTP_EXPIRY_MINUTES * 60 * 1000,
+      sendCount,
+      maxAttempts: OTP_MAX_SEND_ATTEMPTS,
+    },
+    { merge: true },
+  );
 
-  return otp; // Return unhashed OTP to send via SMS/Email
+  return {
+    otp,
+    sendCount,
+    remainingAttempts: Math.max(OTP_MAX_SEND_ATTEMPTS - sendCount, 0),
+    maxAttempts: OTP_MAX_SEND_ATTEMPTS,
+  };
 }
 
 /**
@@ -169,68 +200,108 @@ export async function verifyOTP(credential, inputOTP) {
 /**
  * Register new user
  */
-export async function registerUser(email, phone, password, name, role) {
+export async function registerUser({
+  email,
+  phone,
+  password,
+  name,
+  role,
+  verifiedCredentialType,
+}) {
   const normalizedRole = normalizeRole(role);
   const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
-  const normalizedPhone = normalizePhone(phone);
+  const normalizedPhone = phone ? normalizePhone(phone) : null;
+
+  if (!normalizedEmail && !normalizedPhone) {
+    throw new ValidationError("Either email or phone is required");
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   let existingAuthUser = null;
 
-  // Check Firebase Auth first to avoid Firestore/Auth drift issues.
+  // Parallelize Firebase Auth checks
+  const authChecks = [];
   if (normalizedEmail) {
-    try {
-      const existingByEmail = await auth.getUserByEmail(normalizedEmail);
-      if (existingByEmail) {
-        existingAuthUser = existingByEmail;
-      }
-    } catch (error) {
-      if (error.code !== "auth/user-not-found") {
-        throw error;
-      }
-    }
+    authChecks.push(
+      auth.getUserByEmail(normalizedEmail).catch((error) => {
+        if (error.code !== "auth/user-not-found") throw error;
+        return null;
+      }),
+    );
+  } else {
+    authChecks.push(Promise.resolve(null));
   }
 
-  try {
-    const existingByPhone = await auth.getUserByPhoneNumber(
-      `+${normalizedPhone}`,
+  if (normalizedPhone) {
+    authChecks.push(
+      auth.getUserByPhoneNumber(`+${normalizedPhone}`).catch((error) => {
+        if (error.code !== "auth/user-not-found") throw error;
+        return null;
+      }),
     );
-    if (existingByPhone) {
-      if (existingAuthUser && existingAuthUser.uid !== existingByPhone.uid) {
+  } else {
+    authChecks.push(Promise.resolve(null));
+  }
+
+  const [emailAuthUser, phoneAuthUser] = await Promise.all(authChecks);
+
+  if (
+    emailAuthUser &&
+    phoneAuthUser &&
+    emailAuthUser.uid !== phoneAuthUser.uid
+  ) {
+    throw new ConflictError(
+      "Phone/email belong to different existing accounts",
+      "ACCOUNT_MISMATCH",
+    );
+  }
+
+  existingAuthUser = emailAuthUser || phoneAuthUser;
+
+  // Parallelize Firestore checks
+  const firestoreChecks = [];
+  if (normalizedEmail) {
+    firestoreChecks.push(
+      db
+        .collection("users")
+        .where("email", "==", normalizedEmail)
+        .get()
+        .then((query) => ({
+          type: "email",
+          empty: query.empty,
+        })),
+    );
+  } else {
+    firestoreChecks.push(Promise.resolve({ type: "email", empty: true }));
+  }
+
+  if (normalizedPhone) {
+    firestoreChecks.push(
+      queryUsersByPhone(normalizedPhone).then((query) => ({
+        type: "phone",
+        empty: query.empty,
+      })),
+    );
+  } else {
+    firestoreChecks.push(Promise.resolve({ type: "phone", empty: true }));
+  }
+
+  const firestoreResults = await Promise.all(firestoreChecks);
+
+  for (const result of firestoreResults) {
+    if (!result.empty) {
+      if (result.type === "email") {
         throw new ConflictError(
-          "Phone/email belong to different existing accounts",
-          "ACCOUNT_MISMATCH",
+          "Email already registered",
+          "EMAIL_ALREADY_EXISTS",
+        );
+      } else {
+        throw new ConflictError(
+          "Phone number already registered",
+          "PHONE_ALREADY_EXISTS",
         );
       }
-      existingAuthUser = existingByPhone;
     }
-  } catch (error) {
-    if (error.code !== "auth/user-not-found") {
-      throw error;
-    }
-  }
-
-  // Check if user already exists in Firestore.
-  if (normalizedEmail) {
-    const emailQuery = await db
-      .collection("users")
-      .where("email", "==", normalizedEmail)
-      .get();
-
-    if (!emailQuery.empty) {
-      throw new ConflictError(
-        "Email already registered",
-        "EMAIL_ALREADY_EXISTS",
-      );
-    }
-  }
-
-  const phoneQuery = await queryUsersByPhone(normalizedPhone);
-
-  if (!phoneQuery.empty) {
-    throw new ConflictError(
-      "Phone number already registered",
-      "PHONE_ALREADY_EXISTS",
-    );
   }
 
   try {
@@ -241,14 +312,14 @@ export async function registerUser(email, phone, password, name, role) {
       userRecord = await auth.createUser({
         ...(normalizedEmail ? { email: normalizedEmail } : {}),
         password,
-        phoneNumber: `+${normalizedPhone}`,
+        ...(normalizedPhone ? { phoneNumber: `+${normalizedPhone}` } : {}),
         displayName: name,
       });
     } else {
       userRecord = await auth.updateUser(userRecord.uid, {
         ...(normalizedEmail ? { email: normalizedEmail } : {}),
         password,
-        phoneNumber: `+${normalizedPhone}`,
+        ...(normalizedPhone ? { phoneNumber: `+${normalizedPhone}` } : {}),
         displayName: name,
       });
     }
@@ -260,28 +331,36 @@ export async function registerUser(email, phone, password, name, role) {
       throw new ConflictError("User already registered", "USER_ALREADY_EXISTS");
     }
 
-    // Create user document in Firestore
-    await userDocRef.set({
-      uid: userRecord.uid,
-      email: normalizedEmail,
-      phone: normalizedPhone,
-      name,
-      role: normalizedRole,
-      roles: [normalizedRole],
-      activeRole: normalizedRole,
-      emailVerified: false,
-      passwordHash,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true,
-      profile: {
-        avatar: null,
-        bio: "",
-      },
-    });
+    const emailVerified =
+      normalizedEmail && verifiedCredentialType === "email" ? true : false;
+    const phoneVerified =
+      normalizedPhone && verifiedCredentialType === "phone" ? true : false;
 
-    // Create role-specific document
-    await ensureRoleDocument(userRecord.uid, normalizedRole);
+    // Create both user and role documents in parallel
+    await Promise.all([
+      // Create user document in Firestore
+      userDocRef.set({
+        uid: userRecord.uid,
+        email: normalizedEmail,
+        phone: normalizedPhone,
+        name,
+        role: normalizedRole,
+        roles: [normalizedRole],
+        activeRole: normalizedRole,
+        emailVerified,
+        phoneVerified,
+        passwordHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
+        profile: {
+          avatar: null,
+          bio: "",
+        },
+      }),
+      // Create role-specific document
+      ensureRoleDocument(userRecord.uid, normalizedRole),
+    ]);
 
     return {
       id: userRecord.uid,
@@ -292,7 +371,8 @@ export async function registerUser(email, phone, password, name, role) {
       role: normalizedRole,
       roles: [normalizedRole],
       activeRole: normalizedRole,
-      emailVerified: false,
+      emailVerified,
+      phoneVerified,
     };
   } catch (error) {
     if (error.code === "auth/email-already-exists") {
@@ -345,6 +425,10 @@ export async function loginUser(credential, password) {
     throw new AuthenticationError("Email is not verified for sign in");
   }
 
+  if (!normalizedCredential.includes("@") && user.phoneVerified === false) {
+    throw new AuthenticationError("Phone number is not verified for sign in");
+  }
+
   // Verify password from stored hash.
   if (!user.passwordHash) {
     throw new AuthenticationError("Password verification unavailable for user");
@@ -368,6 +452,7 @@ export async function loginUser(credential, password) {
     roles,
     activeRole,
     emailVerified: user.emailVerified,
+    phoneVerified: user.phoneVerified !== false,
   };
 }
 
@@ -538,15 +623,23 @@ export async function enableUserRole(uid, role) {
     activeRole: profile.activeRole,
   });
 
-  await db.collection("users").doc(uid).update({
+  await Promise.all([
+    db.collection("users").doc(uid).update({
+      roles,
+      role: activeRole,
+      activeRole,
+      updatedAt: new Date(),
+    }),
+    ensureRoleDocument(uid, normalizedRole),
+  ]);
+
+  // Return updated profile without fetching again
+  return {
+    ...profile,
     roles,
     role: activeRole,
     activeRole,
-    updatedAt: new Date(),
-  });
-
-  await ensureRoleDocument(uid, normalizedRole);
-  return getUserProfile(uid);
+  };
 }
 
 export async function setActiveUserRole(uid, role) {
@@ -564,7 +657,13 @@ export async function setActiveUserRole(uid, role) {
     updatedAt: new Date(),
   });
 
-  return getUserProfile(uid);
+  // Return updated profile without fetching again
+  return {
+    ...profile,
+    role: normalizedRole,
+    activeRole: normalizedRole,
+    roles,
+  };
 }
 
 /**
@@ -598,6 +697,10 @@ export async function updateUserProfile(uid, updates) {
     }
 
     validUpdates.phone = normalizedPhone;
+    if (currentProfile.phone !== normalizedPhone) {
+      validUpdates.phoneVerified = false;
+      await auth.updateUser(uid, { phoneNumber: `+${normalizedPhone}` });
+    }
   }
 
   if (email !== undefined) {
@@ -645,6 +748,18 @@ export async function markEmailVerified(uid) {
   return true;
 }
 
+/**
+ * Mark phone number as verified
+ */
+export async function markPhoneVerified(uid) {
+  await db.collection("users").doc(uid).update({
+    phoneVerified: true,
+    updatedAt: new Date(),
+  });
+
+  return true;
+}
+
 export default {
   createOTP,
   verifyOTP,
@@ -655,6 +770,7 @@ export default {
   getUserProfile,
   updateUserProfile,
   markEmailVerified,
+  markPhoneVerified,
   enableUserRole,
   setActiveUserRole,
   ensureVerifiedEmailCredential,

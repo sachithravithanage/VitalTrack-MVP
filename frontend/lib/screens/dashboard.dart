@@ -22,6 +22,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
   Timer? _notificationTimer;
   bool _didInitNotifications = false;
   final Set<String> _seenNotificationIds = <String>{};
+  List<Widget>? _pages;
+  String? _pagesForUserId;
 
   @override
   void didChangeDependencies() {
@@ -48,7 +50,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
       // Keep UI usable even if the initial fetch fails.
     }
 
-    _notificationTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _notificationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
       if (!mounted) return;
       unawaited(_checkForNewNotifications());
     });
@@ -82,12 +84,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
     final user = app.currentUser!;
-    final List<Widget> pages = <Widget>[
-      const KeepRecordsSelectorScreen(),
-      RecordsListScreen(patientId: user.id, canAddFromHere: false),
-      const ProfileScreen(),
-      const HotspotMapScreen(forCaregiverPatientData: false),
-    ];
+
+    if (_pages == null || _pagesForUserId != user.id) {
+      _pagesForUserId = user.id;
+      _pages = <Widget>[
+        const KeepRecordsSelectorScreen(),
+        RecordsListScreen(patientId: user.id, canAddFromHere: false),
+        const ProfileScreen(),
+        const HotspotMapScreen(forCaregiverPatientData: false),
+      ];
+    }
+
     final List<DashboardDestination> destinations = <DashboardDestination>[
       DashboardDestination(icon: Icons.edit_note, label: app.t('keep_records')),
       DashboardDestination(icon: Icons.list_alt, label: app.t('show_records')),
@@ -100,17 +107,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
       selectedIndex: _index,
       onDestinationSelected: (int value) => setState(() => _index = value),
       onNotificationsPressed: () async {
-        await app.loadNotificationHistory();
+        unawaited(app.loadNotificationHistory());
         if (!context.mounted) return;
         await Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
         );
         if (!context.mounted) return;
-        await app.loadNotificationHistory();
+        unawaited(app.loadNotificationHistory());
       },
       unreadNotificationCount: app.unreadNotificationCount,
       destinations: destinations,
-      pages: pages,
+      pages: _pages!,
     );
   }
 }
@@ -127,6 +134,11 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   Timer? _notificationTimer;
   bool _didInitNotifications = false;
   final Set<String> _seenNotificationIds = <String>{};
+  late final List<Widget> _pages = const <Widget>[
+    CaregiverPatientsScreen(),
+    ProfileScreen(),
+    HotspotMapScreen(forCaregiverPatientData: true),
+  ];
 
   @override
   void didChangeDependencies() {
@@ -153,7 +165,7 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
       // Keep UI usable even if the initial fetch fails.
     }
 
-    _notificationTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _notificationTimer = Timer.periodic(const Duration(minutes: 3), (_) {
       if (!mounted) return;
       unawaited(_checkForNewNotifications());
     });
@@ -186,11 +198,6 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
   @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
-    final List<Widget> pages = const <Widget>[
-      CaregiverPatientsScreen(),
-      ProfileScreen(),
-      HotspotMapScreen(forCaregiverPatientData: true),
-    ];
     final List<DashboardDestination> destinations = <DashboardDestination>[
       DashboardDestination(icon: Icons.people, label: app.t('patients')),
       DashboardDestination(icon: Icons.person_outline, label: app.t('profile')),
@@ -202,17 +209,17 @@ class _CaregiverDashboardState extends State<CaregiverDashboard> {
       selectedIndex: _index,
       onDestinationSelected: (int value) => setState(() => _index = value),
       onNotificationsPressed: () async {
-        await app.loadNotificationHistory();
+        unawaited(app.loadNotificationHistory());
         if (!context.mounted) return;
         await Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
         );
         if (!context.mounted) return;
-        await app.loadNotificationHistory();
+        unawaited(app.loadNotificationHistory());
       },
       unreadNotificationCount: app.unreadNotificationCount,
       destinations: destinations,
-      pages: pages,
+      pages: _pages,
     );
   }
 }

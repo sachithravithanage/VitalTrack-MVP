@@ -14,9 +14,14 @@ class AuthService {
   Future<Map<String, dynamic>> sendOtp({
     required String credential,
     required String type, // 'phone' or 'email'
+    String purpose = 'login',
   }) async {
     try {
-      return await _apiClient.sendOtp(credential: credential, type: type);
+      return await _apiClient.sendOtp(
+        credential: credential,
+        type: type,
+        purpose: purpose,
+      );
     } catch (e) {
       debugPrint("Error sending OTP: $e");
       rethrow;
@@ -43,27 +48,31 @@ class AuthService {
 
       return response;
     } catch (e) {
-      debugPrint("Error verifying OTP: $e");
+      debugPrint("Error verifying OTP: ${e.toString().split('\n')[0]}");
       rethrow;
     }
   }
 
   /// Sign up with email and password
   Future<Map<String, dynamic>> signUp({
+    String? identifier,
     String? email,
-    required String phone,
+    String? phone,
     required String password,
     required String name,
     String role = 'patient', // 'patient' or 'caregiver'
+    String? verifiedCredentialType,
   }) async {
     try {
       // Register with backend
       final response = await _apiClient.signup(
+        identifier: identifier,
         email: email,
         phone: phone,
         password: password,
         name: name,
         role: role,
+        verifiedCredentialType: verifiedCredentialType,
       );
 
       final sessionToken = response['customToken'] as String?;
@@ -80,7 +89,7 @@ class AuthService {
 
       return response;
     } catch (e) {
-      debugPrint("Error signing up: $e");
+      debugPrint("Error signing up: ${e.toString().split('\n')[0]}");
       rethrow;
     }
   }
@@ -111,7 +120,25 @@ class AuthService {
 
       return response;
     } catch (e) {
-      debugPrint("Error logging in: $e");
+      debugPrint("Error logging in: ${e.toString().split('\n')[0]}");
+      rethrow;
+    }
+  }
+
+  /// Validate login credentials before sending OTP
+  Future<Map<String, dynamic>> checkLoginCredentials({
+    required String credential,
+    required String password,
+  }) async {
+    try {
+      return await _apiClient.checkLoginCredentials(
+        credential: credential,
+        password: password,
+      );
+    } catch (e) {
+      debugPrint(
+        "Error validating login credentials: ${e.toString().split('\n')[0]}",
+      );
       rethrow;
     }
   }
@@ -127,7 +154,9 @@ class AuthService {
         type: type,
       );
     } catch (e) {
-      debugPrint("Error sending forgot-password OTP: $e");
+      debugPrint(
+        "Error sending forgot-password OTP: ${e.toString().split('\n')[0]}",
+      );
       rethrow;
     }
   }
@@ -145,7 +174,7 @@ class AuthService {
         newPassword: newPassword,
       );
     } catch (e) {
-      debugPrint("Error resetting password: $e");
+      debugPrint("Error resetting password: ${e.toString().split('\n')[0]}");
       rethrow;
     }
   }
@@ -156,12 +185,9 @@ class AuthService {
     String channel = 'phone',
   }) async {
     try {
-      return await _apiClient.sendStepUpOtp(
-        purpose: purpose,
-        channel: channel,
-      );
+      return await _apiClient.sendStepUpOtp(purpose: purpose, channel: channel);
     } catch (e) {
-      debugPrint("Error sending step-up OTP: $e");
+      debugPrint("Error sending step-up OTP: ${e.toString().split('\n')[0]}");
       rethrow;
     }
   }
@@ -293,6 +319,44 @@ class AuthService {
       return response;
     } catch (e) {
       debugPrint("Error confirming email verification: $e");
+      rethrow;
+    }
+  }
+
+  /// Request phone verification OTP for the currently stored profile phone
+  Future<Map<String, dynamic>> verifyPhone() async {
+    try {
+      return await _apiClient.verifyPhone();
+    } catch (e) {
+      debugPrint("Error requesting phone verification: $e");
+      rethrow;
+    }
+  }
+
+  /// Confirm phone verification OTP
+  Future<Map<String, dynamic>> confirmPhoneVerification({
+    required String otp,
+  }) async {
+    try {
+      final response = await _apiClient.confirmPhoneVerification(otp: otp);
+
+      try {
+        final profileResponse = await _apiClient.getUserProfile();
+        final user = profileResponse['profile'] ?? profileResponse['user'];
+        if (user is Map<String, dynamic>) {
+          await _storage.saveCurrentUser(user);
+        }
+      } catch (_) {
+        final currentUser = _storage.getCurrentUser();
+        if (currentUser != null) {
+          currentUser['phoneVerified'] = true;
+          await _storage.saveCurrentUser(currentUser);
+        }
+      }
+
+      return response;
+    } catch (e) {
+      debugPrint("Error confirming phone verification: $e");
       rethrow;
     }
   }

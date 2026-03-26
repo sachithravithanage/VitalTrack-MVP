@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 
-import '../app/models.dart';
 import '../app/scope.dart';
 import '../app/state.dart';
 import '../services/index.dart';
@@ -14,6 +15,10 @@ String _friendlyAuthError(
   required String fallback,
 }) {
   if (error is DioException) {
+    if (error.type == DioExceptionType.connectionError) {
+      return app.t('backend_unreachable');
+    }
+
     if (error.response?.statusCode == 409) {
       return app.t('account_exists_login');
     }
@@ -24,6 +29,10 @@ String _friendlyAuthError(
       if (errorObj is Map<String, dynamic>) {
         final String code = (errorObj['code'] ?? '').toString();
         final String message = (errorObj['message'] ?? '').toString();
+        final Map<String, dynamic>? details =
+            errorObj['details'] is Map<String, dynamic>
+            ? errorObj['details'] as Map<String, dynamic>
+            : null;
 
         if (code == 'EMAIL_ALREADY_EXISTS' ||
             message.toLowerCase().contains('email already')) {
@@ -40,6 +49,25 @@ String _friendlyAuthError(
             message.toLowerCase().contains('already registered') ||
             message.toLowerCase().contains('user already')) {
           return app.t('account_exists_login');
+        }
+
+        if (code == 'AUTHENTICATION_ERROR' &&
+            (message.toLowerCase().contains('invalid credentials') ||
+                message.toLowerCase().contains('user not found'))) {
+          return app.t('invalid_login_credentials');
+        }
+
+        if (message.toLowerCase().contains('otp request limit reached')) {
+          final int? retryAfterSeconds = (details?['retryAfterSeconds'] as num?)
+              ?.toInt();
+          if (retryAfterSeconds != null && retryAfterSeconds > 0) {
+            return '${app.t('otp_send_limit_reached')} ${app.t('try_again_in_seconds')} ${_formatSecondsAsMmSs(retryAfterSeconds)}.';
+          }
+          return app.t('otp_send_limit_reached');
+        }
+
+        if (message.toLowerCase().contains('password must include')) {
+          return app.t('password_policy_error');
         }
 
         if (message.isNotEmpty) {
@@ -62,17 +90,79 @@ String _friendlyAuthError(
   if (raw.contains('invalid otp')) {
     return app.t('invalid_otp_error');
   }
+  if (raw.contains('invalid credentials') || raw.contains('user not found')) {
+    return app.t('invalid_login_credentials');
+  }
+  if (raw.contains('otp request limit reached')) {
+    return app.t('otp_send_limit_reached');
+  }
+  if (raw.contains('password must include')) {
+    return app.t('password_policy_error');
+  }
+  if (raw.contains('phone number is not verified')) {
+    return app.t('phone_not_verified_profile');
+  }
   if (raw.contains('not verified')) {
     return app.t('email_not_verified_profile');
   }
   if (raw.contains('otp has expired') || raw.contains('otp not found')) {
     return app.t('otp_expired_error');
   }
+  if (raw.contains('connection refused') ||
+      raw.contains('xmlhttprequest onerror')) {
+    return app.t('backend_unreachable');
+  }
   return fallback;
+}
+
+int? _extractRetryAfterSeconds(Object error) {
+  if (error is! DioException) {
+    return null;
+  }
+
+  final Object? responseData = error.response?.data;
+  if (responseData is! Map<String, dynamic>) {
+    return null;
+  }
+
+  final Object? errorObj = responseData['error'];
+  if (errorObj is! Map<String, dynamic>) {
+    return null;
+  }
+
+  final Object? detailsObj = errorObj['details'];
+  if (detailsObj is! Map<String, dynamic>) {
+    return null;
+  }
+
+  return (detailsObj['retryAfterSeconds'] as num?)?.toInt();
+}
+
+String _formatSecondsAsMmSs(int totalSeconds) {
+  final int safeSeconds = totalSeconds < 0 ? 0 : totalSeconds;
+  final int minutes = safeSeconds ~/ 60;
+  final int seconds = safeSeconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 }
 
 String _normalizeLkPhoneForApi(String localInput) {
   return localInput.replaceAll(RegExp(r'\D'), '');
+}
+
+bool _isEmailCredential(String value) {
+  return value.trim().contains('@');
+}
+
+String _credentialType(String value) {
+  return _isEmailCredential(value) ? 'email' : 'phone';
+}
+
+String _normalizeCredentialForApi(String value) {
+  final String trimmed = value.trim();
+  if (_isEmailCredential(trimmed)) {
+    return trimmed;
+  }
+  return _normalizeLkPhoneForApi(trimmed);
 }
 
 bool _isValidLkPhone(String phone) {
@@ -87,22 +177,40 @@ bool _isValidEmail(String value) {
   ).hasMatch(normalized);
 }
 
+bool _isStrongPassword(String password) {
+  final String value = password.trim();
+  return value.length >= 8 &&
+      RegExp(r'[A-Z]').hasMatch(value) &&
+      RegExp(r'[a-z]').hasMatch(value) &&
+      RegExp(r'\d').hasMatch(value) &&
+      RegExp(r'[^A-Za-z0-9]').hasMatch(value) &&
+      !RegExp(r'\s').hasMatch(value);
+}
+
 String _otpTimestampText() {
   final DateTime now = DateTime.now();
   String two(int n) => n.toString().padLeft(2, '0');
   return '${now.year}-${two(now.month)}-${two(now.day)} ${two(now.hour)}:${two(now.minute)}';
 }
 
-void _showOtpSentSnackBar(BuildContext context, {String? devOtp}) {
+void _showOtpSentSnackBar(
+  BuildContext context, {
+  String? devOtp,
+  int? remainingAttempts,
+  int? maxAttempts,
+}) {
   final AppState app = AppScope.of(context);
   final String ts = _otpTimestampText();
+  final String attemptsSuffix = remainingAttempts != null && maxAttempts != null
+      ? ' • ${app.t('otp_attempts_left')}: $remainingAttempts/$maxAttempts'
+      : '';
   final String codeSuffix = (devOtp != null && devOtp.isNotEmpty)
       ? ' • DEV: $devOtp'
       : '';
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
-      content: Text('${app.t('otp_sent_at')} • $ts$codeSuffix'),
+      content: Text('${app.t('otp_sent_at')} • $ts$attemptsSuffix$codeSuffix'),
     ),
   );
 }
@@ -116,25 +224,35 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  LoginMethod _method = LoginMethod.number4n;
   bool _submitting = false;
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _credentialController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _phoneController.dispose();
-    _emailController.dispose();
+    _credentialController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  void _resetLoginInputs() {
+    _credentialController.clear();
+    _passwordController.clear();
+    _formKey.currentState?.reset();
+  }
+
+  bool _shouldClearLoginInputs(Object error) {
+    if (error is DioException && error.response?.statusCode == 401) {
+      return true;
+    }
+
+    final String raw = error.toString().toLowerCase();
+    return raw.contains('invalid credentials') ||
+        raw.contains('user not found');
+  }
+
   Future<void> _startForgotPasswordFlow(AppState app) async {
-    final bool isEmail = _method == LoginMethod.email;
-    final String initialCredential = isEmail
-        ? _emailController.text.trim()
-        : _phoneController.text.trim();
+    final String initialCredential = _credentialController.text.trim();
 
     final TextEditingController credentialController = TextEditingController(
       text: initialCredential,
@@ -161,14 +279,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: <Widget>[
                       TextFormField(
                         controller: credentialController,
-                        keyboardType: isEmail
-                            ? TextInputType.emailAddress
-                            : TextInputType.phone,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: isEmail ? app.t('email') : app.t('phone'),
-                          hintText: isEmail
-                              ? 'example@email.com'
-                              : '07XXXXXXXX',
+                          labelText: app.t('mobile_or_email'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -219,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               return;
                             }
 
-                            if (isEmail) {
+                            if (_isEmailCredential(credentialRaw)) {
                               if (!_isValidEmail(credentialRaw)) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -242,9 +355,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               }
                             }
 
-                            if (newPassword.length < 6) {
+                            if (!_isStrongPassword(newPassword)) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(app.t('password_min'))),
+                                SnackBar(
+                                  content: Text(app.t('password_policy_error')),
+                                ),
                               );
                               return;
                             }
@@ -258,14 +373,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               return;
                             }
 
-                            final String normalizedCredential = isEmail
-                                ? credentialRaw
-                                : _normalizeLkPhoneForApi(credentialRaw);
+                            final String normalizedCredential =
+                                _normalizeCredentialForApi(credentialRaw);
 
                             setDialogState(() => submitting = true);
                             Navigator.of(dialogContext).pop(<String, String>{
                               'credential': normalizedCredential,
-                              'type': isEmail ? 'email' : 'phone',
+                              'type': _credentialType(credentialRaw),
                               'newPassword': newPassword,
                             });
                           },
@@ -298,14 +412,23 @@ class _LoginScreenState extends State<LoginScreen> {
     final String newPassword = result['newPassword'] ?? '';
 
     String? devOtp;
+    int? remainingAttempts;
+    int? maxAttempts;
     try {
       final response = await authService.sendForgotPasswordOtp(
         credential: credential,
         type: type,
       );
       devOtp = response['otp']?.toString();
+      remainingAttempts = (response['remainingAttempts'] as num?)?.toInt();
+      maxAttempts = (response['maxAttempts'] as num?)?.toInt();
       if (!mounted) return;
-      _showOtpSentSnackBar(context, devOtp: devOtp);
+      _showOtpSentSnackBar(
+        context,
+        devOtp: devOtp,
+        remainingAttempts: remainingAttempts,
+        maxAttempts: maxAttempts,
+      );
     } catch (e) {
       if (!mounted) return;
       final String friendly = _friendlyAuthError(
@@ -335,7 +458,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
               },
               onResendOtp: () async {
-                await authService.sendForgotPasswordOtp(
+                return authService.sendForgotPasswordOtp(
                   credential: credential,
                   type: type,
                 );
@@ -415,151 +538,44 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF2F4F7),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => setState(
-                                      () => _method = LoginMethod.number4n,
-                                    ),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      margin: const EdgeInsets.all(6),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _method == LoginMethod.number4n
-                                            ? Colors.white
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        app.t('via_mobile_number'),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: _method == LoginMethod.number4n
-                                              ? const Color(0xFF1570EF)
-                                              : const Color(0xFF475467),
-                                          fontSize: isSmall ? 14 : 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                          Text(
+                            app.t('mobile_or_email'),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF101828),
                                 ),
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => setState(
-                                      () => _method = LoginMethod.email,
-                                    ),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      margin: const EdgeInsets.all(6),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _method == LoginMethod.email
-                                            ? Colors.white
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        app.t('via_email'),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: _method == LoginMethod.email
-                                              ? const Color(0xFF1570EF)
-                                              : const Color(0xFF475467),
-                                          fontSize: isSmall ? 14 : 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
-                          SizedBox(height: isSmall ? 16 : 20),
-                          if (_method == LoginMethod.number4n) ...<Widget>[
-                            Text(
-                              app.t('phone_number_lk'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _credentialController,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const <String>[
+                              AutofillHints.username,
+                            ],
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.alternate_email),
                             ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              autofillHints: const <String>[
-                                AutofillHints.telephoneNumber,
-                              ],
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
-                              ],
-                              decoration: InputDecoration(
-                                hintText: app.t('phone_number_example'),
-                                prefixIcon: Icon(Icons.phone_outlined),
-                              ),
-                              validator: (String? value) {
-                                if (_method != LoginMethod.number4n) {
-                                  return null;
-                                }
-                                if (value == null || value.trim().isEmpty) {
-                                  return app.t('required_field');
-                                }
-                                final String normalizedPhone =
-                                    _normalizeLkPhoneForApi(value.trim());
-                                if (!_isValidLkPhone(normalizedPhone)) {
-                                  return app.t('invalid_lk_phone');
-                                }
-                                return null;
-                              },
-                            ),
-                          ] else ...<Widget>[
-                            Text(
-                              app.t('email'),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF101828),
-                                  ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                hintText: app.t('email'),
-                                prefixIcon: Icon(Icons.email_outlined),
-                              ),
-                              validator: (String? value) {
-                                if (_method != LoginMethod.email) return null;
-                                if (value == null || value.trim().isEmpty) {
-                                  return app.t('required_field');
-                                }
+                            validator: (String? value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return app.t('required_field');
+                              }
+
+                              if (_isEmailCredential(value)) {
                                 if (!_isValidEmail(value)) {
                                   return app.t('invalid_email');
                                 }
                                 return null;
-                              },
-                            ),
-                          ],
+                              }
+
+                              final String normalizedPhone =
+                                  _normalizeLkPhoneForApi(value.trim());
+                              if (!_isValidLkPhone(normalizedPhone)) {
+                                return app.t('invalid_lk_phone');
+                              }
+                              return null;
+                            },
+                          ),
                           SizedBox(height: isSmall ? 16 : 20),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -593,8 +609,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               prefixIcon: Icon(Icons.lock_outline_rounded),
                             ),
                             validator: (String? value) {
-                              if (value == null || value.length < 6) {
-                                return app.t('password_min');
+                              if (value == null || value.trim().isEmpty) {
+                                return app.t('required_field');
                               }
                               return null;
                             },
@@ -614,29 +630,68 @@ class _LoginScreenState extends State<LoginScreen> {
                                       setState(() => _submitting = true);
                                       final NavigatorState navigator =
                                           Navigator.of(context);
+                                      final String rawCredential =
+                                          _credentialController.text.trim();
                                       final String credential =
-                                          _method == LoginMethod.email
-                                          ? _emailController.text.trim()
-                                          : _normalizeLkPhoneForApi(
-                                              _phoneController.text.trim(),
-                                            );
-                                      final String otpType =
-                                          _method == LoginMethod.email
-                                          ? 'email'
-                                          : 'phone';
+                                          _normalizeCredentialForApi(
+                                            rawCredential,
+                                          );
+                                      final String otpType = _credentialType(
+                                        rawCredential,
+                                      );
                                       String? devOtp;
+                                      int? remainingAttempts;
+                                      int? maxAttempts;
+
+                                      try {
+                                        await authService.checkLoginCredentials(
+                                          credential: credential,
+                                          password: _passwordController.text
+                                              .trim(),
+                                        );
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+                                        final String friendly =
+                                            _friendlyAuthError(
+                                              e,
+                                              app: app,
+                                              fallback: app.t(
+                                                'invalid_login_credentials',
+                                              ),
+                                            );
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text(friendly)),
+                                        );
+                                        if (_shouldClearLoginInputs(e)) {
+                                          _resetLoginInputs();
+                                        }
+                                        setState(() => _submitting = false);
+                                        return;
+                                      }
 
                                       try {
                                         final response = await authService
                                             .sendOtp(
                                               credential: credential,
                                               type: otpType,
+                                              purpose: 'login',
                                             );
                                         devOtp = response['otp']?.toString();
+                                        remainingAttempts =
+                                            (response['remainingAttempts']
+                                                    as num?)
+                                                ?.toInt();
+                                        maxAttempts =
+                                            (response['maxAttempts'] as num?)
+                                                ?.toInt();
                                         if (!context.mounted) return;
                                         _showOtpSentSnackBar(
                                           context,
                                           devOtp: devOtp,
+                                          remainingAttempts: remainingAttempts,
+                                          maxAttempts: maxAttempts,
                                         );
                                       } catch (e) {
                                         if (!context.mounted) return;
@@ -783,51 +838,69 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final GlobalKey<FormState> _phoneFormKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _identifierFormKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _profileFormKey = GlobalKey<FormState>();
 
   bool _otpSending = false;
-  bool _phoneVerified = false;
+  bool _identifierVerified = false;
   bool _creating = false;
+  String? _verifiedCredentialType;
+  String? _verifiedCredential;
 
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
+
+  bool get _isPasswordMismatch {
+    final String confirm = _confirmController.text.trim();
+    if (confirm.isEmpty) {
+      return false;
+    }
+    return confirm != _passwordController.text;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
 
-  bool _isValidSriLankanPhone(String value) {
-    return _isValidLkPhone(value);
-  }
-
-  Future<void> _verifyPhoneFirst(AppState app) async {
-    if (_phoneFormKey.currentState?.validate() != true) {
+  Future<void> _verifyIdentifierFirst(AppState app) async {
+    if (_identifierFormKey.currentState?.validate() != true) {
       return;
     }
 
     setState(() => _otpSending = true);
     final NavigatorState navigator = Navigator.of(context);
-    final String phone = _normalizeLkPhoneForApi(_phoneController.text.trim());
+    final String rawCredential = _identifierController.text.trim();
+    final String type = _credentialType(rawCredential);
+    final String normalizedCredential = _normalizeCredentialForApi(
+      rawCredential,
+    );
 
     String? devOtp;
+    int? remainingAttempts;
+    int? maxAttempts;
     try {
       final response = await authService.sendOtp(
-        credential: phone,
-        type: 'phone',
+        credential: normalizedCredential,
+        type: type,
+        purpose: 'signup',
       );
       devOtp = response['otp']?.toString();
+      remainingAttempts = (response['remainingAttempts'] as num?)?.toInt();
+      maxAttempts = (response['maxAttempts'] as num?)?.toInt();
       if (!mounted) return;
-      _showOtpSentSnackBar(context, devOtp: devOtp);
+      _showOtpSentSnackBar(
+        context,
+        devOtp: devOtp,
+        remainingAttempts: remainingAttempts,
+        maxAttempts: maxAttempts,
+      );
     } catch (e) {
       if (!mounted) return;
       final String friendly = _friendlyAuthError(
@@ -847,9 +920,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
           MaterialPageRoute<bool>(
             builder: (_) => OtpVerificationScreen(
               title: app.t('otp_verification'),
-              subtitle: app.t('enter_otp_signup'),
-              credential: phone,
+              subtitle: type == 'email'
+                  ? app.t('enter_otp_sent_email')
+                  : app.t('enter_otp_signup'),
+              credential: normalizedCredential,
               devModeOtp: devOtp,
+              onResendOtp: () async {
+                return authService.sendOtp(
+                  credential: normalizedCredential,
+                  type: type,
+                  purpose: 'signup',
+                );
+              },
             ),
           ),
         ) ??
@@ -861,7 +943,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     if (otpOk) {
       setState(() {
-        _phoneVerified = true;
+        _identifierVerified = true;
+        _verifiedCredentialType = type;
+        _verifiedCredential = normalizedCredential;
         _otpSending = false;
       });
       return;
@@ -876,17 +960,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
 
     setState(() => _creating = true);
-    final String phone = _normalizeLkPhoneForApi(_phoneController.text.trim());
-    final String? email = _emailController.text.trim().isEmpty
-        ? null
-        : _emailController.text.trim();
+    final String verifiedType = _verifiedCredentialType ?? '';
+    final String verifiedCredential = _verifiedCredential ?? '';
+
+    if (verifiedType.isEmpty || verifiedCredential.isEmpty) {
+      setState(() => _creating = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(app.t('verify_identifier_first'))));
+      return;
+    }
+
+    final String? email = verifiedType == 'email' ? verifiedCredential : null;
+    final String? phone = verifiedType == 'phone' ? verifiedCredential : null;
 
     try {
       await app.signup(
+        identifier: verifiedCredential,
         email: email,
         phone: phone,
         password: _passwordController.text.trim(),
         name: _nameController.text.trim(),
+        verifiedCredentialType: verifiedType,
       );
 
       if (!mounted) return;
@@ -982,9 +1077,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _phoneVerified
-                                ? app.t('phone_verified_complete_profile')
-                                : app.t('verify_phone_first'),
+                            _identifierVerified
+                                ? app.t('identifier_verified_complete_profile')
+                                : app.t('verify_identifier_first'),
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
@@ -1008,14 +1103,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          if (!_phoneVerified)
+                          if (!_identifierVerified)
                             Form(
-                              key: _phoneFormKey,
+                              key: _identifierFormKey,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: <Widget>[
                                   Text(
-                                    app.t('phone_number_lk'),
+                                    app.t('mobile_or_email'),
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -1026,27 +1121,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   TextFormField(
-                                    controller: _phoneController,
-                                    keyboardType: TextInputType.phone,
+                                    controller: _identifierController,
+                                    keyboardType: TextInputType.emailAddress,
                                     autofillHints: const <String>[
-                                      AutofillHints.telephoneNumber,
-                                    ],
-                                    inputFormatters: <TextInputFormatter>[
-                                      FilteringTextInputFormatter.digitsOnly,
-                                      LengthLimitingTextInputFormatter(10),
+                                      AutofillHints.username,
                                     ],
                                     decoration: InputDecoration(
-                                      hintText: app.t('phone_number_example'),
-                                      prefixIcon: Icon(Icons.phone_outlined),
+                                      prefixIcon: const Icon(
+                                        Icons.alternate_email,
+                                      ),
                                     ),
                                     validator: (String? value) {
                                       if (value == null ||
                                           value.trim().isEmpty) {
                                         return app.t('required_field');
                                       }
+
+                                      if (_isEmailCredential(value.trim())) {
+                                        if (!_isValidEmail(value.trim())) {
+                                          return app.t('invalid_email');
+                                        }
+                                        return null;
+                                      }
+
                                       final String fullPhone =
                                           _normalizeLkPhoneForApi(value.trim());
-                                      if (!_isValidSriLankanPhone(fullPhone)) {
+                                      if (!_isValidLkPhone(fullPhone)) {
                                         return app.t('invalid_lk_phone');
                                       }
                                       return null;
@@ -1058,7 +1158,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     child: FilledButton(
                                       onPressed: _otpSending
                                           ? null
-                                          : () => _verifyPhoneFirst(app),
+                                          : () => _verifyIdentifierFirst(app),
                                       style: FilledButton.styleFrom(
                                         backgroundColor: const Color(
                                           0xFF1570EF,
@@ -1081,7 +1181,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                                     >(Colors.white),
                                               ),
                                             )
-                                          : Text(app.t('verify_phone')),
+                                          : Text(app.t('verify_identifier')),
                                     ),
                                   ),
                                 ],
@@ -1102,7 +1202,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          _phoneController.text.trim(),
+                                          _verifiedCredential ?? '',
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleMedium
@@ -1116,7 +1216,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         onPressed: _creating
                                             ? null
                                             : () => setState(() {
-                                                _phoneVerified = false;
+                                                _identifierVerified = false;
+                                                _verifiedCredentialType = null;
+                                                _verifiedCredential = null;
                                               }),
                                         child: Text(app.t('change')),
                                       ),
@@ -1151,36 +1253,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   ),
                                   SizedBox(height: isSmall ? 14 : 18),
                                   Text(
-                                    '${app.t('email')} (${app.t('optional')})',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF101828),
-                                        ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    decoration: InputDecoration(
-                                      hintText: app.t('email'),
-                                      prefixIcon: Icon(Icons.email_outlined),
-                                    ),
-                                    validator: (String? value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return null;
-                                      }
-                                      if (!_isValidEmail(value)) {
-                                        return app.t('invalid_email');
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  SizedBox(height: isSmall ? 14 : 18),
-                                  Text(
                                     app.t('password'),
                                     style: Theme.of(context)
                                         .textTheme
@@ -1194,16 +1266,136 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   TextFormField(
                                     controller: _passwordController,
                                     obscureText: true,
+                                    onChanged: (_) => setState(() {}),
                                     decoration: const InputDecoration(
                                       prefixIcon: Icon(
                                         Icons.lock_outline_rounded,
                                       ),
                                     ),
                                     validator: (String? value) {
-                                      if (value == null || value.length < 6) {
-                                        return app.t('password_min');
+                                      if (value == null ||
+                                          !_isStrongPassword(value)) {
+                                        return app.t('password_policy_error');
                                       }
                                       return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Builder(
+                                    builder: (context) {
+                                      final String value = _passwordController
+                                          .text
+                                          .trim();
+                                      final List<Map<String, dynamic>>
+                                      rules = <Map<String, dynamic>>[
+                                        <String, dynamic>{
+                                          'ok': value.length >= 8,
+                                          'label': app.t(
+                                            'password_rule_min_length',
+                                          ),
+                                        },
+                                        <String, dynamic>{
+                                          'ok': RegExp(
+                                            r'[A-Z]',
+                                          ).hasMatch(value),
+                                          'label': app.t(
+                                            'password_rule_uppercase',
+                                          ),
+                                        },
+                                        <String, dynamic>{
+                                          'ok': RegExp(
+                                            r'[a-z]',
+                                          ).hasMatch(value),
+                                          'label': app.t(
+                                            'password_rule_lowercase',
+                                          ),
+                                        },
+                                        <String, dynamic>{
+                                          'ok': RegExp(r'\d').hasMatch(value),
+                                          'label': app.t(
+                                            'password_rule_number',
+                                          ),
+                                        },
+                                        <String, dynamic>{
+                                          'ok': RegExp(
+                                            r'[^A-Za-z0-9]',
+                                          ).hasMatch(value),
+                                          'label': app.t(
+                                            'password_rule_special',
+                                          ),
+                                        },
+                                        <String, dynamic>{
+                                          'ok': !RegExp(r'\s').hasMatch(value),
+                                          'label': app.t(
+                                            'password_rule_no_spaces',
+                                          ),
+                                        },
+                                      ];
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFE4E7EC),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: rules.map((rule) {
+                                            final bool ok =
+                                                rule['ok'] as bool? ?? false;
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 2,
+                                                  ),
+                                              child: Row(
+                                                children: <Widget>[
+                                                  Icon(
+                                                    ok
+                                                        ? Icons.check_circle
+                                                        : Icons
+                                                              .radio_button_unchecked,
+                                                    size: 16,
+                                                    color: ok
+                                                        ? const Color(
+                                                            0xFF12B76A,
+                                                          )
+                                                        : const Color(
+                                                            0xFF98A2B3,
+                                                          ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      rule['label']
+                                                              as String? ??
+                                                          '',
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall
+                                                          ?.copyWith(
+                                                            color: ok
+                                                                ? const Color(
+                                                                    0xFF027A48,
+                                                                  )
+                                                                : const Color(
+                                                                    0xFF475467,
+                                                                  ),
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      );
                                     },
                                   ),
                                   SizedBox(height: isSmall ? 14 : 18),
@@ -1221,10 +1413,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   TextFormField(
                                     controller: _confirmController,
                                     obscureText: true,
-                                    decoration: const InputDecoration(
-                                      prefixIcon: Icon(
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: InputDecoration(
+                                      prefixIcon: const Icon(
                                         Icons.verified_user_outlined,
                                       ),
+                                      errorText: _isPasswordMismatch
+                                          ? app.t('password_mismatch')
+                                          : null,
                                     ),
                                     validator: (String? value) {
                                       if (value != _passwordController.text) {
@@ -1329,7 +1525,7 @@ class OtpVerificationScreen extends StatefulWidget {
   final String subtitle;
   final String credential;
   final Future<void> Function(String otp)? onVerifyOtp;
-  final Future<void> Function()? onResendOtp;
+  final Future<Map<String, dynamic>?> Function()? onResendOtp;
   final Future<void> Function()? onVerifiedSuccess;
   final bool navigateToDashboardOnSuccess;
   final String? devModeOtp;
@@ -1342,13 +1538,35 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final TextEditingController _otpController = TextEditingController();
   bool _verifying = false;
   bool _resending = false;
+  int _resendCooldownSeconds = 0;
+  Timer? _resendCooldownTimer;
 
   String get _otpValue => _otpController.text;
 
   @override
   void dispose() {
+    _resendCooldownTimer?.cancel();
     _otpController.dispose();
     super.dispose();
+  }
+
+  void _startResendCooldown(int seconds) {
+    _resendCooldownTimer?.cancel();
+    setState(() => _resendCooldownSeconds = seconds);
+
+    _resendCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_resendCooldownSeconds <= 1) {
+        timer.cancel();
+        setState(() => _resendCooldownSeconds = 0);
+      } else {
+        setState(() => _resendCooldownSeconds -= 1);
+      }
+    });
   }
 
   Future<void> _verifyOtp(AppState app) async {
@@ -1403,11 +1621,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _resendOtp(AppState app) async {
-    if (_resending) return;
+    if (_resending || _resendCooldownSeconds > 0) return;
     setState(() => _resending = true);
     try {
       if (widget.onResendOtp != null) {
-        await widget.onResendOtp!();
+        final response = await widget.onResendOtp!();
+        final String? devOtp = response?['otp']?.toString();
+        final int? remainingAttempts = (response?['remainingAttempts'] as num?)
+            ?.toInt();
+        final int? maxAttempts = (response?['maxAttempts'] as num?)?.toInt();
+        if (!mounted) return;
+        _showOtpSentSnackBar(
+          context,
+          devOtp: devOtp,
+          remainingAttempts: remainingAttempts,
+          maxAttempts: maxAttempts,
+        );
+        return;
       } else {
         final String type = widget.credential.contains('@') ? 'email' : 'phone';
         final response = await authService.sendOtp(
@@ -1415,13 +1645,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           type: type,
         );
         final String? devOtp = response['otp']?.toString();
+        final int? remainingAttempts = (response['remainingAttempts'] as num?)
+            ?.toInt();
+        final int? maxAttempts = (response['maxAttempts'] as num?)?.toInt();
         if (!mounted) return;
-        _showOtpSentSnackBar(context, devOtp: devOtp);
+        _showOtpSentSnackBar(
+          context,
+          devOtp: devOtp,
+          remainingAttempts: remainingAttempts,
+          maxAttempts: maxAttempts,
+        );
         return;
       }
-      if (!mounted) return;
-      _showOtpSentSnackBar(context);
     } catch (e) {
+      final int? retryAfterSeconds = _extractRetryAfterSeconds(e);
+      if (retryAfterSeconds != null && retryAfterSeconds > 0) {
+        _startResendCooldown(retryAfterSeconds);
+      }
+
       if (!mounted) return;
       final String friendly = _friendlyAuthError(
         e,
@@ -1708,9 +1949,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                     color: const Color(0xFF667085),
                                   ),
                                 ),
+                                if (_resendCooldownSeconds > 0) ...<Widget>[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${app.t('try_again_in_seconds')} ${_formatSecondsAsMmSs(_resendCooldownSeconds)}',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: isSmall ? 13 : 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF475467),
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 8),
                                 TextButton.icon(
-                                  onPressed: _resending
+                                  onPressed:
+                                      _resending || _resendCooldownSeconds > 0
                                       ? null
                                       : () => _resendOtp(app),
                                   icon: const Icon(

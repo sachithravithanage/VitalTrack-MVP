@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import '../app/models.dart';
 import '../app/scope.dart';
 import '../app/state.dart';
+import '../services/index.dart';
 import 'auth.dart';
+import 'root_router.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -42,11 +44,21 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const LanguageSelectionScreen(),
-        ),
-      );
+      final AppState app = AppScope.of(context);
+      final bool hasSavedLanguage = storageService.getLanguage() != null;
+
+      Widget nextScreen;
+      if (!hasSavedLanguage) {
+        nextScreen = const LanguageSelectionScreen();
+      } else if (app.currentUser != null) {
+        nextScreen = const DashboardRouter();
+      } else {
+        nextScreen = const LoginScreen();
+      }
+
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute<void>(builder: (_) => nextScreen));
     });
   }
 
@@ -444,9 +456,12 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                           child: FilledButton(
                             onPressed: () {
                               app.setLanguage(_selected);
+                              final Widget nextScreen = app.currentUser == null
+                                  ? const LoginScreen()
+                                  : const DashboardRouter();
                               Navigator.of(context).pushReplacement(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => const LoginScreen(),
+                                  builder: (_) => nextScreen,
                                 ),
                               );
                             },

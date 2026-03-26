@@ -136,10 +136,12 @@ class AdaptiveDashboardShell extends StatelessWidget {
                       .toList(),
                 ),
                 const VerticalDivider(width: 1),
-                Expanded(child: pages[selectedIndex]),
+                Expanded(
+                  child: IndexedStack(index: selectedIndex, children: pages),
+                ),
               ],
             )
-          : pages[selectedIndex],
+          : IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: wide
           ? null
           : DecoratedBox(

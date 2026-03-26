@@ -49,8 +49,6 @@ localized = <String, Map<String, String>>{
   'email': {'en': 'Email', 'si': 'ඊමේල්'},
   'password': {'en': 'Password', 'si': 'මුරපදය'},
   'forgot_password': {'en': 'Forgot password?', 'si': 'මුරපදය අමතකද?'},
-  'via_mobile_number': {'en': 'Via Mobile Number', 'si': 'ජංගම අංකයෙන්'},
-  'via_email': {'en': 'Via Email', 'si': 'ඊමේල් මගින්'},
   'monitor_precision': {
     'en': 'Monitor your health with precision',
     'si': 'ඔබගේ සෞඛ්‍යය නිවැරදිව නිරීක්ෂණය කරන්න',
@@ -81,6 +79,33 @@ localized = <String, Map<String, String>>{
     'en': 'Password must be at least 6 characters',
     'si': 'මුරපදය අක්ෂර 6ක් හෝ වැඩි විය යුතුයි',
   },
+  'password_policy_error': {
+    'en':
+        'Password must be 8+ chars with uppercase, lowercase, number, special character, and no spaces.',
+    'si':
+        'මුරපදය අක්ෂර 8+ක්, ලොකු/කුඩා අකුරු, අංකයක්, විශේෂ ලකුණක් සහ හිස්තැන් නොමැතිව තිබිය යුතුය.',
+  },
+  'password_rule_min_length': {
+    'en': 'At least 8 characters',
+    'si': 'අක්ෂර 8ක් හෝ වැඩි',
+  },
+  'password_rule_uppercase': {
+    'en': 'At least 1 uppercase letter (A-Z)',
+    'si': 'අවම වශයෙන් ලොකු අකුරක් (A-Z)',
+  },
+  'password_rule_lowercase': {
+    'en': 'At least 1 lowercase letter (a-z)',
+    'si': 'අවම වශයෙන් කුඩා අකුරක් (a-z)',
+  },
+  'password_rule_number': {
+    'en': 'At least 1 number (0-9)',
+    'si': 'අවම වශයෙන් අංකයක් (0-9)',
+  },
+  'password_rule_special': {
+    'en': 'At least 1 special character',
+    'si': 'අවම වශයෙන් විශේෂ ලකුණක්',
+  },
+  'password_rule_no_spaces': {'en': 'No spaces', 'si': 'හිස්තැන් නොමැත'},
   'otp_verification': {'en': 'OTP Verification', 'si': 'OTP තහවුරු කිරීම'},
   'enter_otp_login': {
     'en': 'Enter OTP sent for login',
@@ -128,13 +153,28 @@ localized = <String, Map<String, String>>{
     'en': 'OTP expired or not found. Please request a new OTP.',
     'si': 'OTP කල් ඉකුත් වී ඇත හෝ සොයාගත නොහැක. කරුණාකර නව OTP එකක් ඉල්ලන්න.',
   },
+  'invalid_login_credentials': {
+    'en': 'Invalid mobile/email or password.',
+    'si': 'ජංගම/ඊමේල් හෝ මුරපදය වැරදි ය.',
+  },
+  'otp_send_limit_reached': {
+    'en': 'OTP resend limit reached. Please wait and try again.',
+    'si':
+        'OTP නැවත යැවීමේ සීමාව ඉක්මවා ඇත. කරුණාකර ටික වේලාවකට පසුව උත්සාහ කරන්න.',
+  },
+  'backend_unreachable': {
+    'en':
+        'Cannot connect to server. Make sure backend is running and API URL is correct.',
+    'si':
+        'සර්වරයට සම්බන්ධ විය නොහැක. Backend ධාවනය වෙමින් පවතින බව සහ API URL නිවැරදි බව පරීක්ෂා කරන්න.',
+  },
+  'try_again_in_seconds': {'en': 'Try again in', 'si': 'නැවත උත්සාහ කරන්න'},
   'email_otp_send_failed': {
     'en': 'Failed to send OTP to email.',
     'si': 'ඊමේල් වෙත OTP යැවීමට අසමත් විය.',
   },
   'name': {'en': 'Name', 'si': 'නම'},
   'phone_number_lk': {'en': 'Mobile Number', 'si': 'ජංගම දුරකථන අංකය'},
-  'phone_number_example': {'en': '07XXXXXXXX', 'si': '07XXXXXXXX'},
   'optional': {'en': 'optional', 'si': 'අවශ්‍ය නැත'},
   're_enter_password': {
     'en': 'Re-enter Password',
@@ -292,6 +332,7 @@ localized = <String, Map<String, String>>{
     'si': 'භාෂාව යාවත්කාලීන කරන ලදී',
   },
   'otp_sent_at': {'en': 'OTP sent at', 'si': 'OTP යැවූ වේලාව'},
+  'otp_attempts_left': {'en': 'Attempts left', 'si': 'ඉතිරි උත්සාහ'},
   'account_exists_login': {
     'en': 'Account already exists. Please login.',
     'si': 'ගිණුම දැනටමත් පවතී. කරුණාකර පිවිසෙන්න.',
@@ -300,6 +341,12 @@ localized = <String, Map<String, String>>{
     'en': 'Email is not verified yet. Please verify email from Profile first.',
     'si':
         'ඊමේල් තහවුරු කර නැත. කරුණාකර පළමුව Profile තුළින් ඊමේල් තහවුරු කරන්න.',
+  },
+  'phone_not_verified_profile': {
+    'en':
+        'Phone number is not verified yet. Please verify your phone from Profile first.',
+    'si':
+        'දුරකථන අංකය තහවුරු කර නැත. කරුණාකර පළමුව Profile තුළින් දුරකථනය තහවුරු කරන්න.',
   },
   'forgot_new_password': {'en': 'New Password', 'si': 'නව මුරපදය'},
   'forgot_confirm_password': {
@@ -317,13 +364,18 @@ localized = <String, Map<String, String>>{
   },
   'verify_phone': {'en': 'Verify Phone', 'si': 'දුරකථනය තහවුරු කරන්න'},
   'change': {'en': 'Change', 'si': 'වෙනස් කරන්න'},
-  'phone_verified_complete_profile': {
-    'en': 'Phone verified. Complete your profile.',
-    'si': 'දුරකථනය තහවුරු විය. ඔබගේ පැතිකඩ සම්පූර්ණ කරන්න.',
+  'mobile_or_email': {'en': 'Mobile Number / Email', 'si': 'ජංගම අංකය / ඊමේල්'},
+  'verify_identifier': {
+    'en': 'Verify Mobile/Email',
+    'si': 'ජංගම/ඊමේල් තහවුරු කරන්න',
   },
-  'verify_phone_first': {
-    'en': 'Verify your phone number first.',
-    'si': 'පළමුව ඔබගේ දුරකථන අංකය තහවුරු කරන්න.',
+  'verify_identifier_first': {
+    'en': 'Verify your mobile number or email first.',
+    'si': 'පළමුව ඔබගේ ජංගම අංකය හෝ ඊමේල් තහවුරු කරන්න.',
+  },
+  'identifier_verified_complete_profile': {
+    'en': 'Identifier verified. Complete your profile.',
+    'si': 'හඳුනාගැනීම තහවුරු විය. ඔබගේ පැතිකඩ සම්පූර්ණ කරන්න.',
   },
   'verify_your_number': {
     'en': 'Verify your number',
@@ -346,10 +398,6 @@ localized = <String, Map<String, String>>{
     'en': 'Sign up failed. Please try again.',
     'si': 'ලියාපදිංචි වීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.',
   },
-  'caregiver_mode_enabled': {
-    'en': 'Caregiver mode enabled',
-    'si': 'භාරකරු ප්‍රකාරය සක්‍රීය කරන ලදී',
-  },
   'enter_otp_sent_email': {
     'en': 'Enter the OTP sent to your email',
     'si': 'ඔබගේ ඊමේල් වෙත එවූ OTP ඇතුල් කරන්න',
@@ -359,11 +407,16 @@ localized = <String, Map<String, String>>{
     'si': 'ඊමේල් සාර්ථකව තහවුරු කරන ලදී',
   },
   'add_email': {'en': 'Add Email', 'si': 'ඊමේල් එකතු කරන්න'},
-  'caregiver_options': {'en': 'Caregiver Options', 'si': 'භාරකරු විකල්ප'},
-  'enable_caregiver_mode': {
-    'en': 'Enable Caregiver Mode',
-    'si': 'භාරකරු ප්‍රකාරය සක්‍රීය කරන්න',
+  'add_phone': {'en': 'Add Phone', 'si': 'දුරකථනය එකතු කරන්න'},
+  'enter_otp_sent_phone': {
+    'en': 'Enter the OTP sent to your phone number',
+    'si': 'ඔබගේ දුරකථන අංකයට එවූ OTP ඇතුල් කරන්න',
   },
+  'phone_verified_success': {
+    'en': 'Phone number verified successfully',
+    'si': 'දුරකථන අංකය සාර්ථකව තහවුරු කරන ලදී',
+  },
+  'caregiver_options': {'en': 'Caregiver Options', 'si': 'භාරකරු විකල්ප'},
   'patient_caregiver_settings': {
     'en': 'Patient Caregiver Settings',
     'si': 'රෝගියා-භාරකරු සැකසුම්',

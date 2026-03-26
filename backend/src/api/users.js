@@ -142,7 +142,8 @@ router.post("/verify-email", async (req, res) => {
       });
     }
 
-    const otp = await authService.createOTP(userProfile.email, "email");
+    const otpPayload = await authService.createOTP(userProfile.email, "email");
+    const { otp, remainingAttempts, maxAttempts } = otpPayload;
 
     if ((process.env.NODE_ENV || "development") !== "production") {
       console.log(`Email verification OTP for ${userProfile.email}: ${otp}`);
@@ -159,6 +160,8 @@ router.post("/verify-email", async (req, res) => {
     res.json({
       success: true,
       message: "Verification OTP sent to email",
+      remainingAttempts,
+      maxAttempts,
       // Remove in production:
       ...(process.env.NODE_ENV === "development" && { otp }),
     });
@@ -203,6 +206,83 @@ router.post("/confirm-email-verification", async (req, res) => {
     res.json({
       success: true,
       message: "Email verified successfully",
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * POST /api/v1/users/verify-phone
+ * Send phone verification OTP
+ */
+router.post("/verify-phone", async (req, res) => {
+  try {
+    const userProfile = await authService.getUserProfile(req.user.uid);
+
+    if (!userProfile.phone) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "NO_PHONE",
+          message: "User does not have a phone number",
+        },
+      });
+    }
+
+    const otpPayload = await authService.createOTP(userProfile.phone, "phone");
+    const { otp, remainingAttempts, maxAttempts } = otpPayload;
+
+    console.log(`Phone verification OTP for ${userProfile.phone}: ${otp}`);
+
+    res.json({
+      success: true,
+      message: "Verification OTP sent to phone",
+      remainingAttempts,
+      maxAttempts,
+      ...(process.env.NODE_ENV === "development" && { otp }),
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+/**
+ * POST /api/v1/users/confirm-phone-verification
+ * Confirm phone verification with OTP
+ */
+router.post("/confirm-phone-verification", async (req, res) => {
+  try {
+    const { otp } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "OTP required",
+        },
+      });
+    }
+
+    const userProfile = await authService.getUserProfile(req.user.uid);
+
+    if (!userProfile.phone) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "NO_PHONE",
+          message: "User does not have a phone number",
+        },
+      });
+    }
+
+    await authService.verifyOTP(userProfile.phone, otp);
+    await authService.markPhoneVerified(req.user.uid);
+
+    res.json({
+      success: true,
+      message: "Phone number verified successfully",
     });
   } catch (error) {
     handleError(error, res);

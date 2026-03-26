@@ -104,20 +104,46 @@ router.post(
  * GET /api/v1/hotspot/patient/:patientId
  * Get hotspot data for a patient
  */
-router.get("/patient/:patientId", verifyFirebaseToken, async (req, res) => {
-  try {
-    const hotspots = await hotspotService.getPatientHotspots(
-      req.params.patientId,
-    );
+router.get(
+  "/patient/:patientId",
+  verifyFirebaseToken,
+  requireRole("patient", "caregiver"),
+  async (req, res) => {
+    try {
+      const patientId = req.params.patientId;
+      const requestingUserId = req.user.uid;
+      const requestingUserRole = req.userRole;
 
-    res.json({
-      success: true,
-      data: { hotspots },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+      // Patients can only access their own data
+      if (requestingUserRole === "patient" && requestingUserId !== patientId) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "AUTHORIZATION_ERROR",
+            message: "Patients can only access their own hotspot data",
+          },
+        });
+      }
+
+      // Caregivers must have an active relationship with the patient
+      if (requestingUserRole === "caregiver") {
+        await hotspotService.validateCaregiverPatientAccess(
+          requestingUserId,
+          patientId,
+        );
+      }
+
+      const hotspots = await hotspotService.getPatientHotspots(patientId);
+
+      res.json({
+        success: true,
+        data: { hotspots },
+      });
+    } catch (error) {
+      handleError(error, res);
+    }
+  },
+);
 
 /**
  * GET /api/v1/hotspot/heatmap
@@ -161,18 +187,46 @@ router.get("/heatmap/regions", verifyFirebaseToken, async (req, res) => {
  * GET /api/v1/hotspot/stats/:patientId
  * Get hotspot statistics for a patient
  */
-router.get("/stats/:patientId", verifyFirebaseToken, async (req, res) => {
-  try {
-    const stats = await hotspotService.getHotspotStats(req.params.patientId);
+router.get(
+  "/stats/:patientId",
+  verifyFirebaseToken,
+  requireRole("patient", "caregiver"),
+  async (req, res) => {
+    try {
+      const patientId = req.params.patientId;
+      const requestingUserId = req.user.uid;
+      const requestingUserRole = req.userRole;
 
-    res.json({
-      success: true,
-      data: { stats },
-    });
-  } catch (error) {
-    handleError(error, res);
-  }
-});
+      // Patients can only access their own stats
+      if (requestingUserRole === "patient" && requestingUserId !== patientId) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "AUTHORIZATION_ERROR",
+            message: "Patients can only access their own hotspot stats",
+          },
+        });
+      }
+
+      // Caregivers must have an active relationship with the patient
+      if (requestingUserRole === "caregiver") {
+        await hotspotService.validateCaregiverPatientAccess(
+          requestingUserId,
+          patientId,
+        );
+      }
+
+      const stats = await hotspotService.getHotspotStats(patientId);
+
+      res.json({
+        success: true,
+        data: { stats },
+      });
+    } catch (error) {
+      handleError(error, res);
+    }
+  },
+);
 
 /**
  * GET /api/v1/hotspot/potential

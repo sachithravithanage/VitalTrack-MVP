@@ -202,8 +202,21 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
     'dizziness': false,
   };
 
+  final Map<String, ValueNotifier<bool>> _symptomNotifiers =
+      <String, ValueNotifier<bool>>{};
+
+  ValueNotifier<bool> _notifierFor(String key, bool initialValue) {
+    return _symptomNotifiers.putIfAbsent(
+      key,
+      () => ValueNotifier<bool>(initialValue),
+    );
+  }
+
   @override
   void dispose() {
+    for (final notifier in _symptomNotifiers.values) {
+      notifier.dispose();
+    }
     _tempController.dispose();
     _fluidController.dispose();
     _urineOutputController.dispose();
@@ -497,10 +510,12 @@ class _RecordFormScreenState extends State<RecordFormScreen> {
       children.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: _YesNoSelector(
+          child: _SymptomToggleItem(
+            notifier: _notifierFor(key, data[key] ?? false),
             label: label,
-            value: data[key] ?? false,
-            onChanged: (bool value) => setState(() => data[key] = value),
+            onChanged: (bool value) {
+              data[key] = value;
+            },
           ),
         ),
       );
@@ -554,6 +569,9 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
   TimelineFilter _filter = TimelineFilter.last24h;
   bool _exporting = false;
   bool _loadingRecords = false;
+  bool _backgroundRefreshing = false;
+  bool _refreshInProgress = false;
+  bool _hasLoadedOnce = false;
   bool _didInitialLoad = false;
   Timer? _refreshTimer;
 
@@ -563,9 +581,9 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
     if (_didInitialLoad) return;
     _didInitialLoad = true;
     unawaited(_loadRecords());
-    _refreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       if (!mounted) return;
-      unawaited(_loadRecords());
+      unawaited(_loadRecords(background: true, showError: false));
     });
   }
 
@@ -575,18 +593,46 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadRecords() async {
+  Future<void> _loadRecords({
+    bool background = false,
+    bool showError = true,
+  }) async {
+    if (_refreshInProgress) {
+      return;
+    }
+
+    _refreshInProgress = true;
     final AppState app = AppScope.of(context);
+    final bool useBackgroundRefresh = background && _hasLoadedOnce;
+
     try {
-      if (mounted) setState(() => _loadingRecords = true);
+      if (mounted) {
+        setState(() {
+          if (useBackgroundRefresh) {
+            _backgroundRefreshing = true;
+          } else {
+            _loadingRecords = true;
+          }
+        });
+      }
+
       await app.loadPatientRecords(widget.patientId, filter: _filter);
+      _hasLoadedOnce = true;
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+      if (showError) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+      }
     } finally {
-      if (mounted) setState(() => _loadingRecords = false);
+      _refreshInProgress = false;
+      if (mounted) {
+        setState(() {
+          _loadingRecords = false;
+          _backgroundRefreshing = false;
+        });
+      }
     }
   }
 
@@ -668,6 +714,10 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             }
           },
         ),
+        if (_backgroundRefreshing) ...<Widget>[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
         const SizedBox(height: 16),
         if (widget.canAddFromHere)
           BusyFilledButton(
@@ -686,7 +736,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
             },
           ),
         if (widget.canAddFromHere) const SizedBox(height: 10),
-        if (_loadingRecords)
+        if (_loadingRecords && records.isEmpty)
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -914,6 +964,7 @@ class _RecordsListScreenState extends State<RecordsListScreen> {
                   purpose: 'export_records',
                 );
                 devOtp = response['otp']?.toString();
+                return response;
               },
             ),
           ),
@@ -1275,6 +1326,43 @@ class _YesNoSelector extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SymptomToggleItem extends StatefulWidget {
+  const _SymptomToggleItem({
+    required this.notifier,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final ValueNotifier<bool> notifier;
+  final String label;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  State<_SymptomToggleItem> createState() => _SymptomToggleItemState();
+}
+
+class _SymptomToggleItemState extends State<_SymptomToggleItem> {
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: widget.notifier,
+      builder: (context, value, _) {
+        return _YesNoSelector(
+          label: widget.label,
+          value: value,
+          onChanged: (bool next) {
+            if (widget.notifier.value == next) {
+              return;
+            }
+            widget.notifier.value = next;
+            widget.onChanged(next);
+          },
+        );
+      },
     );
   }
 }

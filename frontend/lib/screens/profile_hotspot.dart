@@ -22,6 +22,11 @@ bool _isValidEmailAddress(String value) {
   ).hasMatch(normalized);
 }
 
+bool _isValidLkPhoneNumber(String value) {
+  final String cleaned = value.replaceAll(RegExp(r'[^0-9]'), '');
+  return RegExp(r'^(07[0-9]{8}|7[0-9]{8}|94[0-9]{9})$').hasMatch(cleaned);
+}
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -33,6 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController emailController;
   UserRole? _loadedForRole;
   Timer? _refreshTimer;
+  bool _loadingRelationships = false;
 
   String _otpTimestampText() {
     final DateTime now = DateTime.now();
@@ -40,11 +46,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${now.year}-${two(now.month)}-${two(now.day)} ${two(now.hour)}:${two(now.minute)}';
   }
 
-  void _showOtpSentSnackBar({String? devOtp}) {
+  void _showOtpSentSnackBar({
+    String? devOtp,
+    int? remainingAttempts,
+    int? maxAttempts,
+  }) {
     final AppState app = AppScope.of(context);
-    final String suffix = (devOtp != null && devOtp.isNotEmpty)
-        ? ' • DEV: $devOtp'
+    final String attemptsSuffix =
+        remainingAttempts != null && maxAttempts != null
+        ? ' • ${app.t('otp_attempts_left')}: $remainingAttempts/$maxAttempts'
         : '';
+    final String suffix = (devOtp != null && devOtp.isNotEmpty)
+        ? '$attemptsSuffix • DEV: $devOtp'
+        : attemptsSuffix;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -84,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _loadedForRole = currentUser.role;
         _refreshTimer?.cancel();
         unawaited(_loadRelationships(app, currentUser.role));
-        _refreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+        _refreshTimer = Timer.periodic(const Duration(seconds: 45), (_) {
           if (!mounted) return;
           final current = app.currentUser;
           if (current == null) return;
@@ -102,42 +116,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadRelationships(AppState app, UserRole role) async {
+    if (_loadingRelationships) {
+      return;
+    }
+
+    _loadingRelationships = true;
     try {
       if (role == UserRole.patient) {
         await app.loadPatientCaregivers();
       } else {
         await app.loadCaregiverPatients();
       }
-    } catch (_) {}
+    } catch (_) {
+      // Ignore background refresh errors.
+    } finally {
+      _loadingRelationships = false;
+    }
   }
 
   Future<void> _switchRole(AppState app, UserRole role) async {
-    if (app.currentUser == null || app.currentUser!.role == role) {
+    if (app.currentUser == null) {
       return;
     }
 
     try {
+      if (role == UserRole.caregiver && !app.hasRole(UserRole.caregiver)) {
+        await app.enableCaregiverRole();
+      }
+
+      if (app.currentUser == null || app.currentUser!.role == role) {
+        return;
+      }
+
       await app.switchActiveRole(role);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const DashboardRouter()),
         (Route<dynamic> route) => false,
       );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
-    }
-  }
-
-  Future<void> _enableCaregiver(AppState app) async {
-    try {
-      await app.enableCaregiverRole();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(app.t('caregiver_mode_enabled'))));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -157,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           content: TextField(
             controller: localEmailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(hintText: app.t('email')),
+            decoration: const InputDecoration(),
           ),
           actions: <Widget>[
             TextButton(
@@ -186,11 +202,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      await app.updateProfile(
-        name: app.currentUser?.name ?? '',
-        phone: app.currentUser?.phone ?? '',
-        email: normalized,
-      );
+      await app.updateProfile(email: normalized);
+      await app.reloadUserData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(app.t('profile_updated'))));
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    }
+  }
+
+  Future<void> _addPhone(AppState app) async {
+    final TextEditingController localPhoneController = TextEditingController();
+
+    final String? phone = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(app.t('phone')),
+          content: TextField(
+            controller: localPhoneController,
+            keyboardType: TextInputType.phone,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(11),
+            ],
+            decoration: InputDecoration(),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(app.t('cancel')),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(localPhoneController.text),
+              child: Text(app.t('save')),
+            ),
+          ],
+        );
+      },
+    );
+
+    localPhoneController.dispose();
+
+    if (phone == null) return;
+    final String normalized = phone.trim();
+    if (normalized.isEmpty || !_isValidLkPhoneNumber(normalized)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(app.t('invalid_lk_phone'))));
+      return;
+    }
+
+    try {
+      await app.updateProfile(phone: normalized);
       await app.reloadUserData();
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -212,12 +284,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     String? otpFromResponse;
+    int? remainingAttempts;
+    int? maxAttempts;
     try {
       final response = await app.sendEmailVerificationOtp();
       // Extract OTP if available (dev mode only)
       otpFromResponse = response['otp'] as String?;
+      remainingAttempts = (response['remainingAttempts'] as num?)?.toInt();
+      maxAttempts = (response['maxAttempts'] as num?)?.toInt();
       if (!mounted) return;
-      _showOtpSentSnackBar(devOtp: otpFromResponse);
+      _showOtpSentSnackBar(
+        devOtp: otpFromResponse,
+        remainingAttempts: remainingAttempts,
+        maxAttempts: maxAttempts,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -249,6 +329,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(app.t('email_verified_success'))));
+    }
+  }
+
+  Future<void> _startPhoneVerification(AppState app) async {
+    final String phone = (app.currentUser?.phone ?? '').trim();
+    if (phone.isEmpty) {
+      return;
+    }
+
+    String? otpFromResponse;
+    int? remainingAttempts;
+    int? maxAttempts;
+    try {
+      final response = await app.sendPhoneVerificationOtp();
+      otpFromResponse = response['otp'] as String?;
+      remainingAttempts = (response['remainingAttempts'] as num?)?.toInt();
+      maxAttempts = (response['maxAttempts'] as num?)?.toInt();
+      if (!mounted) return;
+      _showOtpSentSnackBar(
+        devOtp: otpFromResponse,
+        remainingAttempts: remainingAttempts,
+        maxAttempts: maxAttempts,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+      return;
+    }
+
+    if (!mounted) return;
+
+    final bool verified =
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => OtpVerificationScreen(
+              title: app.t('otp_verification'),
+              subtitle: app.t('enter_otp_sent_phone'),
+              credential: phone,
+              devModeOtp: otpFromResponse,
+              onVerifyOtp: (otp) => app.confirmPhoneVerification(otp: otp),
+              onResendOtp: () => app.sendPhoneVerificationOtp(),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!mounted) return;
+
+    if (verified) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(app.t('phone_verified_success'))));
     }
   }
 
@@ -286,10 +420,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final List<Map<String, dynamic>> linkedCaregivers = app.patientCaregivers(
       user.id,
     );
-    final bool hasPatientRole = app.hasRole(UserRole.patient);
-    final bool hasCaregiverRole = app.hasRole(UserRole.caregiver);
-    final bool canSwitchRoles = hasPatientRole && hasCaregiverRole;
-
     return ResponsiveListView(
       children: <Widget>[
         SectionHeader(
@@ -306,12 +436,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: app.t('name'),
           value: user.name,
         ),
-        _profileInfoTile(
-          context,
-          icon: Icons.phone_outlined,
-          label: app.t('phone'),
-          value: _formatPhoneForDisplay(user.phone),
-        ),
+        if (user.phone.trim().isNotEmpty) ...<Widget>[
+          _profileInfoTile(
+            context,
+            icon: Icons.phone_outlined,
+            label: app.t('phone'),
+            value: _formatPhoneForDisplay(user.phone),
+          ),
+          if (!user.phoneVerified)
+            FilledButton.tonalIcon(
+              onPressed: () => _startPhoneVerification(app),
+              icon: const Icon(Icons.verified_outlined),
+              label: Text(app.t('verify_phone')),
+            ),
+        ] else
+          FilledButton.tonal(
+            onPressed: () => _addPhone(app),
+            child: Text(app.t('add_phone')),
+          ),
         if ((user.email ?? '').trim().isNotEmpty) ...<Widget>[
           _profileInfoTile(
             context,
@@ -388,47 +530,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (canSwitchRoles)
-                  SegmentedButton<UserRole>(
-                    style: ButtonStyle(
-                      visualDensity: VisualDensity.comfortable,
-                      textStyle: WidgetStatePropertyAll(
-                        Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                SegmentedButton<UserRole>(
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.comfortable,
+                    textStyle: WidgetStatePropertyAll(
+                      Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    segments: <ButtonSegment<UserRole>>[
-                      ButtonSegment<UserRole>(
-                        value: UserRole.patient,
-                        label: Text(
-                          app.t('patient'),
-                          textAlign: TextAlign.center,
-                        ),
-                        icon: const Icon(Icons.favorite_outline),
-                      ),
-                      ButtonSegment<UserRole>(
-                        value: UserRole.caregiver,
-                        label: Text(
-                          app.t('caregiver'),
-                          textAlign: TextAlign.center,
-                        ),
-                        icon: const Icon(Icons.people_outline),
-                      ),
-                    ],
-                    selected: <UserRole>{user.role},
-                    onSelectionChanged: (selection) {
-                      final nextRole = selection.first;
-                      unawaited(_switchRole(app, nextRole));
-                    },
-                    showSelectedIcon: false,
-                  )
-                else if (!hasCaregiverRole)
-                  FilledButton.tonalIcon(
-                    onPressed: () => _enableCaregiver(app),
-                    icon: const Icon(Icons.add_moderator_outlined),
-                    label: Text(app.t('enable_caregiver_mode')),
                   ),
+                  segments: <ButtonSegment<UserRole>>[
+                    ButtonSegment<UserRole>(
+                      value: UserRole.patient,
+                      label: Text(
+                        app.t('patient'),
+                        textAlign: TextAlign.center,
+                      ),
+                      icon: const Icon(Icons.favorite_outline),
+                    ),
+                    ButtonSegment<UserRole>(
+                      value: UserRole.caregiver,
+                      label: Text(
+                        app.t('caregiver'),
+                        textAlign: TextAlign.center,
+                      ),
+                      icon: const Icon(Icons.people_outline),
+                    ),
+                  ],
+                  selected: <UserRole>{user.role},
+                  onSelectionChanged: (selection) {
+                    final nextRole = selection.first;
+                    unawaited(_switchRole(app, nextRole));
+                  },
+                  showSelectedIcon: false,
+                ),
               ],
             ),
           ),
@@ -637,6 +772,9 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
   final MapController _mapController = MapController();
   bool _saving = false;
   bool _loadingMap = false;
+  bool _backgroundRefreshingMap = false;
+  bool _mapRequestInProgress = false;
+  bool _hasLoadedMapOnce = false;
   bool _showLegend = true;
   bool _showDetails = true;
   bool _showTopHotspots = true;
@@ -680,11 +818,6 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
   };
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_didInitialLoad) {
@@ -694,33 +827,75 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
     unawaited(_loadMapData());
   }
 
-  Future<void> _loadMapData() async {
-    setState(() => _loadingMap = true);
-    final AppState app = AppScope.of(context);
+  Future<void> _runMapRequest(Future<void> Function() request) async {
+    if (_mapRequestInProgress) {
+      return;
+    }
+
+    _mapRequestInProgress = true;
+    final bool useBackgroundRefresh = _hasLoadedMapOnce;
+
+    if (mounted) {
+      setState(() {
+        if (useBackgroundRefresh) {
+          _backgroundRefreshingMap = true;
+        } else {
+          _loadingMap = true;
+        }
+      });
+    }
 
     try {
-      if (widget.forCaregiverPatientData) {
+      await request();
+      _hasLoadedMapOnce = true;
+    } finally {
+      _mapRequestInProgress = false;
+      if (mounted) {
+        setState(() {
+          _loadingMap = false;
+          _backgroundRefreshingMap = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshMapDataForCurrentSelection(
+    AppState app, {
+    bool reloadCaregiverPatients = false,
+  }) async {
+    if (widget.forCaregiverPatientData) {
+      if (reloadCaregiverPatients) {
         await app.loadCaregiverPatients();
-        if (!mounted) return;
-        final patients = app.caregiverPatients(app.currentUser!.id);
-        if (patients.isNotEmpty) {
-          _selectedPatientId ??= patients.first.id;
-          _selectedMapDisease = patients.first.disease;
-          await app.loadPatientHotspots(_selectedPatientId!);
-        } else if (app.hasRole(UserRole.patient)) {
-          await app.loadPatientHotspots(app.currentUser!.id);
-        }
-      } else {
-        await app.loadPatientHotspots(app.currentUser!.id);
       }
 
-      await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+      final patients = app.caregiverPatients(app.currentUser!.id);
+      if (patients.isNotEmpty) {
+        if (_selectedPatientId == null) {
+          _selectedPatientId = patients.first.id;
+          _selectedMapDisease = patients.first.disease;
+        }
+        await app.loadPatientHotspots(_selectedPatientId!);
+      } else if (app.hasRole(UserRole.patient)) {
+        await app.loadPatientHotspots(app.currentUser!.id);
+      }
+    } else {
+      await app.loadPatientHotspots(app.currentUser!.id);
+    }
+
+    await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+  }
+
+  Future<void> _loadMapData() async {
+    final AppState app = AppScope.of(context);
+    try {
+      await _runMapRequest(() async {
+        await _refreshMapDataForCurrentSelection(
+          app,
+          reloadCaregiverPatients: true,
+        );
+      });
     } catch (_) {
       // Keep UI usable even if map data loading fails.
-    } finally {
-      if (mounted) {
-        setState(() => _loadingMap = false);
-      }
     }
   }
 
@@ -761,6 +936,10 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
       return;
     }
 
+    if (_mapRequestInProgress) {
+      return;
+    }
+
     final List<PatientSummary> patients = app.caregiverPatients(
       app.currentUser!.id,
     );
@@ -776,36 +955,35 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
       _selectedPatientId = patientId;
       _selectedMapDisease = nextDisease;
       _selectedDistrict = null;
-      _loadingMap = true;
     });
 
     try {
-      await app.loadPatientHotspots(patientId);
-      await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+      await _runMapRequest(() async {
+        await _refreshMapDataForCurrentSelection(app);
+      });
     } catch (_) {}
-    if (mounted) {
-      setState(() => _loadingMap = false);
-    }
   }
 
   Future<void> _switchMapDisease(AppState app, DiseaseType disease) async {
     if (_selectedMapDisease == disease) {
       return;
     }
+
+    if (_mapRequestInProgress) {
+      return;
+    }
+
     setState(() {
       _selectedMapDisease = disease;
       _selectedDistrict = null;
-      _loadingMap = true;
     });
 
     try {
-      await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+      await _runMapRequest(() async {
+        await _refreshMapDataForCurrentSelection(app);
+      });
     } catch (_) {
       // Keep UI usable even if disease-specific fetch fails.
-    } finally {
-      if (mounted) {
-        setState(() => _loadingMap = false);
-      }
     }
   }
 
@@ -1012,6 +1190,10 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                   ),
                 ),
               const SizedBox(height: 12),
+              if (_backgroundRefreshingMap) ...<Widget>[
+                const LinearProgressIndicator(minHeight: 2),
+                const SizedBox(height: 10),
+              ],
               SizedBox(
                 height: mapHeight,
                 child: ClipRRect(
@@ -1318,9 +1500,7 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
                     _hometownController.clear();
                     _workplaceController.clear();
                     _placesController.clear();
-                    await app.loadRegionalHeatmapData(
-                      disease: _selectedDiseaseApiValue(),
-                    );
+                    unawaited(_loadMapData());
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(
                       context,
