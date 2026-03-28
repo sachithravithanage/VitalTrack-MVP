@@ -66,41 +66,50 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
     return ResponsiveListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
       children: <Widget>[
-        Text(
-          app.t('patient_directory'),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: const Color(0xFF0A1430),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          app.t('review_linked_patients'),
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607089)),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9F1FF),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              app
-                  .t('active_patients_count')
-                  .replaceAll('{count}', patients.length.toString()),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: const Color(0xFF1E73D8),
-                fontWeight: FontWeight.w600,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    app.t('patient_directory'),
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      color: const Color(0xFF111827),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    app.t('review_linked_patients'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF667085),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDEE9FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                app
+                    .t('active_patients_count')
+                    .replaceAll('{count}', patients.length.toString()),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: const Color(0xFF0F66D9),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
         if (patients.isEmpty)
           EmptyStateCard(
             icon: Icons.person_search_outlined,
@@ -113,9 +122,9 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                 ? app.t('dengue')
                 : app.t('rat_fever');
             return Card(
-              margin: const EdgeInsets.only(bottom: 14),
+              margin: const EdgeInsets.only(bottom: 12),
               child: InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -125,22 +134,20 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                   );
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: <Widget>[
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE9F1FF),
+                          color: const Color(0xFFDEE9FF),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
                           Icons.person_outline_rounded,
-                          color: Color(0xFF1E73D8),
+                          color: Color(0xFF0F66D9),
+                          size: 24,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -152,30 +159,30 @@ class _CaregiverPatientsScreenState extends State<CaregiverPatientsScreen> {
                               patient.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleLarge
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: const Color(0xFF0A1430),
+                                    color: const Color(0xFF111827),
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
+                                horizontal: 8,
+                                vertical: 4,
                               ),
                               decoration: BoxDecoration(
                                 color: _statusColor(
                                   diseaseLabel,
-                                ).withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(999),
+                                ).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 diseaseLabel,
-                                style: Theme.of(context).textTheme.bodyMedium
+                                style: Theme.of(context).textTheme.labelSmall
                                     ?.copyWith(
                                       color: _statusColor(diseaseLabel),
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                     ),
                               ),
                             ),

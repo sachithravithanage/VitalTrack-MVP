@@ -1,10 +1,55 @@
 import 'package:flutter/material.dart';
 
+// Enterprise Design System
 class UiSpace {
-  static const SizedBox xxs = SizedBox(height: 6);
-  static const SizedBox xs = SizedBox(height: 10);
-  static const SizedBox sm = SizedBox(height: 14);
-  static const SizedBox md = SizedBox(height: 18);
+  static const SizedBox xxs = SizedBox(height: 4);
+  static const SizedBox xs = SizedBox(height: 8);
+  static const SizedBox sm = SizedBox(height: 12);
+  static const SizedBox md = SizedBox(height: 16);
+  static const SizedBox lg = SizedBox(height: 24);
+  static const SizedBox xl = SizedBox(height: 32);
+  static const SizedBox xxl = SizedBox(height: 40);
+
+  // Horizontal spacing
+  static const SizedBox hxs = SizedBox(width: 8);
+  static const SizedBox hsm = SizedBox(width: 12);
+  static const SizedBox hmd = SizedBox(width: 16);
+  static const SizedBox hlg = SizedBox(width: 24);
+}
+
+class UiElevation {
+  static const BoxShadow subtle = BoxShadow(
+    color: Color(0x0A000000),
+    blurRadius: 2,
+    offset: Offset(0, 1),
+  );
+
+  static const BoxShadow small = BoxShadow(
+    color: Color(0x14000000),
+    blurRadius: 4,
+    offset: Offset(0, 2),
+  );
+
+  static const BoxShadow medium = BoxShadow(
+    color: Color(0x1F000000),
+    blurRadius: 8,
+    offset: Offset(0, 4),
+  );
+
+  static const BoxShadow large = BoxShadow(
+    color: Color(0x2B000000),
+    blurRadius: 16,
+    offset: Offset(0, 8),
+  );
+}
+
+class UiBorder {
+  static const BorderRadius xs = BorderRadius.all(Radius.circular(6));
+  static const BorderRadius sm = BorderRadius.all(Radius.circular(8));
+  static const BorderRadius md = BorderRadius.all(Radius.circular(12));
+  static const BorderRadius lg = BorderRadius.all(Radius.circular(16));
+  static const BorderRadius xl = BorderRadius.all(Radius.circular(20));
+  static const BorderRadius full = BorderRadius.all(Radius.circular(999));
 }
 
 bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 900;
@@ -132,38 +177,39 @@ class SectionHeader extends StatelessWidget {
       elevation: 0,
       color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           children: <Widget>[
             Container(
-              width: compact ? 40 : 44,
-              height: compact ? 40 : 44,
+              width: compact ? 44 : 48,
+              height: compact ? 44 : 48,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
               ),
               child: Icon(
                 icon,
-                size: compact ? 20 : 22,
+                size: compact ? 22 : 24,
                 color: theme.colorScheme.primary,
               ),
             ),
-            SizedBox(width: compact ? 10 : 12),
+            SizedBox(width: compact ? 12 : 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
                     title,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1F2937),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF667085),
+                      color: const Color(0xFF98A2B3),
                     ),
                   ),
                 ],
@@ -194,27 +240,41 @@ class EmptyStateCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 20 : 28,
+          vertical: compact ? 28 : 36,
+        ),
         child: Column(
           children: <Widget>[
-            Icon(
-              icon,
-              size: compact ? 34 : 38,
-              color: theme.colorScheme.primary,
+            Container(
+              width: compact ? 60 : 72,
+              height: compact ? 60 : 72,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              ),
+              child: Icon(
+                icon,
+                size: compact ? 32 : 40,
+                color: theme.colorScheme.primary,
+              ),
             ),
-            UiSpace.xs,
+            UiSpace.md,
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
               textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1F2937),
+              ),
             ),
-            UiSpace.xxs,
+            const SizedBox(height: 8),
             Text(
               subtitle,
-              style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF98A2B3),
+              ),
             ),
           ],
         ),

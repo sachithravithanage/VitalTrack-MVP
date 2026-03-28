@@ -477,6 +477,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final AppState app = AppScope.of(context);
     final Size size = MediaQuery.of(context).size;
@@ -485,7 +486,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final double contentMaxWidth = isTablet ? 620 : 560;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8EAED),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -493,7 +494,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(
                 horizontal: isSmall ? 16 : 24,
-                vertical: isSmall ? 18 : 28,
+                vertical: isSmall ? 24 : 32,
               ),
               child: Form(
                 key: _formKey,
@@ -502,39 +503,47 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: <Widget>[
                     Image.asset(
                       'assets/images/vitaltrack_logo_symbol.png',
-                      height: isTablet ? 128 : (isSmall ? 92 : 108),
+                      height: isTablet ? 120 : (isSmall ? 88 : 104),
                       fit: BoxFit.contain,
                       semanticLabel: 'VitalTrack Logo',
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.monitor_heart,
-                        size: 96,
-                        color: Color(0xFF1E5AA8),
+                      errorBuilder: (_, _, _) => Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDEE9FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.monitor_heart,
+                          size: 64,
+                          color: Color(0xFF0F66D9),
+                        ),
                       ),
                     ),
-                    SizedBox(height: isSmall ? 18 : 22),
+                    SizedBox(height: isSmall ? 24 : 32),
                     Text(
                       app.t('monitor_precision'),
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF475467),
-                        fontSize: isTablet ? 24 : (isSmall ? 16 : 18),
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: const Color(0xFF344054),
+                            fontSize: isTablet ? 22 : (isSmall ? 18 : 20),
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
-                    SizedBox(height: isSmall ? 18 : 24),
+                    SizedBox(height: isSmall ? 24 : 32),
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: const <BoxShadow>[
                           BoxShadow(
-                            color: Color(0x190F172A),
-                            blurRadius: 20,
-                            offset: Offset(0, 8),
+                            color: Color(0x08000000),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
                           ),
                         ],
                       ),
-                      padding: EdgeInsets.all(isSmall ? 16 : 20),
+                      padding: EdgeInsets.all(isSmall ? 18 : 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
@@ -542,8 +551,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             app.t('mobile_or_email'),
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF101828),
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF111827),
                                 ),
                           ),
                           const SizedBox(height: 10),
@@ -554,7 +563,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               AutofillHints.username,
                             ],
                             decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.alternate_email),
+                              prefixIcon: const Icon(Icons.email_outlined),
                             ),
                             validator: (String? value) {
                               if (value == null || value.trim().isEmpty) {

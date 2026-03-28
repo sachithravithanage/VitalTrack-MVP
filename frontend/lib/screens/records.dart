@@ -33,9 +33,9 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
       children: <Widget>[
         Text(
           app.t('good_morning_name').replaceAll('{name}', firstName),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0A1430),
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF111827),
           ),
         ),
         const SizedBox(height: 8),
@@ -43,24 +43,25 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
           app.t('how_feeling_today'),
           style: Theme.of(
             context,
-          ).textTheme.titleLarge?.copyWith(color: const Color(0xFF5F7391)),
+          ).textTheme.bodyLarge?.copyWith(color: const Color(0xFF667085)),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 36),
+        // Section Title
         Text(
           app.t('keep_records'),
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF0A1430),
+            color: const Color(0xFF111827),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
           app.t('select_condition_track_daily'),
           style: Theme.of(
             context,
-          ).textTheme.titleMedium?.copyWith(color: const Color(0xFF5F7391)),
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF667085)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _DiseaseSelectorTile(
           title: app.t('dengue'),
           onTap: () {
@@ -75,7 +76,7 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         _DiseaseSelectorTile(
           title: app.t('rat_fever'),
           onTap: () {
@@ -90,14 +91,14 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
             );
           },
         ),
-        if (latest != null) const SizedBox(height: 16),
+        if (latest != null) const SizedBox(height: 20),
         if (latest != null)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFD5E5FA)),
+              color: const Color(0xFFDEE9FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFB2CFF5), width: 1),
             ),
             child: Row(
               children: <Widget>[
@@ -122,10 +123,11 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
                               '{time}',
                               _relativeTimeLabel(context, latest.createdAt),
                             ),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFF24344F),
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: const Color(0xFF111827),
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -137,8 +139,9 @@ class KeepRecordsSelectorScreen extends StatelessWidget {
                                   ? app.t('dengue')
                                   : app.t('rat_fever'),
                             ),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: const Color(0xFF5F7391)),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF667085),
+                        ),
                       ),
                     ],
                   ),
@@ -1215,29 +1218,78 @@ String _relativeTimeLabel(BuildContext context, DateTime timestamp) {
   return app.t('days_ago').replaceAll('{count}', diff.inDays.toString());
 }
 
-class _DiseaseSelectorTile extends StatelessWidget {
+class _DiseaseSelectorTile extends StatefulWidget {
   const _DiseaseSelectorTile({required this.title, required this.onTap});
 
   final String title;
   final VoidCallback onTap;
 
   @override
+  State<_DiseaseSelectorTile> createState() => _DiseaseSelectorTileState();
+}
+
+class _DiseaseSelectorTileState extends State<_DiseaseSelectorTile> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        onTap: onTap,
-        title: Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF0A1430),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: _isHovered ? 2 : 0,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFFDEE9FF),
+                  ),
+                  child: const Icon(
+                    Icons.favorite_outline,
+                    color: Color(0xFF0F66D9),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF111827),
+                            ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Add daily record',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF667085),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: Color(0xFF95A5BC),
         ),
       ),
     );

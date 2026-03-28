@@ -49,14 +49,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         title: Text(
           app.t('notifications'),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF0A1430),
+            color: const Color(0xFF111827),
           ),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE4EAF3)),
+          child: Container(height: 1, color: const Color(0xFFEEF2F5)),
         ),
       ),
       body: RefreshIndicator(
@@ -66,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           children: <Widget>[
             if (_loading)
               const Padding(
-                padding: EdgeInsets.only(top: 24),
+                padding: EdgeInsets.only(top: 40),
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (notifications.isEmpty)
@@ -78,9 +78,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             else
               ...notifications.map(
                 (notification) => Card(
-                  margin: const EdgeInsets.only(bottom: 10),
+                  margin: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     onTap: notification.read
                         ? null
                         : () async {

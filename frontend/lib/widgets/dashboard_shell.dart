@@ -35,7 +35,7 @@ class AdaptiveDashboardShell extends StatelessWidget {
     final double textScale = MediaQuery.textScalerOf(
       context,
     ).scale(1).clamp(1, 1.3);
-    final double navBarHeight = 72 + ((textScale - 1) * 12);
+    final double navBarHeight = 74 + ((textScale - 1) * 12);
 
     return Scaffold(
       appBar: AppBar(
@@ -46,21 +46,21 @@ class AdaptiveDashboardShell extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
                 'assets/images/vitaltrack_logo_symbol.png',
-                width: 30,
-                height: 30,
+                width: 32,
+                height: 32,
                 fit: BoxFit.contain,
                 errorBuilder: (_, _, _) => const Icon(Icons.monitor_heart),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0A1430),
+                  color: const Color(0xFF111827),
                 ),
               ),
             ),
@@ -73,37 +73,38 @@ class AdaptiveDashboardShell extends StatelessWidget {
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE9F1FF),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFEEF2F5),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: IconButton(
                   onPressed: onNotificationsPressed,
                   icon: const Icon(
-                    Icons.notifications,
-                    color: Color(0xFF152440),
+                    Icons.notifications_none,
+                    color: Color(0xFF111827),
+                    size: 22,
                   ),
                 ),
               ),
               if (unreadNotificationCount > 0)
                 Positioned(
-                  right: 10,
-                  top: 6,
+                  right: 6,
+                  top: 2,
                   child: Container(
                     constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
+                      minWidth: 20,
+                      minHeight: 20,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE34B5B),
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       unreadNotificationCount > 99
                           ? '99+'
                           : unreadNotificationCount.toString(),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: 10,
@@ -116,7 +117,7 @@ class AdaptiveDashboardShell extends StatelessWidget {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: const Color(0xFFE7ECF6)),
+          child: Container(height: 1, color: const Color(0xFFEEF2F5)),
         ),
       ),
       body: wide
@@ -135,7 +136,7 @@ class AdaptiveDashboardShell extends StatelessWidget {
                       )
                       .toList(),
                 ),
-                const VerticalDivider(width: 1),
+                const VerticalDivider(width: 1, thickness: 1),
                 Expanded(
                   child: IndexedStack(index: selectedIndex, children: pages),
                 ),
@@ -144,9 +145,18 @@ class AdaptiveDashboardShell extends StatelessWidget {
           : IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: wide
           ? null
-          : DecoratedBox(
+          : Container(
               decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFE7ECF6))),
+                border: Border(
+                  top: BorderSide(color: Color(0xFFEEF2F5), width: 1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 8,
+                    offset: Offset(0, -2),
+                  ),
+                ],
               ),
               child: NavigationBar(
                 height: navBarHeight,

@@ -388,12 +388,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _sectionCaption(BuildContext context, String text) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      padding: const EdgeInsets.only(left: 0, bottom: 14, top: 4),
       child: Text(
         text.toUpperCase(),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          letterSpacing: 2.2,
-          color: const Color(0xFF8A9AB4),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          letterSpacing: 1.5,
+          color: const Color(0xFF98A2B3),
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -406,14 +406,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDCE3F0)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE3E8EF), width: 1),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x1206152F),
-            blurRadius: 14,
-            offset: Offset(0, 6),
+            color: Color(0x08000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
           ),
         ],
       ),
@@ -423,23 +423,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _verifiedBadge(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7F7EC),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFCBEFD8)),
+        color: const Color(0xFFD1F4E9),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFA8E5D5), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.verified, color: Color(0xFF127C3C), size: 16),
-          const SizedBox(width: 6),
+          const Icon(
+            Icons.verified_rounded,
+            color: Color(0xFF17B26A),
+            size: 14,
+          ),
+          const SizedBox(width: 4),
           Text(
             AppScope.of(context).t('verified').toUpperCase(),
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: const Color(0xFF127C3C),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF17B26A),
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -458,18 +462,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: <Widget>[
         Text(
           label.toUpperCase(),
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: const Color(0xFF8A9AB4),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: const Color(0xFF98A2B3),
             fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
+            letterSpacing: 0.8,
           ),
         ),
         const SizedBox(height: 8),
         value,
         if (showDivider) ...<Widget>[
-          const SizedBox(height: 18),
-          Divider(height: 1, color: const Color(0xFFDFE6F2)),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: const Color(0xFFE3E8EF)),
+          const SizedBox(height: 16),
         ],
       ],
     );
@@ -537,8 +541,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: fullNameTitle,
                 value: Text(
                   user.name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: const Color(0xFF141B2C),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFF111827),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -556,9 +560,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: Text(
                               _formatPhoneForDisplay(user.phone),
-                              style: Theme.of(context).textTheme.titleLarge
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: const Color(0xFF141B2C),
+                                    color: const Color(0xFF111827),
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
@@ -600,9 +604,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: Text(
                               user.email!,
-                              style: Theme.of(context).textTheme.titleLarge
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: const Color(0xFF141B2C),
+                                    color: const Color(0xFF111827),
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
@@ -643,7 +647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  const Icon(Icons.public, color: Color(0xFF0A56B0)),
+                  const Icon(Icons.public, color: Color(0xFF0F66D9)),
                   const SizedBox(width: 10),
                   Text(
                     preferredLanguageTitle,
@@ -729,7 +733,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               Row(
                 children: <Widget>[
-                  const Icon(Icons.badge, color: Color(0xFF0A56B0)),
+                  const Icon(Icons.badge, color: Color(0xFF0F66D9)),
                   const SizedBox(width: 10),
                   Text(
                     accountRoleTitle,

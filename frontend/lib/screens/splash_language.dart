@@ -77,20 +77,32 @@ class _SplashScreenState extends State<SplashScreen>
     final bool isPortrait =
         MediaQuery.of(context).orientation == Orientation.portrait;
 
-    // Responsive sizing based on screen dimensions
-    final double baseFontSize = screenWidth < 400
-        ? 20
-        : (screenWidth < 600 ? 24 : 28);
-    final double logoHeight = isPortrait
-        ? (screenHeight * 0.25).clamp(140.0, 280.0)
-        : (screenHeight * 0.35).clamp(120.0, 240.0);
+    // Enhanced responsive sizing based on screen dimensions
+    final bool isSmallPhone = screenWidth < 380;
+    final bool isTablet = screenWidth >= 768;
+
+    final double logoHeight = isTablet
+        ? (screenHeight * 0.35).clamp(240.0, 360.0)
+        : isSmallPhone
+        ? (screenHeight * 0.20).clamp(100.0, 160.0)
+        : (screenHeight * 0.25).clamp(140.0, 240.0);
+
     final double verticalSpacing = isPortrait
-        ? (screenHeight * 0.06).clamp(24.0, 60.0)
-        : (screenHeight * 0.08).clamp(16.0, 40.0);
-    final double horizontalPadding = screenWidth < 400 ? 20.0 : 24.0;
+        ? (screenHeight * 0.08).clamp(28.0, 80.0)
+        : (screenHeight * 0.12).clamp(24.0, 60.0);
+
+    final double horizontalPadding = isSmallPhone
+        ? 16.0
+        : (isTablet ? 32.0 : 20.0);
+
+    final double taglineFontSize = isSmallPhone
+        ? 16.0
+        : isTablet
+        ? 24.0
+        : 18.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8EAED),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: GestureDetector(
           onTap: () {}, // Prevent accidental interactions
@@ -118,41 +130,35 @@ class _SplashScreenState extends State<SplashScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            // Logo blended with splash background to avoid edge outline artifacts
-                            ColorFiltered(
-                              colorFilter: const ColorFilter.mode(
-                                Color(0x66E8EAED),
-                                BlendMode.softLight,
-                              ),
-                              child: Image.asset(
-                                'assets/images/vitaltrack_logo_full.png',
-                                height: logoHeight,
-                                fit: BoxFit.contain,
-                                filterQuality: FilterQuality.high,
-                                semanticLabel: 'VitalTrack Logo',
-                                errorBuilder: (_, _, _) => Icon(
-                                  Icons.monitor_heart,
-                                  size: logoHeight * 0.9,
-                                  color: const Color(0xFF1E5AA8),
-                                ),
+                            // Logo - clean and responsive
+                            Image.asset(
+                              'assets/images/vitaltrack_logo_full.png',
+                              height: logoHeight,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                              semanticLabel: 'VitalTrack Logo',
+                              errorBuilder: (_, _, _) => Icon(
+                                Icons.monitor_heart,
+                                size: logoHeight,
+                                color: const Color(0xFF0F66D9),
                               ),
                             ),
                             SizedBox(height: verticalSpacing),
 
-                            // Tagline with responsive font size
+                            // Tagline with fully responsive font size
                             Padding(
                               padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding * 0.5,
+                                horizontal: horizontalPadding * 0.25,
                               ),
                               child: Text(
                                 app.t('splash_tagline'),
                                 style: Theme.of(context).textTheme.bodyLarge
                                     ?.copyWith(
-                                      fontSize: baseFontSize,
-                                      color: const Color(0xFF616161),
+                                      fontSize: taglineFontSize,
+                                      color: const Color(0xFF667085),
                                       fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.35,
-                                      height: 1.4,
+                                      letterSpacing: 0.3,
+                                      height: 1.5,
                                     ),
                                 textAlign: TextAlign.center,
                                 softWrap: true,
@@ -227,7 +233,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
     final double iconSize = isSmallScreen ? 28 : (isTablet ? 40 : 32);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8EAED),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SlideTransition(
           position: _slideAnimation,
