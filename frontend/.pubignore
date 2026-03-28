@@ -1,0 +1,2 @@
+# Exclude objective_c native asset compilation due to Windows path issue
+objective_c/**

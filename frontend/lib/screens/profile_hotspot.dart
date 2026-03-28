@@ -436,24 +436,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: app.t('name'),
           value: user.name,
         ),
-        if (user.phone.trim().isNotEmpty) ...<Widget>[
-          _profileInfoTile(
-            context,
-            icon: Icons.phone_outlined,
-            label: app.t('phone'),
-            value: _formatPhoneForDisplay(user.phone),
-          ),
-          if (!user.phoneVerified)
-            FilledButton.tonalIcon(
-              onPressed: () => _startPhoneVerification(app),
-              icon: const Icon(Icons.verified_outlined),
-              label: Text(app.t('verify_phone')),
-            ),
-        ] else
-          FilledButton.tonal(
-            onPressed: () => _addPhone(app),
-            child: Text(app.t('add_phone')),
-          ),
         if ((user.email ?? '').trim().isNotEmpty) ...<Widget>[
           _profileInfoTile(
             context,
@@ -471,6 +453,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FilledButton.tonal(
             onPressed: () => _addEmail(app),
             child: Text(app.t('add_email')),
+          ),
+        if (user.phone.trim().isNotEmpty) ...<Widget>[
+          _profileInfoTile(
+            context,
+            icon: Icons.phone_outlined,
+            label: app.t('phone'),
+            value: _formatPhoneForDisplay(user.phone),
+          ),
+          if (!user.phoneVerified)
+            FilledButton.tonalIcon(
+              onPressed: () => _startPhoneVerification(app),
+              icon: const Icon(Icons.verified_outlined),
+              label: Text(app.t('verify_phone')),
+            ),
+        ] else
+          FilledButton.tonal(
+            onPressed: () => _addPhone(app),
+            child: Text(app.t('add_phone')),
           ),
         UiSpace.xs,
         Card(
@@ -863,6 +863,8 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
     AppState app, {
     bool reloadCaregiverPatients = false,
   }) async {
+    String? targetPatientId;
+
     if (widget.forCaregiverPatientData) {
       if (reloadCaregiverPatients) {
         await app.loadCaregiverPatients();
@@ -874,15 +876,23 @@ class _HotspotMapScreenState extends State<HotspotMapScreen> {
           _selectedPatientId = patients.first.id;
           _selectedMapDisease = patients.first.disease;
         }
-        await app.loadPatientHotspots(_selectedPatientId!);
-      } else if (app.hasRole(UserRole.patient)) {
-        await app.loadPatientHotspots(app.currentUser!.id);
+        targetPatientId = _selectedPatientId!;
+      } else if (app.currentUser?.role == UserRole.patient) {
+        targetPatientId = app.currentUser!.id;
       }
     } else {
-      await app.loadPatientHotspots(app.currentUser!.id);
+      targetPatientId = app.currentUser!.id;
     }
 
-    await app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue());
+    final List<Future<void>> mapLoads = <Future<void>>[
+      app.loadRegionalHeatmapData(disease: _selectedDiseaseApiValue()),
+    ];
+
+    if (targetPatientId != null) {
+      mapLoads.add(app.loadPatientHotspots(targetPatientId));
+    }
+
+    await Future.wait(mapLoads);
   }
 
   Future<void> _loadMapData() async {

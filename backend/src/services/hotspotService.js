@@ -197,13 +197,12 @@ export async function getRegionalHeatmapData(disease = null) {
   snapshot.forEach((doc) => {
     const row = doc.data();
     const createdAt = toDate(row.createdAt);
-    const recencyWeight = getRecencyWeight(createdAt);
+    const recencyWeightRaw = getRecencyWeight(createdAt);
+    const recencyWeight = Number.isFinite(recencyWeightRaw)
+      ? recencyWeightRaw
+      : 0.2;
 
-    const regions = row.placeRegions || {
-      hometown: toRegion(row.hometown),
-      workplace: toRegion(row.workplace),
-      visits: splitPlaces(row.places).map((place) => toRegion(place)),
-    };
+    const regions = normalizePlaceRegions(row);
 
     addRegionEvent(
       districtAgg,
@@ -412,6 +411,23 @@ function splitPlaces(placesValue) {
     .split(",")
     .map((place) => place.trim())
     .filter((place) => place.length > 0);
+}
+
+function normalizePlaceRegions(row) {
+  const source =
+    row?.placeRegions && typeof row.placeRegions === "object"
+      ? row.placeRegions
+      : {};
+
+  const hometown = toRegion(source.hometown ?? row?.hometown);
+  const workplace = toRegion(source.workplace ?? row?.workplace);
+
+  const rawVisits = Array.isArray(source.visits)
+    ? source.visits
+    : splitPlaces(source.visits ?? row?.places);
+  const visits = rawVisits.map((place) => toRegion(place)).filter(Boolean);
+
+  return { hometown, workplace, visits };
 }
 
 function toRegion(rawValue) {

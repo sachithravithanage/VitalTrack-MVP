@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
@@ -211,6 +212,16 @@ class NotificationService {
 class HotspotService {
   final ApiClient _apiClient = apiClient;
 
+  bool _isExpectedStatus(Object error, Set<int> statuses) {
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      return status != null && statuses.contains(status);
+    }
+    return false;
+  }
+
+  String _compactError(Object error) => error.toString().split('\n').first;
+
   /// Submit hotspot data
   Future<Map<String, dynamic>> submitHotspot({
     required String subject,
@@ -246,7 +257,9 @@ class HotspotService {
       );
       return response['hotspots'] as List<dynamic>? ?? [];
     } catch (e) {
-      debugPrint("Error getting patient hotspots: $e");
+      if (!_isExpectedStatus(e, const <int>{403})) {
+        debugPrint("Error getting patient hotspots: ${_compactError(e)}");
+      }
       rethrow;
     }
   }
@@ -270,7 +283,9 @@ class HotspotService {
       );
       return response;
     } catch (e) {
-      debugPrint("Error getting regional heatmap data: $e");
+      if (!_isExpectedStatus(e, const <int>{500})) {
+        debugPrint("Error getting regional heatmap data: ${_compactError(e)}");
+      }
       rethrow;
     }
   }

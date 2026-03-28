@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../services/index.dart';
 import 'localization.dart';
@@ -18,6 +19,7 @@ class AppState extends ChangeNotifier {
   final List<HotspotResponse> _hotspots = <HotspotResponse>[];
   final List<HotspotRegionSummary> _hotspotRegions = <HotspotRegionSummary>[];
   final List<AppNotification> _notifications = <AppNotification>[];
+  DateTime? _lastRegionalHeatmapErrorAt;
 
   String t(String key) {
     final bool isSi = selectedLanguage == AppLanguage.sinhala;
@@ -135,23 +137,27 @@ class AppState extends ChangeNotifier {
     try {
       if (currentUser == null) return;
 
+      final List<Future<void>> requiredLoads = <Future<void>>[];
+
       if (currentUser!.role == UserRole.caregiver) {
         // Caregivers: load linked patients. Individual patient records are
         // loaded when a patient is opened.
-        await loadCaregiverPatients();
-        await loadRegionalHeatmapData();
+        requiredLoads.add(loadCaregiverPatients());
+        unawaited(loadRegionalHeatmapData());
       } else {
         // Patients: load own records, linked caregivers, and hotspots.
-        await loadPatientRecords(currentUser!.id);
-        await loadPatientCaregivers();
-        await loadPatientHotspots(currentUser!.id);
-        await loadRegionalHeatmapData();
+        requiredLoads.add(loadPatientRecords(currentUser!.id));
+        requiredLoads.add(loadPatientCaregivers());
+        unawaited(loadPatientHotspots(currentUser!.id));
+        unawaited(loadRegionalHeatmapData());
       }
 
-      await syncStoredFcmToken();
-      await loadNotificationHistory();
+      requiredLoads.add(syncStoredFcmToken());
+      requiredLoads.add(loadNotificationHistory());
+
+      await Future.wait(requiredLoads);
     } catch (e) {
-      debugPrint('Error reloading user data: ${e.toString().split('\n')[0]}');
+      debugPrint('Error reloading user data: ${_compactError(e)}');
       // Don't rethrow - this is optional data
     }
   }
@@ -758,8 +764,17 @@ class AppState extends ChangeNotifier {
       _hotspots.clear();
       _hotspots.addAll(hotspots);
       notifyListeners();
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 403) {
+        _hotspots.clear();
+        notifyListeners();
+        return;
+      }
+      debugPrint('Load patient hotspots error: ${_compactError(e)}');
+      rethrow;
     } catch (e) {
-      debugPrint('Load patient hotspots error: $e');
+      debugPrint('Load patient hotspots error: ${_compactError(e)}');
       rethrow;
     }
   }
@@ -809,11 +824,29 @@ class AppState extends ChangeNotifier {
         ..sort((a, b) => b.score.compareTo(a.score));
 
       notifyListeners();
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 500) {
+        final now = DateTime.now();
+        if (_lastRegionalHeatmapErrorAt == null ||
+            now.difference(_lastRegionalHeatmapErrorAt!) >
+                const Duration(seconds: 30)) {
+          _lastRegionalHeatmapErrorAt = now;
+          debugPrint(
+            'Load regional heatmap skipped due to server error (500).',
+          );
+        }
+        return;
+      }
+      debugPrint('Load regional heatmap error: ${_compactError(e)}');
+      rethrow;
     } catch (e) {
-      debugPrint('Load regional heatmap error: $e');
+      debugPrint('Load regional heatmap error: ${_compactError(e)}');
       rethrow;
     }
   }
+
+  String _compactError(Object error) => error.toString().split('\n').first;
 
   List<HotspotRegionSummary> get regionalHotspotSummary =>
       List<HotspotRegionSummary>.unmodifiable(_hotspotRegions);
