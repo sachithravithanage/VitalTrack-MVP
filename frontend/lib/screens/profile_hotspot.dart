@@ -386,24 +386,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _profileInfoTile(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
+  Widget _sectionCaption(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        text.toUpperCase(),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          letterSpacing: 2.2,
+          color: const Color(0xFF8A9AB4),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _surfaceCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
   }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(label),
-        subtitle: Text(
-          value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: const Color(0xFF0A1430),
-            fontWeight: FontWeight.w600,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFDCE3F0)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1206152F),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+
+  Widget _verifiedBadge(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7F7EC),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFCBEFD8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Icon(Icons.verified, color: Color(0xFF127C3C), size: 16),
+          const SizedBox(width: 6),
+          Text(
+            AppScope.of(context).t('verified').toUpperCase(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: const Color(0xFF127C3C),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileField({
+    required BuildContext context,
+    required String label,
+    required Widget value,
+    bool showDivider = true,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          label.toUpperCase(),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: const Color(0xFF8A9AB4),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
           ),
         ),
+        const SizedBox(height: 8),
+        value,
+        if (showDivider) ...<Widget>[
+          const SizedBox(height: 18),
+          Divider(height: 1, color: const Color(0xFFDFE6F2)),
+          const SizedBox(height: 18),
+        ],
+      ],
+    );
+  }
+
+  Widget _dashedActionButton({
+    required BuildContext context,
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        foregroundColor: const Color(0xFF0A56B0),
+        side: const BorderSide(color: Color(0xFFBFD0EB)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      icon: Icon(icon),
+      label: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -420,90 +511,213 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final List<Map<String, dynamic>> linkedCaregivers = app.patientCaregivers(
       user.id,
     );
+    final List<PatientSummary> linkedPatients = app.caregiverPatients(user.id);
+    final bool hasPhone = user.phone.trim().isNotEmpty;
+    final bool hasEmail = (user.email ?? '').trim().isNotEmpty;
+    const String personalInfoTitle = 'PERSONAL INFORMATION';
+    const String appSettingsTitle = 'APP SETTINGS';
+    const String fullNameTitle = 'FULL NAME';
+    const String phoneNumberTitle = 'PHONE NUMBER';
+    const String emailAddressTitle = 'EMAIL ADDRESS';
+    const String addEmailAddressTitle = 'ADD EMAIL ADDRESS';
+    const String preferredLanguageTitle = 'PREFERRED LANGUAGE';
+    const String accountRoleTitle = 'ACCOUNT ROLE';
+
     return ResponsiveListView(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
       children: <Widget>[
-        SectionHeader(
-          title: app.t('profile'),
-          subtitle: user.role == UserRole.patient
-              ? app.t('patient')
-              : app.t('caregiver'),
-          icon: Icons.person_outline,
-        ),
-        UiSpace.xs,
-        _profileInfoTile(
-          context,
-          icon: Icons.person_outline,
-          label: app.t('name'),
-          value: user.name,
-        ),
-        if ((user.email ?? '').trim().isNotEmpty) ...<Widget>[
-          _profileInfoTile(
-            context,
-            icon: Icons.email_outlined,
-            label: app.t('email'),
-            value: user.email!,
-          ),
-          if (!user.emailVerified)
-            FilledButton.tonalIcon(
-              onPressed: () => _startEmailVerification(app),
-              icon: const Icon(Icons.mark_email_read_outlined),
-              label: Text(app.t('verify_email')),
-            ),
-        ] else
-          FilledButton.tonal(
-            onPressed: () => _addEmail(app),
-            child: Text(app.t('add_email')),
-          ),
-        if (user.phone.trim().isNotEmpty) ...<Widget>[
-          _profileInfoTile(
-            context,
-            icon: Icons.phone_outlined,
-            label: app.t('phone'),
-            value: _formatPhoneForDisplay(user.phone),
-          ),
-          if (!user.phoneVerified)
-            FilledButton.tonalIcon(
-              onPressed: () => _startPhoneVerification(app),
-              icon: const Icon(Icons.verified_outlined),
-              label: Text(app.t('verify_phone')),
-            ),
-        ] else
-          FilledButton.tonal(
-            onPressed: () => _addPhone(app),
-            child: Text(app.t('add_phone')),
-          ),
-        UiSpace.xs,
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  app.t('language'),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        _sectionCaption(context, personalInfoTitle),
+        _surfaceCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _profileField(
+                context: context,
+                label: fullNameTitle,
+                value: Text(
+                  user.name,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: const Color(0xFF141B2C),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 10),
-                SegmentedButton<AppLanguage>(
+              ),
+              _profileField(
+                context: context,
+                label: phoneNumberTitle,
+                showDivider: hasEmail,
+                value: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    if (hasPhone)
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              _formatPhoneForDisplay(user.phone),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: const Color(0xFF141B2C),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          if (user.phoneVerified) _verifiedBadge(context),
+                        ],
+                      )
+                    else
+                      _dashedActionButton(
+                        context: context,
+                        onPressed: () => _addPhone(app),
+                        icon: Icons.add,
+                        label: app.t('add_phone').toUpperCase(),
+                      ),
+                    if (hasPhone && !user.phoneVerified) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => _startPhoneVerification(app),
+                          icon: const Icon(Icons.verified_outlined),
+                          label: Text(app.t('verify_phone')),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              _profileField(
+                context: context,
+                label: emailAddressTitle,
+                showDivider: false,
+                value: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    if (hasEmail)
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              user.email!,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: const Color(0xFF141B2C),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          if (user.emailVerified) _verifiedBadge(context),
+                        ],
+                      )
+                    else
+                      _dashedActionButton(
+                        context: context,
+                        onPressed: () => _addEmail(app),
+                        icon: Icons.add,
+                        label: addEmailAddressTitle,
+                      ),
+                    if (hasEmail && !user.emailVerified) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => _startEmailVerification(app),
+                          icon: const Icon(Icons.mark_email_read_outlined),
+                          label: Text(app.t('verify_email')),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        _sectionCaption(context, appSettingsTitle),
+        _surfaceCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  const Icon(Icons.public, color: Color(0xFF0A56B0)),
+                  const SizedBox(width: 10),
+                  Text(
+                    preferredLanguageTitle,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: const Color(0xFF141B2C),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFD4DCEC)),
+                ),
+                padding: const EdgeInsets.all(4),
+                child: SegmentedButton<AppLanguage>(
                   showSelectedIcon: false,
-                  segments: <ButtonSegment<AppLanguage>>[
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.resolveWith((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) {
+                        return Colors.white;
+                      }
+                      return Colors.transparent;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const Color(0xFF0A56B0);
+                      }
+                      return const Color(0xFF8A98B4);
+                    }),
+                    side: WidgetStateProperty.resolveWith((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const BorderSide(
+                          color: Color(0xFFE0E6F2),
+                          width: 1,
+                        );
+                      }
+                      return const BorderSide(color: Colors.transparent);
+                    }),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    textStyle: WidgetStatePropertyAll(
+                      Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  segments: const <ButtonSegment<AppLanguage>>[
                     ButtonSegment<AppLanguage>(
                       value: AppLanguage.english,
-                      label: Text(app.t('language_english_title')),
+                      label: Text('English'),
                     ),
                     ButtonSegment<AppLanguage>(
                       value: AppLanguage.sinhala,
-                      label: Text(app.t('language_sinhala_title')),
+                      label: Text('Sinhala'),
                     ),
                   ],
                   selected: <AppLanguage>{
                     app.selectedLanguage ?? AppLanguage.english,
                   },
-                  onSelectionChanged: (selection) {
-                    final nextLanguage = selection.first;
+                  onSelectionChanged: (Set<AppLanguage> selection) {
+                    final AppLanguage nextLanguage = selection.first;
                     if (nextLanguage == app.selectedLanguage) return;
                     app.setLanguage(nextLanguage);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -511,28 +725,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   },
                 ),
-              ],
-            ),
-          ),
-        ),
-        UiSpace.xs,
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  app.t('caregiver_options'),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: <Widget>[
+                  const Icon(Icons.badge, color: Color(0xFF0A56B0)),
+                  const SizedBox(width: 10),
+                  Text(
+                    accountRoleTitle,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: const Color(0xFF141B2C),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFD4DCEC)),
                 ),
-                const SizedBox(height: 10),
-                SegmentedButton<UserRole>(
+                padding: const EdgeInsets.all(4),
+                child: SegmentedButton<UserRole>(
+                  showSelectedIcon: false,
                   style: ButtonStyle(
-                    visualDensity: VisualDensity.comfortable,
+                    backgroundColor: WidgetStateProperty.resolveWith((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) {
+                        return Colors.white;
+                      }
+                      return Colors.transparent;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const Color(0xFF0A56B0);
+                      }
+                      return const Color(0xFF8A98B4);
+                    }),
+                    side: WidgetStateProperty.resolveWith((
+                      Set<WidgetState> states,
+                    ) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const BorderSide(
+                          color: Color(0xFFE0E6F2),
+                          width: 1,
+                        );
+                      }
+                      return const BorderSide(color: Colors.transparent);
+                    }),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                     textStyle: WidgetStatePropertyAll(
                       Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
@@ -542,208 +792,283 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   segments: <ButtonSegment<UserRole>>[
                     ButtonSegment<UserRole>(
                       value: UserRole.patient,
-                      label: Text(
-                        app.t('patient'),
-                        textAlign: TextAlign.center,
-                      ),
-                      icon: const Icon(Icons.favorite_outline),
+                      label: Text(app.t('patient')),
                     ),
                     ButtonSegment<UserRole>(
                       value: UserRole.caregiver,
-                      label: Text(
-                        app.t('caregiver'),
-                        textAlign: TextAlign.center,
-                      ),
-                      icon: const Icon(Icons.people_outline),
+                      label: Text(app.t('caregiver')),
                     ),
                   ],
                   selected: <UserRole>{user.role},
-                  onSelectionChanged: (selection) {
-                    final nextRole = selection.first;
+                  onSelectionChanged: (Set<UserRole> selection) {
+                    final UserRole nextRole = selection.first;
                     unawaited(_switchRole(app, nextRole));
                   },
-                  showSelectedIcon: false,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         if (user.role == UserRole.patient) ...<Widget>[
-          UiSpace.sm,
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF3FB),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFD5DEEF)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  app.t('patient_caregiver_settings'),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: const Color(0xFF0A1430),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E73D8),
-                        borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 18),
+          _surfaceCard(
+            padding: const EdgeInsets.all(18),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F6FF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFD4E2FA)),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.people_alt_outlined,
+                        color: Color(0xFF0A56B0),
                       ),
-                      child: const Icon(
-                        Icons.people_outline,
-                        color: Colors.white,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          app.t('connect_with_caregiver'),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: const Color(0xFF0A56B0),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    app.t('share_realtime_health_data'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF3C4C68),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0A56B0),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(54),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () async {
+                        String code;
+                        try {
+                          code = await app.generateCaregiverCode();
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${app.t('error')}: $e')),
+                          );
+                          return;
+                        }
+
+                        if (!context.mounted) return;
+                        showDialog<void>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text(app.t('caregiver_code')),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text(
+                                    code,
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    app.t('share_this_code_with_caregiver'),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                              actions: <Widget>[
+                                TextButton.icon(
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                      ClipboardData(text: code),
+                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(app.t('code_copied')),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.copy),
+                                  label: Text(app.t('copy')),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Text(app.t('close')),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: Text(
+                        app.t('generate_6_digit_code'),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                  if (linkedCaregivers.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: linkedCaregivers
+                          .map(
+                            (Map<String, dynamic> c) =>
+                                (c['name'] ?? '').toString().trim(),
+                          )
+                          .where((String n) => n.isNotEmpty)
+                          .map(
+                            (String n) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF1FF),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                n,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: const Color(0xFF0A56B0),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ] else if (linkedPatients.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 18),
+          _surfaceCard(
+            padding: const EdgeInsets.all(18),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F6FF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFD4E2FA)),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.groups_2_outlined,
+                        color: Color(0xFF0A56B0),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          app.t('patients'),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: const Color(0xFF0A56B0),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Linked accounts you are currently caring for.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF3C4C68),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ...linkedPatients.map((PatientSummary p) {
+                    final bool isLast = identical(p, linkedPatients.last);
+                    return Container(
+                      margin: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 11,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFD8E3F7)),
+                      ),
+                      child: Row(
                         children: <Widget>[
-                          Text(
-                            app.t('connect_with_caregiver'),
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  color: const Color(0xFF0A1430),
-                                  fontWeight: FontWeight.w700,
-                                ),
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF1FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.person_outline,
+                              size: 20,
+                              color: Color(0xFF0A56B0),
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            app.t('share_realtime_health_data'),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0xFF5F7391)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              p.name,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    color: const Color(0xFF141B2C),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      String code;
-                      try {
-                        code = await app.generateCaregiverCode();
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${app.t('error')}: $e')),
-                        );
-                        return;
-                      }
-
-                      if (!context.mounted) return;
-                      showDialog<void>(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: Text(app.t('caregiver_code')),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  code,
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  app.t('share_this_code_with_caregiver'),
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                            actions: <Widget>[
-                              TextButton.icon(
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: code));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(app.t('code_copied')),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.copy),
-                                label: Text(app.t('copy')),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: Text(app.t('close')),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    child: Text(app.t('generate_6_digit_code')),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (linkedCaregivers.isNotEmpty) ...<Widget>[
-            UiSpace.xs,
-            Text(
-              app.t('caregivers_list'),
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: linkedCaregivers
-                      .map(
-                        (Map<String, dynamic> c) =>
-                            (c['name'] ?? '').toString().trim(),
-                      )
-                      .where((String n) => n.isNotEmpty)
-                      .map(
-                        (String n) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE9F1FF),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            n,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: const Color(0xFF1E73D8),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
+                    );
+                  }),
+                ],
               ),
             ),
-          ],
+          ),
         ],
-        UiSpace.sm,
+        const SizedBox(height: 22),
         OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFBE1E2D),
+            side: const BorderSide(color: Color(0xFFF0B7BC)),
+            minimumSize: const Size.fromHeight(54),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
           onPressed: () {
             app.logout();
             Navigator.of(context).pushAndRemoveUntil(
@@ -751,7 +1076,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               (Route<dynamic> route) => false,
             );
           },
-          child: Text(app.t('logout')),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(Icons.logout, size: 22),
+              const SizedBox(width: 10),
+              Text(
+                app.t('logout'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
         ),
       ],
     );
