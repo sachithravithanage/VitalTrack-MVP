@@ -663,7 +663,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFD4DCEC)),
                 ),
                 padding: const EdgeInsets.all(4),
                 child: SegmentedButton<AppLanguage>(
@@ -673,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Set<WidgetState> states,
                     ) {
                       if (states.contains(WidgetState.selected)) {
-                        return Colors.white;
+                        return const Color(0xFFE8F1FF);
                       }
                       return Colors.transparent;
                     }),
@@ -685,17 +684,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                       return const Color(0xFF8A98B4);
                     }),
-                    side: WidgetStateProperty.resolveWith((
-                      Set<WidgetState> states,
-                    ) {
-                      if (states.contains(WidgetState.selected)) {
-                        return const BorderSide(
-                          color: Color(0xFFE0E6F2),
-                          width: 1,
-                        );
-                      }
-                      return const BorderSide(color: Colors.transparent);
-                    }),
+                    side: const WidgetStatePropertyAll(
+                      BorderSide(color: Colors.transparent),
+                    ),
                     shape: WidgetStatePropertyAll(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -749,7 +740,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFD4DCEC)),
                 ),
                 padding: const EdgeInsets.all(4),
                 child: SegmentedButton<UserRole>(
@@ -759,7 +749,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Set<WidgetState> states,
                     ) {
                       if (states.contains(WidgetState.selected)) {
-                        return Colors.white;
+                        return const Color(0xFFE8F1FF);
                       }
                       return Colors.transparent;
                     }),
@@ -771,17 +761,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                       return const Color(0xFF8A98B4);
                     }),
-                    side: WidgetStateProperty.resolveWith((
-                      Set<WidgetState> states,
-                    ) {
-                      if (states.contains(WidgetState.selected)) {
-                        return const BorderSide(
-                          color: Color(0xFFE0E6F2),
-                          width: 1,
-                        );
-                      }
-                      return const BorderSide(color: Colors.transparent);
-                    }),
+                    side: const WidgetStatePropertyAll(
+                      BorderSide(color: Colors.transparent),
+                    ),
                     shape: WidgetStatePropertyAll(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
