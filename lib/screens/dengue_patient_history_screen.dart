@@ -1,44 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart'; // Import globals to read the latest data!
+import 'package:provider/provider.dart';
 
+import '../providers/health_data_provider.dart';
+import '../providers/patient_provider.dart';
+import '../models/health_log.dart';
 import 'temperature_history_screen.dart';
 import 'platelets_history_screen.dart';
 import 'fluid_intake_history_screen.dart';
 import 'urine_output_history_screen.dart';
 
-class DenguePatientHistoryScreen extends StatefulWidget {
-  final String patientName;
-  final String patientId;
+class DenguePatientHistoryScreen extends StatelessWidget {
+  const DenguePatientHistoryScreen({super.key});
 
-  const DenguePatientHistoryScreen({
-    super.key,
-    this.patientName = 'Amila Perera',
-    this.patientId = '8839201',
-  });
-
-  @override
-  State<DenguePatientHistoryScreen> createState() =>
-      _DenguePatientHistoryScreenState();
-}
-
-class _DenguePatientHistoryScreenState
-    extends State<DenguePatientHistoryScreen> {
   @override
   Widget build(BuildContext context) {
-    // Get the latest values from our global lists
-    final latestTemp = globalTempHistory.isNotEmpty
-        ? globalTempHistory.first
-        : HealthRecord("--", "", "", false);
-    final latestPlatelets = globalPlateletHistory.isNotEmpty
-        ? globalPlateletHistory.first
-        : HealthRecord("--", "", "", false);
-    final latestFluid = globalFluidHistory.isNotEmpty
-        ? globalFluidHistory.first
-        : HealthRecord("--", "", "", false);
-    final latestUrine = globalUrineHistory.isNotEmpty
-        ? globalUrineHistory.first
-        : HealthRecord("--", "", "", false);
+    // Watch our providers for LIVE data
+    final healthProvider = context.watch<HealthDataProvider>();
+    final patientProvider = context.watch<PatientProvider>();
+
+    // Securely get the active patient's correct details!
+    final activePatient = patientProvider.activePatient;
+    final patientName = activePatient?.fullName ?? 'Loading...';
+    final patientId = activePatient?.uid.substring(0, 8).toUpperCase() ?? '...';
+
+    final HealthLog? tempLog = healthProvider.getLatestLog('Temperature');
+    final HealthLog? plateletsLog = healthProvider.getLatestLog('Platelets');
+    final HealthLog? fluidLog = healthProvider.getLatestLog('Fluid Intake');
+    final HealthLog? urineLog = healthProvider.getLatestLog('Urine Output');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -46,201 +35,117 @@ class _DenguePatientHistoryScreenState
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Color(0xFF475569), size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Color(0xFFE0F2F1),
-                  child: Icon(Icons.person, color: Color(0xFF147B85)),
-                ),
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.patientName,
-                  style: GoogleFonts.nunito(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E293B)),
-                ),
-                Row(
-                  children: [
-                    Text('ID: ${widget.patientId}',
-                        style: GoogleFonts.nunito(
-                            fontSize: 12, color: const Color(0xFF64748B))),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFCCFBF1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text('ACTIVE',
-                          style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0D9488))),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
+            icon: const Icon(Icons.arrow_back_ios_new,
+                color: Color(0xFF1E293B), size: 18),
+            onPressed: () => Navigator.pop(context)),
+        title: Text('Dengue Monitor',
+            style: GoogleFonts.nunito(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B))),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Diagnosis Banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFEE2E2))),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444),
-                        borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.warning_amber_rounded,
-                        color: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('CURRENT CONDITION',
-                          style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFEF4444),
-                              letterSpacing: 1)),
-                      Text('DIAGNOSIS: DENGUE',
-                          style: GoogleFonts.nunito(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFFB91C1C))),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Vitals Grid (NOW DYNAMIC!)
             Row(
               children: [
-                Expanded(
-                  child: _buildVitalCard(
-                    title: 'Temperature',
-                    value: latestTemp.value,
-                    statusText: latestTemp.status,
-                    statusColor: latestTemp.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981),
-                    icon: Icons.thermostat,
-                    iconColor: const Color(0xFFF59E0B),
-                    onTap: () {
-                      // Navigate, then setState when we come back to refresh!
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const TemperatureHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
-                  ),
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                      color: Color(0xFFE2E8F0), shape: BoxShape.circle),
+                  child: const Icon(Icons.person,
+                      color: Color(0xFF64748B), size: 30),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildVitalCard(
-                    title: 'Platelets',
-                    value: latestPlatelets.value,
-                    statusText: latestPlatelets.status,
-                    statusColor: latestPlatelets.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981),
-                    icon: Icons.bloodtype,
-                    iconColor: const Color(0xFFEF4444),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const PlateletsHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(patientName,
+                          style: GoogleFonts.nunito(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F172A))),
+                      Text('Patient ID: $patientId',
+                          style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              color: const Color(0xFF64748B),
+                              fontWeight: FontWeight.w600)),
+                    ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 32),
+            Text('Vital Signs',
+                style: GoogleFonts.nunito(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
-            Row(
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.1,
               children: [
-                Expanded(
-                  child: _buildVitalCard(
-                    title: 'Fluid Intake',
-                    value: latestFluid.value,
-                    statusText: latestFluid.status,
-                    statusColor: latestFluid.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF0EA5E9),
-                    icon: Icons.water_drop,
-                    iconColor: const Color(0xFF3B82F6),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const FluidIntakeHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
-                  ),
+                _buildMetricCard(
+                  context: context,
+                  title: 'Temperature',
+                  value: tempLog != null ? '${tempLog.value1}°F' : '--°F',
+                  statusText: tempLog?.status ?? 'No Data',
+                  icon: Icons.thermostat,
+                  iconColor: const Color(0xFFEA580C),
+                  statusColor: (tempLog?.status == 'HIGH FEVER')
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF10B981),
+                  targetScreen: const TemperatureHistoryScreen(),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildVitalCard(
-                    title: 'Urine Output',
-                    value: latestUrine.value,
-                    statusText: latestUrine.status,
-                    statusColor: latestUrine.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981),
-                    icon: Icons.science_outlined,
-                    iconColor: const Color(0xFF6366F1),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const UrineOutputHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
-                  ),
+                _buildMetricCard(
+                  context: context,
+                  title: 'Platelets',
+                  value: plateletsLog != null
+                      ? '${plateletsLog.value1?.toInt()}'
+                      : '--',
+                  statusText: plateletsLog?.status ?? 'No Data',
+                  icon: Icons.bloodtype,
+                  iconColor: const Color(0xFFEF4444),
+                  statusColor: (plateletsLog?.status == 'LOW / ALERT')
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF10B981),
+                  targetScreen: const PlateletsHistoryScreen(),
+                ),
+                _buildMetricCard(
+                  context: context,
+                  title: 'Fluid Intake',
+                  value: fluidLog != null ? '${fluidLog.value1}L' : '--L',
+                  statusText: fluidLog?.status ?? 'No Data',
+                  icon: Icons.local_drink,
+                  iconColor: const Color(0xFF06B6D4),
+                  statusColor: (fluidLog?.status == 'LOW INTAKE')
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF10B981),
+                  targetScreen: const FluidIntakeHistoryScreen(),
+                ),
+                _buildMetricCard(
+                  context: context,
+                  title: 'Urine Output',
+                  value: urineLog != null
+                      ? '${urineLog.value1?.toInt()}ml'
+                      : '--ml',
+                  statusText: urineLog?.status ?? 'No Data',
+                  icon: Icons.water_drop,
+                  iconColor: const Color(0xFFEAB308),
+                  statusColor: (urineLog?.status == 'LOW OUTPUT')
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF10B981),
+                  targetScreen: const UrineOutputHistoryScreen(),
                 ),
               ],
             ),
@@ -250,17 +155,19 @@ class _DenguePatientHistoryScreenState
     );
   }
 
-  Widget _buildVitalCard({
+  Widget _buildMetricCard({
+    required BuildContext context,
     required String title,
     required String value,
     required String statusText,
-    required Color statusColor,
     required IconData icon,
     required Color iconColor,
-    required VoidCallback onTap,
+    required Color statusColor,
+    required Widget targetScreen,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (context) => targetScreen)),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

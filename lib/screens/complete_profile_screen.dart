@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math'
+    as math; // FIXED: Added 'as math' to prevent naming collisions
+
 import 'medical_profile_screen.dart';
-import '../globals.dart';
-import 'dashboard_no_data_screen.dart';
+import 'main_layout.dart';
+import '../models/user_profile.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -12,7 +17,6 @@ class CompleteProfileScreen extends StatefulWidget {
 }
 
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
-  // Controllers for text fields
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController dobController = TextEditingController();
@@ -20,6 +24,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   String selectedGender = 'Male';
   String selectedRole = 'Patient';
+  bool isLoading = false;
 
   @override
   void dispose() {
@@ -30,6 +35,107 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF20B5A0),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF0F172A),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        dobController.text =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
+  // FIXED: Using math.Random() to guarantee we use the correct library
+  String generateCaretakerCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    math.Random rnd = math.Random();
+    return List.generate(6, (index) => chars[rnd.nextInt(chars.length)]).join();
+  }
+
+  Future<void> _saveProfile() async {
+    if (nameController.text.trim().isEmpty ||
+        phoneController.text.trim().isEmpty ||
+        dobController.text.trim().isEmpty ||
+        addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please fill all fields.'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        String? generatedCode;
+        if (selectedRole == 'Caretaker') {
+          generatedCode = generateCaretakerCode();
+        }
+
+        final userProfile = UserProfile(
+          uid: user.uid,
+          fullName: nameController.text.trim(),
+          phone: phoneController.text.trim(),
+          dob: dobController.text.trim(),
+          gender: selectedGender,
+          role: selectedRole,
+          address: addressController.text.trim(),
+          createdAt: DateTime.now(),
+          caretakerCode: generatedCode,
+          linkedPatients: [],
+        );
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set(userProfile.toFirestore());
+
+        if (!mounted) return;
+
+        if (selectedRole == 'Patient') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    const MedicalProfileScreen(userRole: 'Patient')),
+          );
+        } else {
+          // If Caretaker, route to MainLayout so navigation bar appears!
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const MainLayout()),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,219 +143,152 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF20B5A0),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.favorite, color: Colors.white, size: 18),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'VitalTrack',
-              style: GoogleFonts.nunito(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ],
-        ),
         centerTitle: true,
+        title: Text('Complete Profile',
+            style: GoogleFonts.nunito(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0F172A))),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Placeholder for Doctor/Patient Illustration
-            Container(
-              height: 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF4A908A),
-                borderRadius: BorderRadius.circular(20),
+            Center(
+              child: Stack(
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2F1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: const Icon(Icons.person,
+                        size: 50, color: Color(0xFF20B5A0)),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                          color: Color(0xFF0F172A), shape: BoxShape.circle),
+                      child: const Icon(Icons.camera_alt,
+                          color: Colors.white, size: 16),
+                    ),
+                  )
+                ],
               ),
-              child: const Center(
-                child: Icon(Icons.people, size: 80, color: Colors.white54),
-              ),
+            ),
+            const SizedBox(height: 32),
+            Text('I am a...',
+                style: GoogleFonts.nunito(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A))),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSelectionCard(
+                    'Patient',
+                    Icons.personal_injury,
+                    selectedRole == 'Patient',
+                    () => setState(() => selectedRole = 'Patient'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildSelectionCard(
+                    'Caretaker',
+                    Icons.health_and_safety,
+                    selectedRole == 'Caretaker',
+                    () => setState(() => selectedRole = 'Caretaker'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
-            Text(
-              'Complete Your Profile',
-              style: GoogleFonts.nunito(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Let\'s get to know you better to personalize your health experience.',
-              style: GoogleFonts.nunito(
-                fontSize: 14,
-                color: Colors.blueGrey,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Full Name Field
-            _buildLabel('Full Name'),
+            _buildTextField(nameController, 'Full Name', Icons.person_outline),
+            const SizedBox(height: 16),
             _buildTextField(
-                nameController, 'Enter your full name', Icons.person_outline),
-
-            // Phone Number Field
-            _buildLabel('Phone Number'),
-            _buildTextField(
-                phoneController, '+1 (555) 000-0000', Icons.phone_outlined,
+                phoneController, 'Phone Number', Icons.phone_outlined,
                 keyboardType: TextInputType.phone),
-
-            // Date of Birth Field
-            _buildLabel('Date of Birth'),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => _selectDate(context),
+              child: AbsorbPointer(
+                child: _buildTextField(dobController,
+                    'Date of Birth (YYYY-MM-DD)', Icons.calendar_today),
+              ),
+            ),
+            const SizedBox(height: 16),
             _buildTextField(
-                dobController, 'YYYY/DD/MM', Icons.calendar_today_outlined),
-
-            // Gender Selection
-            _buildLabel('Gender'),
+                addressController, 'Home Address', Icons.location_on_outlined),
+            const SizedBox(height: 24),
+            Text('Gender',
+                style: GoogleFonts.nunito(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A))),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                    child: _buildSelectionCard(
-                        'Male',
-                        Icons.male,
-                        selectedGender == 'Male',
-                        () => setState(() => selectedGender = 'Male'))),
+                  child: _buildSelectionCard(
+                    'Male',
+                    Icons.male,
+                    selectedGender == 'Male',
+                    () => setState(() => selectedGender = 'Male'),
+                  ),
+                ),
                 const SizedBox(width: 16),
                 Expanded(
-                    child: _buildSelectionCard(
-                        'Female',
-                        Icons.female,
-                        selectedGender == 'Female',
-                        () => setState(() => selectedGender = 'Female'))),
+                  child: _buildSelectionCard(
+                    'Female',
+                    Icons.female,
+                    selectedGender == 'Female',
+                    () => setState(() => selectedGender = 'Female'),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // Role Selection
-            _buildLabel('I am a...'),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildSelectionCard(
-                        'Patient',
-                        Icons.person,
-                        selectedRole == 'Patient',
-                        () => setState(() => selectedRole = 'Patient'))),
-                const SizedBox(width: 16),
-                Expanded(
-                    child: _buildSelectionCard(
-                        'Caretaker',
-                        Icons.health_and_safety,
-                        selectedRole == 'Caretaker',
-                        () => setState(() => selectedRole = 'Caretaker'))),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Home Address Field
-            _buildLabel('Home Address'),
-            _buildTextField(addressController, 'Enter your home address',
-                Icons.location_on_outlined),
-
             const SizedBox(height: 40),
-
-            // Next Button
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
+                onPressed: isLoading ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B7B85),
+                  backgroundColor: const Color(0xFF20B5A0),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: () {
-                  if (nameController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Please enter your name.'),
-                        backgroundColor: Colors.red));
-                    return;
-                  }
-
-                  globalUserName = nameController.text;
-                  globalUserRole = selectedRole;
-                  globalUserDOB = dobController.text;
-
-                  // THE FORK IN THE ROAD:
-                  if (selectedRole == 'Patient') {
-                    // Patients go to fill out their medical details
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const MedicalProfileScreen(userRole: 'Patient'),
-                      ),
-                    );
-                  } else {
-                    // Caretakers skip medical details and go straight to their Dashboard
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DashboardNoDataScreen(),
-                      ),
-                      (route) =>
-                          false, // Clears the stack so they can't hit 'back'
-                    );
-                  }
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Next',
+                child: isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                        selectedRole == 'Patient'
+                            ? 'Next: Medical Info'
+                            : 'Complete Setup',
                         style: GoogleFonts.nunito(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, color: Colors.white),
-                  ],
-                ),
+                            color: Colors.white),
+                      ),
               ),
             ),
-            const SizedBox(height: 20),
-
-            // Pagination Dots
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildDot(true),
-                _buildDot(false),
-                _buildDot(false),
-              ],
-            ),
+            const SizedBox(height: 40),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, top: 16.0),
-      child: Text(
-        text,
-        style: GoogleFonts.nunito(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF0F172A)),
       ),
     );
   }
@@ -267,17 +306,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF20B5A0)),
-        ),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
       ),
     );
   }
@@ -292,9 +322,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           color: isSelected ? const Color(0xFFE0F2F1) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF20B5A0) : Colors.grey.shade200,
-            width: 2,
-          ),
+              color:
+                  isSelected ? const Color(0xFF20B5A0) : Colors.grey.shade200,
+              width: 2),
         ),
         child: Column(
           children: [
@@ -303,28 +333,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     ? const Color(0xFF1B7B85)
                     : Colors.grey.shade600),
             const SizedBox(height: 8),
-            Text(
-              text,
-              style: GoogleFonts.nunito(
-                fontWeight: FontWeight.bold,
-                color:
-                    isSelected ? const Color(0xFF1B7B85) : Colors.grey.shade600,
-              ),
-            ),
+            Text(text,
+                style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.bold,
+                    color: isSelected
+                        ? const Color(0xFF1B7B85)
+                        : Colors.grey.shade600)),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildDot(bool isActive) {
-    return Container(
-      height: 6,
-      width: isActive ? 24 : 6,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF20B5A0) : Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(10),
       ),
     );
   }

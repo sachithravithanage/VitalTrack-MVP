@@ -1,21 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/health_data_provider.dart';
+import '../providers/patient_provider.dart'; // Added PatientProvider
 import 'profile_screen.dart';
+import 'heatmap.dart';
+import 'leptospirosis_patient_history_screen.dart';
 
 class LeptospirosisDashboardScreen extends StatelessWidget {
   const LeptospirosisDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    String lastName = globalUserName.isNotEmpty
-        ? globalUserName.trim().split(' ').last
-        : 'User';
+    final healthProvider = context.watch<HealthDataProvider>();
+    final patientProvider = context.watch<PatientProvider>();
+
+    // Instantly get the active patient's name! No loading flicker!
+    final activePatient = patientProvider.activePatient;
+    final String lastName =
+        activePatient?.fullName.trim().split(' ').last ?? '';
+
+    // Fetch the latest logs
+    final bp = healthProvider.getLatestLog('Blood Pressure');
+    final symptoms = healthProvider.getLatestLog('Symptoms');
+    final temp = healthProvider.getLatestLog('Temperature');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F7FF),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -40,344 +55,265 @@ class LeptospirosisDashboardScreen extends StatelessWidget {
                         Text(
                           lastName,
                           style: GoogleFonts.nunito(
-                            fontSize: 20,
+                            fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            color: const Color(0xFF2D9C8D),
                             height: 1.2,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10),
-                      ],
-                    ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ProfileScreen()),
+                      );
+                    },
                     child: const CircleAvatar(
-                      backgroundColor: Color(0xFFFCA5A5),
-                      child: Icon(Icons.person, color: Colors.white, size: 40),
+                      radius: 24,
+                      backgroundColor: Color(0xFFE2E8F0),
+                      child: Icon(Icons.person, color: Color(0xFF64748B)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Leptospirosis Main Card
+              // Status Card
               Container(
-                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2D9C8D), Color(0xFF1B7B85)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4)),
+                      color: const Color(0xFF2D9C8D).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    )
                   ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text(
+                          'Current Status',
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         Container(
-                          width: 56,
-                          height: 56,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: [Color(0xFFEAB308), Color(0xFFD97706)]),
-                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.pets,
-                              color: Colors.white, size: 32),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Leptospirosis',
-                                  style: GoogleFonts.nunito(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF1E293B))),
-                              Row(
-                                children: [
-                                  Text('Status: ',
-                                      style: GoogleFonts.nunito(
-                                          fontSize: 14,
-                                          color: const Color(0xFF6B7280))),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDFA),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text('Stable',
-                                        style: GoogleFonts.nunito(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0D9488))),
-                                  ),
-                                ],
-                              ),
-                            ],
+                          child: Text(
+                            'ACTIVE INFECTION',
+                            style: GoogleFonts.nunito(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
-                        const Icon(Icons.chevron_right,
-                            color: Color(0xFF9CA3AF)),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        height: 6,
-                        width: 120,
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(4)),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: 0.66,
-                          child: Container(
-                              decoration: BoxDecoration(
-                                  gradient: const LinearGradient(colors: [
-                                    Color(0xFFFACC15),
-                                    Color(0xFFD97706)
-                                  ]),
-                                  borderRadius: BorderRadius.circular(4))),
-                        ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Leptospirosis',
+                      style: GoogleFonts.nunito(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ensure antibiotics are taken on time.',
+                      style: GoogleFonts.nunito(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                        height: 1.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Vitals Grid (Custom for Leptospirosis)
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
+              // Action Buttons
+              Row(
                 children: [
-                  _buildVitalCard(Icons.thermostat, 'Temperature', '98.6°F',
-                      const Color(0xFFEF4444), const Color(0xFFFEF2F2), 0.75),
-                  _buildVitalCard(
-                      Icons.favorite_border,
-                      'Blood Pressure',
-                      '120/80',
-                      const Color(0xFFF43F5E),
-                      const Color(0xFFFFF1F2),
-                      0.66),
-                  // Custom Symptom Checklist Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFF8FAFC))),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xFFEEF2FF),
-                                    borderRadius: BorderRadius.circular(12)),
-                                child: const Icon(Icons.checklist,
-                                    color: Color(0xFF6366F1), size: 24)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Symptom Checklist',
-                                      style: GoogleFonts.nunito(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF6B7280))),
-                                  Text('3/5 Logged',
-                                      style: GoogleFonts.nunito(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF1E293B))),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCheckItem('Yellow Eyes'),
-                        _buildCheckItem('Muscle Pain'),
-                        _buildCheckItem('Vomiting'),
-                      ],
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.add_circle,
+                      label: 'Log Vitals',
+                      color: const Color(0xFFF59E0B),
+                      bgColor: const Color(0xFFFEF3C7),
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    const LeptospirosisPatientHistoryScreen()));
+                      },
                     ),
                   ),
-                  _buildVitalCard(Icons.water_drop, 'Urine Output', '850 ml',
-                      const Color(0xFFA855F7), const Color(0xFFFAF5FF), 0.75),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.map,
+                      label: 'Heatmap',
+                      color: const Color(0xFF3B82F6),
+                      bgColor: const Color(0xFFEFF6FF),
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const HeatMapScreen()));
+                      },
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Alerts Section
-              Text('Alerts',
-                  style: GoogleFonts.nunito(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E293B))),
-              const SizedBox(height: 12),
-              _buildAlertCard(Icons.warning_amber, 'Low Hydration', '1 hr ago',
-                  const Color(0xFFD97706), const Color(0xFFFEF3C7), 0.66),
-
-              const SizedBox(height: 100),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF2D9C8D),
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white, size: 32),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, 'Home', true),
-              _buildNavItem(Icons.assignment, 'Log', false),
-              const SizedBox(width: 40),
-              _buildNavItem(Icons.location_on, 'Map', false),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfileScreen(),
-                    ),
-                  );
-                },
-                child: _buildNavItem(Icons.person, 'Profile', false),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCheckItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2.0),
-      child: Row(
-        children: [
-          Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                  color: Color(0xFF6366F1), shape: BoxShape.circle)),
-          const SizedBox(width: 6),
-          Text(text,
-              style: GoogleFonts.nunito(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF475569))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVitalCard(IconData icon, String title, String value, Color color,
-      Color bgColor, double progress) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFF8FAFC))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: bgColor, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, color: color, size: 24)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: GoogleFonts.nunito(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF6B7280))),
-                    Text(value,
-                        style: GoogleFonts.nunito(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1E293B))),
-                  ],
+              Text(
+                'Today\'s Summary',
+                style: GoogleFonts.nunito(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1E293B),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // LIVE Summary Rows!
+              _buildSummaryRow(
+                  'Blood Pressure',
+                  bp != null
+                      ? '${bp.value1?.toInt()}/${bp.value2?.toInt()} mmHg'
+                      : '--',
+                  bp?.status ?? 'No Data',
+                  0.6,
+                  const Color(0xFF8B5CF6),
+                  const Color(0xFFF5F3FF)),
+              const SizedBox(height: 12),
+              _buildSummaryRow(
+                  'Symptoms',
+                  symptoms != null
+                      ? '${symptoms.symptoms?.length ?? 0}/5'
+                      : '--',
+                  symptoms?.status ?? 'No Data',
+                  0.4,
+                  const Color(0xFF3B82F6),
+                  const Color(0xFFEFF6FF)),
+              const SizedBox(height: 12),
+              _buildSummaryRow(
+                  'Temperature',
+                  temp != null ? '${temp.value1} °F' : '--',
+                  temp?.status ?? 'No Data',
+                  0.9,
+                  const Color(0xFFEF4444),
+                  const Color(0xFFFEF2F2)),
+
+              const SizedBox(height: 100), // Padding for persistent nav
             ],
           ),
-          Container(
-            height: 4,
-            width: double.infinity,
-            decoration: BoxDecoration(
-                color: bgColor, borderRadius: BorderRadius.circular(2)),
-            child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: progress,
-                child: Container(
-                    decoration: BoxDecoration(
-                        color: color, borderRadius: BorderRadius.circular(2)))),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildAlertCard(IconData icon, String title, String time, Color color,
-      Color bgColor, double progress) {
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String title, String value, String time,
+      double progress, Color color, Color bgColor) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3))),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
       child: Row(
         children: [
           Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 24)),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.show_chart, color: color),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -385,13 +321,24 @@ class LeptospirosisDashboardScreen extends StatelessWidget {
               children: [
                 Text(title,
                     style: GoogleFonts.nunito(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF1E293B))),
                 const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(value,
+                        style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: color)),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Container(
                   height: 4,
-                  width: 60,
+                  width: double.infinity,
                   decoration: BoxDecoration(
                       color: bgColor, borderRadius: BorderRadius.circular(2)),
                   child: FractionallySizedBox(
@@ -414,25 +361,6 @@ class LeptospirosisDashboardScreen extends StatelessWidget {
           const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF), size: 20),
         ],
       ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon,
-            color:
-                isActive ? const Color(0xFF2D9C8D) : const Color(0xFF9CA3AF)),
-        Text(label,
-            style: GoogleFonts.nunito(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isActive
-                    ? const Color(0xFF2D9C8D)
-                    : const Color(0xFF9CA3AF))),
-      ],
     );
   }
 }

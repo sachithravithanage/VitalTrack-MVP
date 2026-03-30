@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+import '../providers/health_data_provider.dart';
+import '../models/health_log.dart';
 
 class TemperatureHistoryScreen extends StatefulWidget {
   const TemperatureHistoryScreen({super.key});
@@ -13,8 +17,6 @@ class TemperatureHistoryScreen extends StatefulWidget {
 class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
   double _currentTemp = 98.6;
   final TextEditingController _notesController = TextEditingController();
-
-  // NEW: State to track if a voice note is recorded for the current entry
   bool _hasRecordedVoice = false;
 
   @override
@@ -24,64 +26,44 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
   }
 
   void _saveEntry() {
-    String formattedTemp = '${_currentTemp.toStringAsFixed(1)}°F';
-    bool isHighFever = _currentTemp >= 100.4;
-    String status = isHighFever ? 'HIGH FEVER' : 'STABLE';
+    final bool isHighFever = _currentTemp >= 100.4;
+    final String status = isHighFever ? 'HIGH FEVER' : 'STABLE';
 
-    final now = DateTime.now();
-    int hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    if (hour > 12) hour -= 12;
-    if (hour == 0) hour = 12;
-    String timeStr = "Today, $hour:$minute $period";
+    // Call the unified provider to push to Firestore
+    context.read<HealthDataProvider>().addEntry(
+          'Temperature',
+          value1: _currentTemp,
+          notes: _notesController.text.trim(),
+          hasVoiceNote: _hasRecordedVoice,
+          status: status,
+        );
 
     setState(() {
-      // NEW: Save the notes and voice note status into the global history!
-      globalTempHistory.insert(
-          0,
-          HealthRecord(
-            formattedTemp,
-            timeStr,
-            status,
-            isHighFever,
-            notes: _notesController.text.trim(),
-            hasVoiceNote: _hasRecordedVoice,
-          ));
-
-      // Clear the form for the next entry
       _notesController.clear();
       _hasRecordedVoice = false;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-          content: Text('Temperature entry saved successfully!'),
-          backgroundColor: Color(0xFF14B8A6)),
+        content: Text('Temperature entry saved successfully!'),
+        backgroundColor: Color(0xFF14B8A6),
+      ),
     );
-  }
-
-  List<double> _getTrendData() {
-    List<double> chartData = List.filled(7, 98.6);
-    if (globalTempHistory.isNotEmpty) {
-      var recentRecords = globalTempHistory.take(7).toList().reversed.toList();
-      int startIndex = 7 - recentRecords.length;
-      for (int i = 0; i < recentRecords.length; i++) {
-        String rawVal = recentRecords[i].value.replaceAll('°F', '').trim();
-        chartData[startIndex + i] = double.tryParse(rawVal) ?? 98.6;
-      }
-      for (int i = 0; i < startIndex; i++) {
-        chartData[i] = chartData[startIndex];
-      }
-    }
-    return chartData;
   }
 
   @override
   Widget build(BuildContext context) {
-    final latestRecord = globalTempHistory.isNotEmpty
-        ? globalTempHistory.first
-        : HealthRecord("--", "No data yet", "NONE", false);
+    // Watch the live data from the unified provider
+    final provider = context.watch<HealthDataProvider>();
+    final latestLog = provider.getLatestLog('Temperature');
+    final history = provider.getLogsByType('Temperature');
+
+    final bool isCurrentlyAlert = latestLog?.status == 'HIGH FEVER';
+    final String currentValue =
+        latestLog != null ? '${latestLog.value1} °F' : '-- °F';
+
+    List<double> chartData = provider.getChartData('Temperature');
+    if (chartData.isEmpty) chartData = [98.6];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -100,7 +82,7 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -129,29 +111,30 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                               color: const Color(0xFF64748B),
                               letterSpacing: 1)),
                       const SizedBox(height: 8),
-                      Text(latestRecord.value,
+                      // Display dynamic value
+                      Text(currentValue,
                           style: GoogleFonts.nunito(
                               fontSize: 36,
                               fontWeight: FontWeight.w900,
                               color: const Color(0xFF0F172A))),
                       const SizedBox(height: 8),
-                      if (globalTempHistory.isNotEmpty)
+                      if (latestLog != null)
                         Row(
                           children: [
                             Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981),
                                     shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text(latestRecord.status,
+                            Text(latestLog.status,
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981))),
                           ],
@@ -198,13 +181,12 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                         thumbColor: Colors.white),
                     child: Slider(
                         value: _currentTemp,
-                        min: 95.0,
-                        max: 105.0,
+                        min: 95,
+                        max: 105,
                         onChanged: (value) =>
                             setState(() => _currentTemp = value)),
                   ),
                   const SizedBox(height: 24),
-
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -225,7 +207,6 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                   const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
                       child: Divider(color: Color(0xFFF1F5F9))),
-
                   TextField(
                     controller: _notesController,
                     maxLines: 3,
@@ -238,8 +219,6 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                             borderSide: BorderSide.none)),
                   ),
                   const SizedBox(height: 16),
-
-                  // NEW: Interactive Voice Note Button Simulator
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -256,8 +235,7 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                               borderRadius: BorderRadius.circular(12))),
                       onPressed: () {
                         setState(() {
-                          _hasRecordedVoice =
-                              !_hasRecordedVoice; // Toggle recording state
+                          _hasRecordedVoice = !_hasRecordedVoice;
                         });
                       },
                       icon: Icon(_hasRecordedVoice ? Icons.mic : Icons.mic_none,
@@ -304,29 +282,16 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                     width: double.infinity,
                     child: CustomPaint(
                       painter: AngularTrendChartPainter(
-                          dataPoints: _getTrendData(),
+                          dataPoints: chartData,
                           lineColor: const Color(0xFFEF4444),
                           fillColor: const Color(0xFFFEF2F2)),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-                        .map((day) {
-                      return Text(day,
-                          style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF94A3B8)));
-                    }).toList(),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
-            // Dynamic Recent History List
             Text('Daily Logs',
                 style: GoogleFonts.nunito(
                     fontSize: 18,
@@ -334,26 +299,29 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
 
-            if (globalTempHistory.isEmpty)
+            if (history.isEmpty)
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.all(20),
                   child: Text(
-                      "No entries yet. Save an entry above to see history.",
+                      'No entries yet. Save an entry above to see history.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.nunito(color: Colors.grey)),
                 ),
               )
             else
-              ...globalTempHistory.map((record) => _buildDailyLogItem(record)),
+              ...history.map((log) => _buildDailyLogItem(log)),
           ],
         ),
       ),
     );
   }
 
-  // NEW: Updated Log Item to display notes and voice note indicators!
-  Widget _buildDailyLogItem(HealthRecord record) {
+  Widget _buildDailyLogItem(HealthLog log) {
+    final bool isAlert = log.status == 'HIGH FEVER';
+    final String formattedTime =
+        DateFormat('MMM d, h:mm a').format(log.timestamp);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -378,12 +346,12 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFFEF2F2)
                             : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(16)),
                     child: Icon(Icons.thermostat,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF10B981)),
                   ),
@@ -391,12 +359,12 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(record.value,
+                      Text('${log.value1}',
                           style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1E293B))),
-                      Text(record.time,
+                      Text(formattedTime,
                           style: GoogleFonts.nunito(
                               fontSize: 12, color: const Color(0xFF64748B))),
                     ],
@@ -407,36 +375,34 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: record.isAlert
+                    color: isAlert
                         ? const Color(0xFFFEE2E2)
                         : const Color(0xFFD1FAE5),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text(record.status,
+                child: Text(log.status,
                     style: GoogleFonts.nunito(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFB91C1C)
                             : const Color(0xFF059669))),
               ),
             ],
           ),
-
-          // NEW: Details Section for Notes and Voice Notes
-          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+          if (log.notes.isNotEmpty || log.hasVoiceNote) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Divider(color: Color(0xFFF1F5F9), height: 1),
             ),
-            if (record.notes.isNotEmpty)
-              Text('Note: "${record.notes}"',
+            if (log.notes.isNotEmpty)
+              Text('Note: "${log.notes}"',
                   style: GoogleFonts.nunito(
                       fontSize: 13,
                       color: const Color(0xFF475569),
                       fontStyle: FontStyle.italic)),
-            if (record.notes.isNotEmpty && record.hasVoiceNote)
+            if (log.notes.isNotEmpty && log.hasVoiceNote)
               const SizedBox(height: 8),
-            if (record.hasVoiceNote)
+            if (log.hasVoiceNote)
               Row(
                 children: [
                   const Icon(Icons.play_circle_fill,
@@ -460,17 +426,18 @@ class _TemperatureHistoryScreenState extends State<TemperatureHistoryScreen> {
 // THE DYNAMIC CHART PAINTER
 // ----------------------------------------------------
 class AngularTrendChartPainter extends CustomPainter {
-  final Color lineColor;
-  final Color fillColor;
-  final List<double> dataPoints;
-
   AngularTrendChartPainter(
       {required this.lineColor,
       required this.fillColor,
       required this.dataPoints});
+  final Color lineColor;
+  final Color fillColor;
+  final List<double> dataPoints;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
+
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
@@ -482,21 +449,23 @@ class AngularTrendChartPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0.0)],
+        colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0)],
       ).createShader(Rect.fromLTRB(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
-    double minTemp = 96.0;
-    double maxTemp = 104.0;
-    double range = maxTemp - minTemp;
+    final double minTemp = 95;
+    final double maxTemp = 105;
+    final double range = maxTemp - minTemp;
 
-    List<Offset> points = [];
+    final List<Offset> points = [];
 
-    for (int i = 0; i < 7; i++) {
-      double x = size.width * (i / 6);
-      double temp = dataPoints[i].clamp(minTemp, maxTemp);
-      double normalizedY = 1.0 - ((temp - minTemp) / range);
-      double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
+    final int count = dataPoints.length;
+    for (int i = 0; i < count; i++) {
+      final double x =
+          count == 1 ? size.width / 2 : size.width * (i / (count - 1));
+      final double temp = dataPoints[i].clamp(minTemp, maxTemp);
+      final double normalizedY = 1.0 - ((temp - minTemp) / range);
+      final double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
       points.add(Offset(x, y));
     }
 
@@ -506,12 +475,14 @@ class AngularTrendChartPainter extends CustomPainter {
       path.lineTo(points[i].dx, points[i].dy);
     }
 
-    final fillPath = Path.from(path);
-    fillPath.lineTo(size.width, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
+    if (count > 1) {
+      final fillPath = Path.from(path);
+      fillPath.lineTo(size.width, size.height);
+      fillPath.lineTo(0, size.height);
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+    }
 
-    canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
     final dotPaint = Paint()

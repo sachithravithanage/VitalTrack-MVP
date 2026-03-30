@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+import '../providers/health_data_provider.dart';
+import '../models/health_log.dart';
 
 class BloodPressureHistoryScreen extends StatefulWidget {
   const BloodPressureHistoryScreen({super.key});
@@ -12,8 +16,8 @@ class BloodPressureHistoryScreen extends StatefulWidget {
 
 class _BloodPressureHistoryScreenState
     extends State<BloodPressureHistoryScreen> {
-  double _systolic = 120.0;
-  double _diastolic = 80.0;
+  double _systolic = 120;
+  double _diastolic = 80;
   final TextEditingController _notesController = TextEditingController();
   bool _hasRecordedVoice = false;
 
@@ -24,32 +28,20 @@ class _BloodPressureHistoryScreenState
   }
 
   void _saveEntry() {
-    String formattedVal = '${_systolic.toInt()}/${_diastolic.toInt()} mmHg';
+    final bool isElevated = _systolic > 120 || _diastolic > 80;
+    final String status = isElevated ? 'Elevated' : 'Normal';
 
-    // BP Logic (High if Sys > 130 or Dia > 85)
-    bool isAlert = _systolic > 130 || _diastolic > 85;
-    String status = isAlert ? 'ELEVATED' : 'NORMAL';
-
-    final now = DateTime.now();
-    int hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    if (hour > 12) hour -= 12;
-    if (hour == 0) hour = 12;
-    String timeStr = "Today, $hour:$minute $period";
+    // Save directly to Firestore using our unified HealthDataProvider
+    context.read<HealthDataProvider>().addEntry(
+          'Blood Pressure',
+          value1: _systolic,
+          value2: _diastolic,
+          notes: _notesController.text.trim(),
+          status: status,
+          hasVoiceNote: _hasRecordedVoice,
+        );
 
     setState(() {
-      globalBPHistory.insert(
-          0,
-          HealthRecord(
-            formattedVal,
-            timeStr,
-            status,
-            isAlert,
-            notes: _notesController.text.trim(),
-            hasVoiceNote: _hasRecordedVoice,
-          ));
-
       _notesController.clear();
       _hasRecordedVoice = false;
     });
@@ -61,36 +53,27 @@ class _BloodPressureHistoryScreenState
     );
   }
 
-  // Returns two lists: [systolicData, diastolicData]
-  List<List<double>> _getDualTrendData() {
-    List<double> sysData = List.filled(7, 120.0);
-    List<double> diaData = List.filled(7, 80.0);
-
-    if (globalBPHistory.isNotEmpty) {
-      var recentRecords = globalBPHistory.take(7).toList().reversed.toList();
-      int startIndex = 7 - recentRecords.length;
-      for (int i = 0; i < recentRecords.length; i++) {
-        // Parse "120/80 mmHg"
-        String rawVal = recentRecords[i].value.replaceAll(' mmHg', '').trim();
-        List<String> parts = rawVal.split('/');
-        if (parts.length == 2) {
-          sysData[startIndex + i] = double.tryParse(parts[0]) ?? 120.0;
-          diaData[startIndex + i] = double.tryParse(parts[1]) ?? 80.0;
-        }
-      }
-      for (int i = 0; i < startIndex; i++) {
-        sysData[i] = sysData[startIndex];
-        diaData[i] = diaData[startIndex];
-      }
-    }
-    return [sysData, diaData];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final latestRecord = globalBPHistory.isNotEmpty
-        ? globalBPHistory.first
-        : HealthRecord("--/--", "No data yet", "NONE", false);
+    // Watch live data from our new unified provider
+    final provider = context.watch<HealthDataProvider>();
+    final latestLog = provider.getLatestLog('Blood Pressure');
+    final history = provider.getLogsByType('Blood Pressure');
+
+    final bool isCurrentlyAlert = latestLog?.status == 'Elevated';
+
+    // Format the current value string
+    final String currentValue = latestLog != null
+        ? '${latestLog.value1?.toInt()}/${latestLog.value2?.toInt()}'
+        : '--/--';
+
+    // Prepare chart data using the helper methods
+    List<double> sysData = provider.getChartData('Blood Pressure');
+    if (sysData.isEmpty) sysData = [120.0];
+
+    List<double> diaData =
+        provider.getChartData('Blood Pressure', isSecondary: true);
+    if (diaData.isEmpty) diaData = [80.0];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -109,7 +92,7 @@ class _BloodPressureHistoryScreenState
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -142,12 +125,12 @@ class _BloodPressureHistoryScreenState
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text(latestRecord.value.replaceAll(' mmHg', ''),
+                          Text(currentValue,
                               style: GoogleFonts.nunito(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w900,
                                   color: const Color(0xFFEA580C))),
-                          if (latestRecord.value != "--/--")
+                          if (currentValue != '--/--')
                             Text(' mmHg',
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
@@ -156,23 +139,23 @@ class _BloodPressureHistoryScreenState
                         ],
                       ),
                       const SizedBox(height: 8),
-                      if (globalBPHistory.isNotEmpty)
+                      if (latestLog != null)
                         Row(
                           children: [
                             Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981),
                                     shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text(latestRecord.status,
+                            Text(latestLog.status.toUpperCase(),
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981))),
                           ],
@@ -235,8 +218,8 @@ class _BloodPressureHistoryScreenState
                         thumbColor: Colors.white),
                     child: Slider(
                         value: _systolic,
-                        min: 80.0,
-                        max: 200.0,
+                        min: 80,
+                        max: 200,
                         onChanged: (value) =>
                             setState(() => _systolic = value)),
                   ),
@@ -265,8 +248,8 @@ class _BloodPressureHistoryScreenState
                         thumbColor: Colors.white),
                     child: Slider(
                         value: _diastolic,
-                        min: 50.0,
-                        max: 130.0,
+                        min: 50,
+                        max: 130,
                         onChanged: (value) =>
                             setState(() => _diastolic = value)),
                   ),
@@ -397,7 +380,7 @@ class _BloodPressureHistoryScreenState
                     width: double.infinity,
                     child: CustomPaint(
                       painter: DualLineChartPainter(
-                        dataPoints: _getDualTrendData(),
+                        dataPoints: [sysData, diaData],
                       ),
                     ),
                   ),
@@ -425,21 +408,26 @@ class _BloodPressureHistoryScreenState
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
 
-            if (globalBPHistory.isEmpty)
+            if (history.isEmpty)
               Center(
                   child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text("No entries yet.",
+                      padding: const EdgeInsets.all(20),
+                      child: Text('No entries yet.',
                           style: GoogleFonts.nunito(color: Colors.grey))))
             else
-              ...globalBPHistory.map((record) => _buildDailyLogItem(record)),
+              ...history.map((log) => _buildDailyLogItem(log)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDailyLogItem(HealthRecord record) {
+  Widget _buildDailyLogItem(HealthLog log) {
+    final bool isAlert = log.status == 'Elevated';
+    final String formattedTime =
+        DateFormat('MMM d, h:mm a').format(log.timestamp);
+    final String valueText = '${log.value1?.toInt()}/${log.value2?.toInt()}';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -464,25 +452,20 @@ class _BloodPressureHistoryScreenState
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                        color: record.isAlert
-                            ? const Color(0xFFFEF2F2)
-                            : const Color(0xFFFEF2F2),
+                        color: const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(16)),
-                    child: Icon(Icons.favorite,
-                        color: record.isAlert
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFFEF4444)),
+                    child: const Icon(Icons.favorite, color: Color(0xFFEF4444)),
                   ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(record.value,
+                      Text(valueText,
                           style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1E293B))),
-                      Text(record.time,
+                      Text(formattedTime,
                           style: GoogleFonts.nunito(
                               fontSize: 12, color: const Color(0xFF64748B))),
                     ],
@@ -493,33 +476,33 @@ class _BloodPressureHistoryScreenState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: record.isAlert
+                    color: isAlert
                         ? const Color(0xFFFEE2E2)
                         : const Color(0xFFD1FAE5),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text(record.status,
+                child: Text(log.status.toUpperCase(),
                     style: GoogleFonts.nunito(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFB91C1C)
                             : const Color(0xFF059669))),
               ),
             ],
           ),
-          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+          if (log.notes.isNotEmpty || log.hasVoiceNote) ...[
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Divider(color: Color(0xFFF1F5F9), height: 1)),
-            if (record.notes.isNotEmpty)
-              Text('Note: "${record.notes}"',
+            if (log.notes.isNotEmpty)
+              Text('Note: "${log.notes}"',
                   style: GoogleFonts.nunito(
                       fontSize: 13,
                       color: const Color(0xFF475569),
                       fontStyle: FontStyle.italic)),
-            if (record.notes.isNotEmpty && record.hasVoiceNote)
+            if (log.notes.isNotEmpty && log.hasVoiceNote)
               const SizedBox(height: 8),
-            if (record.hasVoiceNote)
+            if (log.hasVoiceNote)
               Row(children: [
                 const Icon(Icons.play_circle_fill,
                     size: 16, color: Color(0xFF14B8A6)),
@@ -538,47 +521,51 @@ class _BloodPressureHistoryScreenState
 }
 
 // ----------------------------------------------------
-// THE NEW DUAL LINE CHART PAINTER
+// THE DUAL LINE CHART PAINTER
 // ----------------------------------------------------
 class DualLineChartPainter extends CustomPainter {
-  final List<List<double>> dataPoints; // [sysData, diaData]
-
   DualLineChartPainter({required this.dataPoints});
+  final List<List<double>> dataPoints;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (dataPoints.isEmpty || dataPoints[0].isEmpty) return;
+    if (dataPoints.isEmpty || dataPoints[0].isEmpty || dataPoints[1].isEmpty) {
+      return;
+    }
 
-    double minY = 40.0;
-    double maxY = 220.0;
-    double range = maxY - minY;
+    final double minY = 40;
+    final double maxY = 220;
+    final double range = maxY - minY;
 
-    List<Offset> sysPoints = [];
-    List<Offset> diaPoints = [];
+    final List<Offset> sysPoints = [];
+    final List<Offset> diaPoints = [];
 
-    // Calculate Coordinates
-    for (int i = 0; i < 7; i++) {
-      double x = size.width * (i / 6);
+    final int count = dataPoints[0].length;
 
-      double sysVal = dataPoints[0][i].clamp(minY, maxY);
-      double sysY = size.height * 0.1 +
+    for (int i = 0; i < count; i++) {
+      final double x =
+          count == 1 ? size.width / 2 : size.width * (i / (count - 1));
+
+      final double sysVal = dataPoints[0][i].clamp(minY, maxY);
+      final double sysY = size.height * 0.1 +
           (size.height * 0.8 * (1.0 - ((sysVal - minY) / range)));
       sysPoints.add(Offset(x, sysY));
 
-      double diaVal = dataPoints[1][i].clamp(minY, maxY);
-      double diaY = size.height * 0.1 +
+      final double diaVal =
+          (i < dataPoints[1].length) ? dataPoints[1][i].clamp(minY, maxY) : 80;
+      final double diaY = size.height * 0.1 +
           (size.height * 0.8 * (1.0 - ((diaVal - minY) / range)));
       diaPoints.add(Offset(x, diaY));
     }
 
-    _drawLine(canvas, size, sysPoints,
-        const Color(0xFFEA580C)); // Orange for Systolic
-    _drawLine(canvas, size, diaPoints,
-        const Color(0xFFFBBF24)); // Yellow for Diastolic
+    _drawLine(canvas, size, sysPoints, const Color(0xFFEA580C));
+    _drawLine(canvas, size, diaPoints, const Color(0xFFFBBF24));
   }
 
   void _drawLine(
       Canvas canvas, Size size, List<Offset> points, Color lineColor) {
+    if (points.isEmpty) return;
+
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
@@ -594,7 +581,6 @@ class DualLineChartPainter extends CustomPainter {
 
     canvas.drawPath(path, paint);
 
-    // Draw dots
     final dotPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;

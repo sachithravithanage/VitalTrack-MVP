@@ -137,7 +137,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       required String description,
       required IconData icon}) {
     return Padding(
-      padding: const EdgeInsets.all(40.0),
+      padding: const EdgeInsets.all(40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

@@ -1,94 +1,119 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'onboarding_screen.dart'; // We will create this next
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SplashScreen extends StatelessWidget {
+import 'onboarding_screen.dart';
+import 'main_layout.dart'; // CHANGED: We now import MainLayout instead of the dashboard
+import 'complete_profile_screen.dart';
+
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthentication();
+  }
+
+  Future<void> _checkAuthentication() async {
+    // Show splash screen logo for at least 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
+
+    User? currentUser = FirebaseAuth.instance.currentUser;
+
+    if (!mounted) return;
+
+    if (currentUser == null) {
+      // Not logged in -> Go to Onboarding
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+      );
+    } else {
+      // Logged in! Let's check if they have a Firestore profile yet
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (!mounted) return;
+
+        if (userDoc.exists) {
+          // Profile exists! Route directly to the MainLayout (which holds the Bottom Nav Bar).
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    const MainLayout()), // CHANGED: Route to MainLayout
+          );
+        } else {
+          // They signed up with Firebase Auth, but didn't finish the profile setup
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const CompleteProfileScreen()),
+          );
+        }
+      } catch (e) {
+        // Fallback if network fails
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F9F9), // Light hex background color
-      body: SafeArea(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF20B5A0), Color(0xFF147B85)],
+          ),
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Spacer(),
-            // New Unified App Logo
             Container(
-              width: 100,
-              height: 100,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF20B5A0),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(
-                Icons.favorite,
-                size: 50,
                 color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
+              child: const Icon(Icons.favorite,
+                  color: Color(0xFF20B5A0), size: 48),
             ),
-            const SizedBox(height: 20),
-            // Title
-            Text(
+            const SizedBox(height: 24),
+            const Text(
               'VitalTrack',
-              style: GoogleFonts.nunito(
-                fontSize: 40,
+              style: TextStyle(
+                fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF1A2A3A),
+                color: Colors.white,
+                letterSpacing: 1.2,
               ),
             ),
-            const SizedBox(height: 8),
-            // Subtitle
-            Text(
-              'SMART HEALTH MONITORING',
-              style: GoogleFonts.nunito(
-                fontSize: 14,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const Spacer(),
-            // Get Started Button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF20B5A0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const OnboardingScreen(),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Get Started',
-                        style: GoogleFonts.nunito(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, color: Colors.white),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(color: Colors.white),
           ],
         ),
       ),

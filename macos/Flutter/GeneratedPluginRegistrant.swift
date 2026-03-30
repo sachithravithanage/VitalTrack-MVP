@@ -5,8 +5,14 @@
 import FlutterMacOS
 import Foundation
 
-import google_sign_in_ios
+import cloud_firestore
+import firebase_auth
+import firebase_core
+import printing
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  FLTGoogleSignInPlugin.register(with: registry.registrar(forPlugin: "FLTGoogleSignInPlugin"))
+  FLTFirebaseFirestorePlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseFirestorePlugin"))
+  FLTFirebaseAuthPlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseAuthPlugin"))
+  FLTFirebaseCorePlugin.register(with: registry.registrar(forPlugin: "FLTFirebaseCorePlugin"))
+  PrintingPlugin.register(with: registry.registrar(forPlugin: "PrintingPlugin"))
 }

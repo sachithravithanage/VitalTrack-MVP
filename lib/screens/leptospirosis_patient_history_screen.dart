@@ -1,267 +1,169 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
 
-import 'lepto_temperature_history_screen.dart';
+import '../providers/health_data_provider.dart';
+import '../providers/patient_provider.dart';
+import '../models/health_log.dart';
+import 'temperature_history_screen.dart';
 import 'blood_pressure_history_screen.dart';
-import 'lepto_urine_output_history_screen.dart';
+import 'urine_output_history_screen.dart';
 import 'symptoms_history_screen.dart';
 
-class LeptospirosisPatientHistoryScreen extends StatefulWidget {
-  final String patientName;
-  final String patientId;
+class LeptospirosisPatientHistoryScreen extends StatelessWidget {
+  const LeptospirosisPatientHistoryScreen({super.key});
 
-  const LeptospirosisPatientHistoryScreen({
-    super.key,
-    this.patientName = 'Saman Kumara',
-    this.patientId = '4459102',
-  });
-
-  @override
-  State<LeptospirosisPatientHistoryScreen> createState() =>
-      _LeptospirosisPatientHistoryScreenState();
-}
-
-class _LeptospirosisPatientHistoryScreenState
-    extends State<LeptospirosisPatientHistoryScreen> {
   @override
   Widget build(BuildContext context) {
-    // NEW: Pulling from the separated Lepto lists!
-    final latestTemp = globalLeptoTempHistory.isNotEmpty
-        ? globalLeptoTempHistory.first
-        : HealthRecord("--", "", "", false);
-    final latestUrine = globalLeptoUrineHistory.isNotEmpty
-        ? globalLeptoUrineHistory.first
-        : HealthRecord("--", "", "", false);
-    final latestBP = globalBPHistory.isNotEmpty
-        ? globalBPHistory.first
-        : HealthRecord("--/--", "", "", false);
-    final latestSymptoms = globalSymptomsHistory.isNotEmpty
-        ? globalSymptomsHistory.first
-        : HealthRecord("0 Logged", "", "", false);
+    final healthProvider = context.watch<HealthDataProvider>();
+    final patientProvider = context.watch<PatientProvider>();
+
+    final activePatient = patientProvider.activePatient;
+    final patientName = activePatient?.fullName ?? 'Loading...';
+    final patientId = activePatient?.uid.substring(0, 8).toUpperCase() ?? '...';
+
+    final HealthLog? tempLog = healthProvider.getLatestLog('Temperature');
+    final HealthLog? bpLog = healthProvider.getLatestLog('Blood Pressure');
+    final HealthLog? urineLog = healthProvider.getLatestLog('Urine Output');
+    final HealthLog? sympLog = healthProvider.getLatestLog('Symptoms');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Color(0xFF475569), size: 18),
-          onPressed: () => Navigator.pop(context),
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  color: Color(0xFF1E293B), size: 18),
+              onPressed: () => Navigator.pop(context)),
+          title: Text('Leptospirosis Monitor',
+              style: GoogleFonts.nunito(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1E293B))),
+          centerTitle: true,
         ),
-        title: Row(
-          children: [
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Color(0xFFFEF3C7),
-                  child: Icon(Icons.person, color: Color(0xFFF59E0B)),
-                ),
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.patientName,
-                  style: GoogleFonts.nunito(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E293B)),
-                ),
-                Row(
-                  children: [
-                    Text('ID: ${widget.patientId}',
-                        style: GoogleFonts.nunito(
-                            fontSize: 12, color: const Color(0xFF64748B))),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFCCFBF1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text('ACTIVE',
-                          style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0D9488))),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Diagnosis Banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFFEDD5))),
-              child: Row(
+        body: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFF97316),
-                        borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.warning_amber_rounded,
-                        color: Colors.white),
+                    width: 60,
+                    height: 60,
+                    decoration: const BoxDecoration(
+                        color: Color(0xFFE2E8F0), shape: BoxShape.circle),
+                    child: const Icon(Icons.person,
+                        color: Color(0xFF64748B), size: 30),
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('CURRENT CONDITION',
-                          style: GoogleFonts.nunito(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFEA580C),
-                              letterSpacing: 1)),
-                      Text('DIAGNOSIS: LEPTOSPIROSIS',
-                          style: GoogleFonts.nunito(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFFC2410C))),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(patientName,
+                            style: GoogleFonts.nunito(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0F172A))),
+                        Text('Patient ID: $patientId',
+                            style: GoogleFonts.nunito(
+                                fontSize: 14,
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildVitalCard(
-                    title: 'Temperature',
-                    value: latestTemp.value,
-                    statusText: latestTemp.status,
-                    statusColor: latestTemp.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981),
-                    icon: Icons.thermostat,
-                    iconColor: const Color(0xFFF59E0B),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const LeptoTemperatureHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildVitalCard(
+              const SizedBox(height: 32),
+              Text('Vital Signs',
+                  style: GoogleFonts.nunito(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B))),
+              const SizedBox(height: 16),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+                children: [
+                  _buildMetricCard(
+                    context: context,
                     title: 'Blood Pressure',
-                    value: latestBP.value
-                        .replaceAll(' mmHg', ''), // Clean up for the card view
-                    statusText: latestBP.status,
-                    statusColor: latestBP.isAlert
+                    value: bpLog != null
+                        ? '${bpLog.value1?.toInt()}/${bpLog.value2?.toInt()}'
+                        : '--/--',
+                    statusText: bpLog?.status ?? 'No Data',
+                    icon: Icons.favorite,
+                    iconColor: const Color(0xFFEF4444),
+                    statusColor: (bpLog?.status == 'Elevated')
                         ? const Color(0xFFEF4444)
                         : const Color(0xFF10B981),
-                    icon: Icons.monitor_heart,
-                    iconColor: const Color(0xFFEA580C),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const BloodPressureHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
+                    targetScreen: const BloodPressureHistoryScreen(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildVitalCard(
-                    title: 'Urine Output',
-                    value: latestUrine.value,
-                    statusText: latestUrine.status,
-                    statusColor: latestUrine.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF10B981),
-                    icon: Icons.science_outlined,
-                    iconColor: const Color(0xFF14B8A6),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const LeptoUrineOutputHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildVitalCard(
+                  _buildMetricCard(
+                    context: context,
                     title: 'Symptoms',
-                    value: latestSymptoms.value
-                        .replaceAll(' Symptoms', '')
-                        .replaceAll(' Symptom', ''), // Just show the number
-                    statusText: latestSymptoms.status,
-                    statusColor: latestSymptoms.isAlert
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFFF59E0B),
+                    value: sympLog != null
+                        ? '${sympLog.value1?.toInt()}/6'
+                        : '--/6',
+                    statusText: sympLog?.status ?? 'No Data',
                     icon: Icons.sick,
                     iconColor: const Color(0xFFF59E0B),
-                    onTap: () {
-                      Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      const SymptomsHistoryScreen()))
-                          .then((_) => setState(() {}));
-                    },
+                    statusColor: (sympLog?.status == 'EVALUATE')
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFFF59E0B),
+                    targetScreen: const SymptomsHistoryScreen(),
                   ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+                  _buildMetricCard(
+                    context: context,
+                    title: 'Urine Output',
+                    value: urineLog != null
+                        ? '${urineLog.value1?.toInt()}ml'
+                        : '--ml',
+                    statusText: urineLog?.status ?? 'No Data',
+                    icon: Icons.water_drop,
+                    iconColor: const Color(0xFF06B6D4),
+                    statusColor: (urineLog?.status == 'LOW OUTPUT')
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF10B981),
+                    targetScreen: const UrineOutputHistoryScreen(),
+                  ),
+                  _buildMetricCard(
+                    context: context,
+                    title: 'Temperature',
+                    value: tempLog != null ? '${tempLog.value1}°F' : '--°F',
+                    statusText: tempLog?.status ?? 'No Data',
+                    icon: Icons.thermostat,
+                    iconColor: const Color(0xFFEA580C),
+                    statusColor: (tempLog?.status == 'HIGH FEVER')
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF10B981),
+                    targetScreen: const TemperatureHistoryScreen(),
+                  ),
+                ],
+              ),
+            ])));
   }
 
-  Widget _buildVitalCard({
+  Widget _buildMetricCard({
+    required BuildContext context,
     required String title,
     required String value,
     required String statusText,
-    required Color statusColor,
     required IconData icon,
     required Color iconColor,
-    required VoidCallback onTap,
+    required Color statusColor,
+    required Widget targetScreen,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (context) => targetScreen)),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

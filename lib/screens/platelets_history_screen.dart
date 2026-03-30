@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../globals.dart';
+
+import '../providers/health_data_provider.dart';
+import '../models/health_log.dart';
 
 class PlateletsHistoryScreen extends StatefulWidget {
   const PlateletsHistoryScreen({super.key});
@@ -11,7 +14,7 @@ class PlateletsHistoryScreen extends StatefulWidget {
 }
 
 class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
-  double _currentPlatelets = 145000.0;
+  double _currentPlatelets = 145000;
   final TextEditingController _notesController = TextEditingController();
   bool _hasRecordedVoice = false;
 
@@ -22,71 +25,41 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
   }
 
   void _saveEntry() {
-    // Format value with commas (e.g. 145,000)
-    final formatCurrency = NumberFormat("#,##0", "en_US");
-    String formattedVal = '${formatCurrency.format(_currentPlatelets)} /µL';
+    final bool isAlert = _currentPlatelets < 100000;
+    final String status = isAlert ? 'LOW / ALERT' : 'STABLE';
 
-    // Dengue Platelet logic
-    bool isAlert = _currentPlatelets < 100000;
-    String status = isAlert ? 'LOW / ALERT' : 'STABLE';
-
-    final now = DateTime.now();
-    int hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    if (hour > 12) hour -= 12;
-    if (hour == 0) hour = 12;
-    String timeStr = "Today, $hour:$minute $period";
+    context.read<HealthDataProvider>().addEntry(
+          'Platelets',
+          value1: _currentPlatelets,
+          notes: _notesController.text.trim(),
+          hasVoiceNote: _hasRecordedVoice,
+          status: status,
+        );
 
     setState(() {
-      globalPlateletHistory.insert(
-          0,
-          HealthRecord(
-            formattedVal,
-            timeStr,
-            status,
-            isAlert,
-            notes: _notesController.text.trim(),
-            hasVoiceNote: _hasRecordedVoice,
-          ));
-
       _notesController.clear();
       _hasRecordedVoice = false;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-          content: Text('Platelet count saved successfully!'),
+          content: Text('Platelet count saved!'),
           backgroundColor: Color(0xFF14B8A6)),
     );
   }
 
-  List<double> _getTrendData() {
-    List<double> chartData = List.filled(7, 150000.0);
-    if (globalPlateletHistory.isNotEmpty) {
-      var recentRecords =
-          globalPlateletHistory.take(7).toList().reversed.toList();
-      int startIndex = 7 - recentRecords.length;
-      for (int i = 0; i < recentRecords.length; i++) {
-        String rawVal = recentRecords[i]
-            .value
-            .replaceAll('/µL', '')
-            .replaceAll(',', '')
-            .trim();
-        chartData[startIndex + i] = double.tryParse(rawVal) ?? 150000.0;
-      }
-      for (int i = 0; i < startIndex; i++) {
-        chartData[i] = chartData[startIndex];
-      }
-    }
-    return chartData;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final latestRecord = globalPlateletHistory.isNotEmpty
-        ? globalPlateletHistory.first
-        : HealthRecord("--", "No data yet", "NONE", false);
+    final provider = context.watch<HealthDataProvider>();
+    final latestLog = provider.getLatestLog('Platelets');
+    final history = provider.getLogsByType('Platelets');
+
+    final bool isCurrentlyAlert = latestLog?.status == 'LOW / ALERT';
+    final String currentValue =
+        latestLog != null ? '${latestLog.value1?.toInt()}' : '--';
+
+    List<double> chartData = provider.getChartData('Platelets');
+    if (chartData.isEmpty) chartData = [145000.0];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -105,7 +78,7 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -138,12 +111,12 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text(latestRecord.value.replaceAll(' /µL', ''),
+                          Text(currentValue,
                               style: GoogleFonts.nunito(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w900,
                                   color: const Color(0xFF0F172A))),
-                          if (latestRecord.value != "--")
+                          if (currentValue != '--')
                             Text(' /µL',
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
@@ -152,23 +125,23 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      if (globalPlateletHistory.isNotEmpty)
+                      if (latestLog != null)
                         Row(
                           children: [
                             Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981),
                                     shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text(latestRecord.status,
+                            Text(latestLog.status,
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981))),
                           ],
@@ -209,12 +182,11 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF0F172A))),
-                      Text(
-                          '${NumberFormat("#,##0", "en_US").format(_currentPlatelets)} /µL',
+                      Text('${_currentPlatelets.toInt()}',
                           style: GoogleFonts.nunito(
-                              fontSize: 18,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFFDC2626))),
+                              color: const Color(0xFFEF4444))),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -225,14 +197,12 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                         thumbColor: Colors.white),
                     child: Slider(
                         value: _currentPlatelets,
-                        min: 0.0,
-                        max: 500000.0,
-                        divisions: 500,
+                        min: 0,
+                        max: 400000,
                         onChanged: (value) =>
                             setState(() => _currentPlatelets = value)),
                   ),
                   const SizedBox(height: 24),
-
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -253,7 +223,6 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                   const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
                       child: Divider(color: Color(0xFFF1F5F9))),
-
                   TextField(
                     controller: _notesController,
                     maxLines: 3,
@@ -266,8 +235,6 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                             borderSide: BorderSide.none)),
                   ),
                   const SizedBox(height: 16),
-
-                  // Voice Note Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -327,24 +294,11 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                     height: 150,
                     width: double.infinity,
                     child: CustomPaint(
-                      painter: AngularTrendChartPainter(
-                          dataPoints: _getTrendData(),
-                          minY: 0.0,
-                          maxY: 500000.0,
+                      painter: DynamicTrendChartPainter(
+                          dataPoints: chartData,
                           lineColor: const Color(0xFFEF4444),
                           fillColor: const Color(0xFFFEF2F2)),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-                        .map((day) => Text(day,
-                            style: GoogleFonts.nunito(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF94A3B8))))
-                        .toList(),
                   ),
                 ],
               ),
@@ -352,29 +306,33 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
             const SizedBox(height: 24),
 
             // Logs
-            Text('Daily Logs',
+            Text('Recent History',
                 style: GoogleFonts.nunito(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
 
-            if (globalPlateletHistory.isEmpty)
+            if (history.isEmpty)
               Center(
                   child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text("No entries yet.",
+                      padding: const EdgeInsets.all(20),
+                      child: Text('No entries yet.',
                           style: GoogleFonts.nunito(color: Colors.grey))))
             else
-              ...globalPlateletHistory
-                  .map((record) => _buildDailyLogItem(record)),
+              ...history.map((log) => _buildDailyLogItem(log)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDailyLogItem(HealthRecord record) {
+  // RESTORED: Includes the full design for notes and voice notes!
+  Widget _buildDailyLogItem(HealthLog log) {
+    final bool isAlert = log.status == 'LOW / ALERT';
+    final String formattedTime =
+        DateFormat('MMM d, h:mm a').format(log.timestamp);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -399,25 +357,21 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                        color: record.isAlert
-                            ? const Color(0xFFFEF2F2)
-                            : const Color(0xFFF0FDF4),
+                        color: const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(16)),
-                    child: Icon(Icons.bloodtype,
-                        color: record.isAlert
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF10B981)),
+                    child:
+                        const Icon(Icons.bloodtype, color: Color(0xFFEF4444)),
                   ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(record.value,
+                      Text('${log.value1?.toInt() ?? 0}',
                           style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1E293B))),
-                      Text(record.time,
+                      Text(formattedTime,
                           style: GoogleFonts.nunito(
                               fontSize: 12, color: const Color(0xFF64748B))),
                     ],
@@ -428,43 +382,46 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: record.isAlert
+                    color: isAlert
                         ? const Color(0xFFFEE2E2)
                         : const Color(0xFFD1FAE5),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text(record.status,
+                child: Text(log.status,
                     style: GoogleFonts.nunito(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFB91C1C)
                             : const Color(0xFF059669))),
               ),
             ],
           ),
-          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+          if (log.notes.isNotEmpty || log.hasVoiceNote) ...[
             const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Divider(color: Color(0xFFF1F5F9), height: 1)),
-            if (record.notes.isNotEmpty)
-              Text('Note: "${record.notes}"',
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(color: Color(0xFFF1F5F9), height: 1),
+            ),
+            if (log.notes.isNotEmpty)
+              Text('Note: "${log.notes}"',
                   style: GoogleFonts.nunito(
                       fontSize: 13,
                       color: const Color(0xFF475569),
                       fontStyle: FontStyle.italic)),
-            if (record.notes.isNotEmpty && record.hasVoiceNote)
+            if (log.notes.isNotEmpty && log.hasVoiceNote)
               const SizedBox(height: 8),
-            if (record.hasVoiceNote)
-              Row(children: [
-                const Icon(Icons.play_circle_fill,
-                    size: 16, color: Color(0xFF14B8A6)),
-                const SizedBox(width: 6),
-                Text('Voice note attached',
-                    style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF14B8A6)))
-              ]),
+            if (log.hasVoiceNote)
+              Row(
+                children: [
+                  const Icon(Icons.play_circle_fill,
+                      size: 16, color: Color(0xFF14B8A6)),
+                  const SizedBox(width: 6),
+                  Text('Voice note attached',
+                      style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF14B8A6))),
+                ],
+              ),
           ]
         ],
       ),
@@ -472,58 +429,71 @@ class _PlateletsHistoryScreenState extends State<PlateletsHistoryScreen> {
   }
 }
 
-class AngularTrendChartPainter extends CustomPainter {
+// ----------------------------------------------------
+// THE UNIVERSAL DYNAMIC CHART PAINTER
+// ----------------------------------------------------
+class DynamicTrendChartPainter extends CustomPainter {
+  DynamicTrendChartPainter({
+    required this.lineColor,
+    required this.fillColor,
+    required this.dataPoints,
+  });
+
   final Color lineColor;
   final Color fillColor;
   final List<double> dataPoints;
-  final double minY;
-  final double maxY;
-
-  AngularTrendChartPainter(
-      {required this.lineColor,
-      required this.fillColor,
-      required this.dataPoints,
-      required this.minY,
-      required this.maxY});
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
+
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
+
     final fillPaint = Paint()
       ..shader = LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0.0)])
-          .createShader(Rect.fromLTRB(0, 0, size.width, size.height))
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0)],
+      ).createShader(Rect.fromLTRB(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
-    double range = maxY - minY;
-    List<Offset> points = [];
+    double minVal = dataPoints.reduce((a, b) => a < b ? a : b);
+    double maxVal = dataPoints.reduce((a, b) => a > b ? a : b);
+    final double padding = (maxVal - minVal) == 0 ? 1 : (maxVal - minVal) * 0.1;
+    minVal -= padding;
+    maxVal += padding;
+    final double range = maxVal - minVal == 0 ? 1 : maxVal - minVal;
 
-    for (int i = 0; i < 7; i++) {
-      double x = size.width * (i / 6);
-      double val = dataPoints[i].clamp(minY, maxY);
-      double normalizedY = 1.0 - ((val - minY) / range);
-      double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
+    final List<Offset> points = [];
+    final int count = dataPoints.length;
+
+    for (int i = 0; i < count; i++) {
+      final double x =
+          count == 1 ? size.width / 2 : size.width * (i / (count - 1));
+      final double normalizedY = 1.0 - ((dataPoints[i] - minVal) / range);
+      final double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
       points.add(Offset(x, y));
     }
 
     final path = Path();
     path.moveTo(points[0].dx, points[0].dy);
-    for (int i = 1; i < points.length; i++)
+    for (int i = 1; i < points.length; i++) {
       path.lineTo(points[i].dx, points[i].dy);
+    }
 
-    final fillPath = Path.from(path);
-    fillPath.lineTo(size.width, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
+    if (count > 1) {
+      final fillPath = Path.from(path);
+      fillPath.lineTo(size.width, size.height);
+      fillPath.lineTo(0, size.height);
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+    }
 
-    canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
     final dotPaint = Paint()

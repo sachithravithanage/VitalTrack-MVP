@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+import '../providers/lepto_health_data_provider.dart';
 
 class LeptoUrineOutputHistoryScreen extends StatefulWidget {
   const LeptoUrineOutputHistoryScreen({super.key});
@@ -12,7 +13,7 @@ class LeptoUrineOutputHistoryScreen extends StatefulWidget {
 
 class _LeptoUrineOutputHistoryScreenState
     extends State<LeptoUrineOutputHistoryScreen> {
-  double _currentOutput = 400.0;
+  double _currentOutput = 400;
   final TextEditingController _notesController = TextEditingController();
   bool _hasRecordedVoice = false;
 
@@ -23,33 +24,16 @@ class _LeptoUrineOutputHistoryScreenState
   }
 
   void _saveEntry() {
-    String formattedVal = '${_currentOutput.toInt()} ml';
-
-    // Simple logic: under 300ml might be a warning sign of dehydration
-    bool isAlert = _currentOutput < 300;
-    String status = isAlert ? 'LOW OUTPUT' : 'NORMAL';
-
-    final now = DateTime.now();
-    int hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    if (hour > 12) hour -= 12;
-    if (hour == 0) hour = 12;
-    String timeStr = "Today, $hour:$minute $period";
+    // Saves directly to Firebase using the Lepto Provider!
+    // We pass 'null' for the second value because urine only uses one slider
+    context.read<LeptoHealthDataProvider>().addEntry(
+          'Urine Output',
+          _currentOutput,
+          null,
+          _notesController.text.trim(),
+        );
 
     setState(() {
-      // CHANGED TO: globalLeptoUrineHistory
-      globalLeptoUrineHistory.insert(
-          0,
-          HealthRecord(
-            formattedVal,
-            timeStr,
-            status,
-            isAlert,
-            notes: _notesController.text.trim(),
-            hasVoiceNote: _hasRecordedVoice,
-          ));
-
       _notesController.clear();
       _hasRecordedVoice = false;
     });
@@ -61,30 +45,16 @@ class _LeptoUrineOutputHistoryScreenState
     );
   }
 
-  List<double> _getTrendData() {
-    List<double> chartData = List.filled(7, 400.0);
-    // CHANGED TO: globalLeptoUrineHistory
-    if (globalLeptoUrineHistory.isNotEmpty) {
-      var recentRecords =
-          globalLeptoUrineHistory.take(7).toList().reversed.toList();
-      int startIndex = 7 - recentRecords.length;
-      for (int i = 0; i < recentRecords.length; i++) {
-        String rawVal = recentRecords[i].value.replaceAll(' ml', '').trim();
-        chartData[startIndex + i] = double.tryParse(rawVal) ?? 400.0;
-      }
-      for (int i = 0; i < startIndex; i++) {
-        chartData[i] = chartData[startIndex];
-      }
-    }
-    return chartData;
-  }
-
   @override
   Widget build(BuildContext context) {
-    // CHANGED TO: globalLeptoUrineHistory
-    final latestRecord = globalLeptoUrineHistory.isNotEmpty
-        ? globalLeptoUrineHistory.first
-        : HealthRecord("--", "No data yet", "NONE", false);
+    // Read live data from Firestore via Provider
+    final provider = context.watch<LeptoHealthDataProvider>();
+    final metric = provider.metricsData['Urine Output']!;
+
+    // Infer alert state from the latest chart data if available
+    final bool isCurrentlyAlert =
+        metric.chartData.isNotEmpty && metric.chartData.last < 300;
+    final String currentStatus = isCurrentlyAlert ? 'LOW OUTPUT' : 'NORMAL';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -103,7 +73,7 @@ class _LeptoUrineOutputHistoryScreenState
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -152,12 +122,12 @@ class _LeptoUrineOutputHistoryScreenState
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text(latestRecord.value.replaceAll(' ml', ''),
+                          Text(metric.currentValue,
                               style: GoogleFonts.nunito(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w900,
                                   color: const Color(0xFF0F172A))),
-                          if (latestRecord.value != "--")
+                          if (metric.currentValue != '--')
                             Text(' ml',
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
@@ -166,24 +136,23 @@ class _LeptoUrineOutputHistoryScreenState
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // CHANGED TO: globalLeptoUrineHistory
-                      if (globalLeptoUrineHistory.isNotEmpty)
+                      if (metric.history.isNotEmpty)
                         Row(
                           children: [
                             Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981),
                                     shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text(latestRecord.status,
+                            Text(currentStatus,
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981))),
                           ],
@@ -239,8 +208,8 @@ class _LeptoUrineOutputHistoryScreenState
                         thumbColor: Colors.white),
                     child: Slider(
                         value: _currentOutput,
-                        min: 0.0,
-                        max: 1000.0,
+                        min: 0,
+                        max: 1000,
                         divisions: 100,
                         onChanged: (value) =>
                             setState(() => _currentOutput = value)),
@@ -342,9 +311,11 @@ class _LeptoUrineOutputHistoryScreenState
                     width: double.infinity,
                     child: CustomPaint(
                       painter: AngularTrendChartPainter(
-                          dataPoints: _getTrendData(),
-                          minY: 0.0,
-                          maxY: 1000.0,
+                          dataPoints: metric.chartData.isNotEmpty
+                              ? metric.chartData
+                              : [400],
+                          minY: 0,
+                          maxY: 1000,
                           lineColor: const Color(0xFFEAB308), // Gold
                           fillColor: const Color(0xFFFEF3C7) // Light Gold
                           ),
@@ -374,16 +345,14 @@ class _LeptoUrineOutputHistoryScreenState
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
 
-            // CHANGED TO: globalLeptoUrineHistory
-            if (globalLeptoUrineHistory.isEmpty)
+            if (metric.history.isEmpty)
               Center(
                   child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text("No entries yet.",
+                      padding: const EdgeInsets.all(20),
+                      child: Text('No entries yet.',
                           style: GoogleFonts.nunito(color: Colors.grey))))
             else
-              ...globalLeptoUrineHistory
-                  .map((record) => _buildDailyLogItem(record)),
+              ...metric.history.map((record) => _buildDailyLogItem(record)),
           ],
         ),
       ),
@@ -392,7 +361,7 @@ class _LeptoUrineOutputHistoryScreenState
 
   Widget _buildTab(String title, bool isActive) {
     return Padding(
-      padding: const EdgeInsets.only(right: 24.0),
+      padding: const EdgeInsets.only(right: 24),
       child: Column(
         children: [
           Text(title,
@@ -415,7 +384,17 @@ class _LeptoUrineOutputHistoryScreenState
     );
   }
 
-  Widget _buildDailyLogItem(HealthRecord record) {
+  Widget _buildDailyLogItem(Map<String, dynamic> record) {
+    // Parse value to determine alert status since it's dynamic
+    final String valStr = record['val'] ?? '--';
+    final double outputVal =
+        double.tryParse(valStr.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 400;
+    final bool isAlert = outputVal < 300;
+
+    final String notes = record['notes'] ?? '';
+    final bool hasVoiceNote = record['hasVoiceNote'] ?? false;
+    final String statusStr = isAlert ? 'LOW OUTPUT' : 'NORMAL';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -440,12 +419,12 @@ class _LeptoUrineOutputHistoryScreenState
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFFEF2F2)
                             : const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(16)),
                     child: Icon(Icons.science,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFEF4444)
                             : const Color(0xFFEAB308)),
                   ),
@@ -453,12 +432,12 @@ class _LeptoUrineOutputHistoryScreenState
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(record.value,
+                      Text(valStr,
                           style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1E293B))),
-                      Text(record.time,
+                      Text(record['time'] ?? '--',
                           style: GoogleFonts.nunito(
                               fontSize: 12, color: const Color(0xFF64748B))),
                     ],
@@ -469,33 +448,32 @@ class _LeptoUrineOutputHistoryScreenState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: record.isAlert
+                    color: isAlert
                         ? const Color(0xFFFEE2E2)
                         : const Color(0xFFD1FAE5),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text(record.status,
+                child: Text(statusStr,
                     style: GoogleFonts.nunito(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFB91C1C)
                             : const Color(0xFF059669))),
               ),
             ],
           ),
-          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+          if (notes.isNotEmpty || hasVoiceNote) ...[
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Divider(color: Color(0xFFF1F5F9), height: 1)),
-            if (record.notes.isNotEmpty)
-              Text('Note: "${record.notes}"',
+            if (notes.isNotEmpty)
+              Text('Note: "$notes"',
                   style: GoogleFonts.nunito(
                       fontSize: 13,
                       color: const Color(0xFF475569),
                       fontStyle: FontStyle.italic)),
-            if (record.notes.isNotEmpty && record.hasVoiceNote)
-              const SizedBox(height: 8),
-            if (record.hasVoiceNote)
+            if (notes.isNotEmpty && hasVoiceNote) const SizedBox(height: 8),
+            if (hasVoiceNote)
               Row(children: [
                 const Icon(Icons.play_circle_fill,
                     size: 16, color: Color(0xFF14B8A6)),
@@ -514,21 +492,21 @@ class _LeptoUrineOutputHistoryScreenState
 }
 
 class AngularTrendChartPainter extends CustomPainter {
-  final Color lineColor;
-  final Color fillColor;
-  final List<double> dataPoints;
-  final double minY;
-  final double maxY;
-
   AngularTrendChartPainter(
       {required this.lineColor,
       required this.fillColor,
       required this.dataPoints,
       required this.minY,
       required this.maxY});
+  final Color lineColor;
+  final Color fillColor;
+  final List<double> dataPoints;
+  final double minY;
+  final double maxY;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
@@ -539,32 +517,37 @@ class AngularTrendChartPainter extends CustomPainter {
       ..shader = LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0.0)])
+              colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0)])
           .createShader(Rect.fromLTRB(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
-    double range = maxY - minY;
-    List<Offset> points = [];
+    final double range = maxY - minY == 0 ? 1 : maxY - minY;
+    final List<Offset> points = [];
 
-    for (int i = 0; i < 7; i++) {
-      double x = size.width * (i / 6);
-      double val = dataPoints[i].clamp(minY, maxY);
-      double normalizedY = 1.0 - ((val - minY) / range);
-      double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
+    final int count = dataPoints.length;
+    for (int i = 0; i < count; i++) {
+      final double x =
+          count == 1 ? size.width / 2 : size.width * (i / (count - 1));
+      final double val = dataPoints[i].clamp(minY, maxY);
+      final double normalizedY = 1.0 - ((val - minY) / range);
+      final double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
       points.add(Offset(x, y));
     }
 
     final path = Path();
     path.moveTo(points[0].dx, points[0].dy);
-    for (int i = 1; i < points.length; i++)
+    for (int i = 1; i < points.length; i++) {
       path.lineTo(points[i].dx, points[i].dy);
+    }
 
-    final fillPath = Path.from(path);
-    fillPath.lineTo(size.width, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
+    if (count > 1) {
+      final fillPath = Path.from(path);
+      fillPath.lineTo(size.width, size.height);
+      fillPath.lineTo(0, size.height);
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+    }
 
-    canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
     final dotPaint = Paint()

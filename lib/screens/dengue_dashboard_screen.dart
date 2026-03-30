@@ -1,240 +1,200 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/health_data_provider.dart';
+import '../providers/patient_provider.dart'; // Added PatientProvider
 import 'profile_screen.dart';
+import 'heatmap.dart';
+import 'dengue_patient_history_screen.dart';
 
 class DengueDashboardScreen extends StatelessWidget {
   const DengueDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    String lastName = globalUserName.isNotEmpty
-        ? globalUserName.trim().split(' ').last
-        : 'User';
+    final healthProvider = context.watch<HealthDataProvider>();
+    final patientProvider =
+        context.watch<PatientProvider>(); // Watch Patient State
+
+    // Instantly get the active patient's name! No loading flicker!
+    final activePatient = patientProvider.activePatient;
+    final String lastName =
+        activePatient?.fullName.trim().split(' ').last ?? '';
+
+    // Fetch the latest logs
+    final platelets = healthProvider.getLatestLog('Platelets');
+    final fluid = healthProvider.getLatestLog('Fluid Intake');
+    final temp = healthProvider.getLatestLog('Temperature');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F7FF),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Good Morning,',
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Good Morning,',
                           style: GoogleFonts.nunito(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1E293B),
-                            height: 1.2,
-                          ),
-                        ),
-                        Text(
-                          lastName,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1E293B))),
+                      Text(lastName,
                           style: GoogleFonts.nunito(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF2D9C8D))),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ProfileScreen())),
                     child: const CircleAvatar(
-                      backgroundColor: Color(0xFFFCA5A5),
-                      child: Icon(Icons.person, color: Colors.white, size: 40),
-                    ),
+                        radius: 24,
+                        backgroundColor: Color(0xFFE2E8F0),
+                        child: Icon(Icons.person, color: Color(0xFF64748B))),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Dengue Main Card
+              // Dynamic Status Card
               Container(
-                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  gradient: const LinearGradient(
+                      colors: [Color(0xFF2D9C8D), Color(0xFF1B7B85)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4)),
+                        color: const Color(0xFF2D9C8D).withOpacity(0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8))
                   ],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Text('Current Status',
+                            style: GoogleFonts.nunito(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.8),
+                                fontWeight: FontWeight.w600)),
                         Container(
-                          width: 56,
-                          height: 56,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: [Color(0xFF14B8A6), Color(0xFF0D9488)]),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Icon(Icons.coronavirus,
-                              color: Colors.white, size: 32),
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Text('MONITORING',
+                              style: GoogleFonts.nunito(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1)),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Dengue',
-                                  style: GoogleFonts.nunito(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF1E293B))),
-                              Row(
-                                children: [
-                                  Text('Status: ',
-                                      style: GoogleFonts.nunito(
-                                          fontSize: 14,
-                                          color: const Color(0xFF6B7280))),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDFA),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text('Stable',
-                                        style: GoogleFonts.nunito(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0D9488))),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right,
-                            color: Color(0xFF9CA3AF)),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        height: 6,
-                        width: 120,
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(4)),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: 0.66,
-                          child: Container(
-                              decoration: BoxDecoration(
-                                  gradient: const LinearGradient(colors: [
-                                    Color(0xFF2DD4BF),
-                                    Color(0xFF0D9488)
-                                  ]),
-                                  borderRadius: BorderRadius.circular(4))),
-                        ),
-                      ),
+                    const SizedBox(height: 12),
+                    Text('Dengue Fever',
+                        style: GoogleFonts.nunito(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Monitor platelets closely today.',
+                      style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.4),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Vitals Grid
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.4,
+              // Action Buttons
+              Row(
                 children: [
-                  _buildVitalCard(Icons.thermostat, 'Temperature', '98.6°F',
-                      const Color(0xFFEF4444), const Color(0xFFFEF2F2), 0.75),
-                  _buildVitalCard(Icons.bloodtype, 'Platelets', '150,000',
-                      const Color(0xFFF43F5E), const Color(0xFFFFF1F2), 0.5),
-                  _buildVitalCard(Icons.local_drink, 'Fluid Intake', '2.1 L',
-                      const Color(0xFF3B82F6), const Color(0xFFEFF6FF), 0.8),
-                  _buildVitalCard(Icons.water_drop, 'Urine Output', '800 ml',
-                      const Color(0xFFEAB308), const Color(0xFFFEFCE8), 0.33),
+                  Expanded(
+                      child: _buildActionButton(
+                          icon: Icons.add_circle,
+                          label: 'Log Vitals',
+                          color: const Color(0xFFF59E0B),
+                          bgColor: const Color(0xFFFEF3C7),
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const DenguePatientHistoryScreen()));
+                          })),
+                  const SizedBox(width: 16),
+                  Expanded(
+                      child: _buildActionButton(
+                          icon: Icons.map,
+                          label: 'Heatmap',
+                          color: const Color(0xFF3B82F6),
+                          bgColor: const Color(0xFFEFF6FF),
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const HeatMapScreen()));
+                          })),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Alerts Section
-              Text('Alerts',
+              Text('Today\'s Summary',
                   style: GoogleFonts.nunito(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF1E293B))),
-              const SizedBox(height: 12),
-              _buildAlertCard(Icons.opacity, 'Time to Hydrate', '5 min ago',
-                  const Color(0xFF16A34A), const Color(0xFFDCFCE7), 1.0),
-              const SizedBox(height: 12),
-              _buildAlertCard(Icons.warning_amber, 'Low Hydration', '1 hr ago',
-                  const Color(0xFFD97706), const Color(0xFFFEF3C7), 0.66),
+              const SizedBox(height: 16),
 
-              const SizedBox(height: 100), // Padding for bottom nav
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF2D9C8D),
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white, size: 32),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, 'Home', true),
-              _buildNavItem(Icons.assignment, 'Log', false),
-              const SizedBox(width: 40),
-              _buildNavItem(Icons.location_on, 'Map', false),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfileScreen(),
-                    ),
-                  );
-                },
-                child: _buildNavItem(Icons.person, 'Profile', false),
-              ),
+              _buildSummaryRow(
+                  'Platelets',
+                  platelets != null ? '${platelets.value1?.toInt()} /µL' : '--',
+                  platelets?.status ?? 'No Data',
+                  0.5,
+                  const Color(0xFFEF4444),
+                  const Color(0xFFFEF2F2)),
+              const SizedBox(height: 12),
+              _buildSummaryRow(
+                  'Fluid Intake',
+                  fluid != null ? '${fluid.value1} L' : '--',
+                  fluid?.status ?? 'No Data',
+                  0.7,
+                  const Color(0xFF10B981),
+                  const Color(0xFFF0FDF4)),
+              const SizedBox(height: 12),
+              _buildSummaryRow(
+                  'Temperature',
+                  temp != null ? '${temp.value1}°F' : '--',
+                  temp?.status ?? 'No Data',
+                  0.9,
+                  const Color(0xFFF59E0B),
+                  const Color(0xFFFEF3C7)),
+              const SizedBox(height: 100), // Padding for persistent nav
             ],
           ),
         ),
@@ -242,76 +202,58 @@ class DengueDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVitalCard(IconData icon, String title, String value, Color color,
-      Color bgColor, double progress) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFF8FAFC))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: bgColor, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, color: color, size: 24)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF6B7280))),
-                    Text(value,
-                        style: GoogleFonts.nunito(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1E293B))),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Container(
-            height: 4,
-            width: double.infinity,
-            decoration: BoxDecoration(
-                color: bgColor, borderRadius: BorderRadius.circular(2)),
-            child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: progress,
-                child: Container(
-                    decoration: BoxDecoration(
-                        color: color, borderRadius: BorderRadius.circular(2)))),
-          ),
-        ],
+  Widget _buildActionButton(
+      {required IconData icon,
+      required String label,
+      required Color color,
+      required Color bgColor,
+      required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4))
+            ]),
+        child: Column(
+          children: [
+            Container(
+                padding: const EdgeInsets.all(12),
+                decoration:
+                    BoxDecoration(color: bgColor, shape: BoxShape.circle),
+                child: Icon(icon, color: color, size: 28)),
+            const SizedBox(height: 12),
+            Text(label,
+                style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1E293B))),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAlertCard(IconData icon, String title, String time, Color color,
-      Color bgColor, double progress) {
+  Widget _buildSummaryRow(String title, String value, String status,
+      double progress, Color color, Color bgColor) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3))),
+          color: Colors.white, borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
           Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 24)),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                  color: bgColor, borderRadius: BorderRadius.circular(12)),
+              child: Icon(Icons.show_chart, color: color)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -319,54 +261,21 @@ class DengueDashboardScreen extends StatelessWidget {
               children: [
                 Text(title,
                     style: GoogleFonts.nunito(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1E293B))),
-                const SizedBox(height: 4),
-                Container(
-                  height: 4,
-                  width: 60,
-                  decoration: BoxDecoration(
-                      color: bgColor, borderRadius: BorderRadius.circular(2)),
-                  child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: progress,
-                      child: Container(
-                          decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(2)))),
-                ),
+                        fontSize: 14, fontWeight: FontWeight.bold)),
+                Text(value,
+                    style: GoogleFonts.nunito(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: color)),
               ],
             ),
           ),
-          Text(time,
+          Text(status,
               style: GoogleFonts.nunito(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF9CA3AF))),
-          const SizedBox(width: 8),
-          const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF), size: 20),
+                  fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
         ],
       ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon,
-            color:
-                isActive ? const Color(0xFF2D9C8D) : const Color(0xFF9CA3AF)),
-        Text(label,
-            style: GoogleFonts.nunito(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isActive
-                    ? const Color(0xFF2D9C8D)
-                    : const Color(0xFF9CA3AF))),
-      ],
     );
   }
 }

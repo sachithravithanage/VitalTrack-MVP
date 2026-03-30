@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+import '../providers/lepto_health_data_provider.dart';
 
 class LeptoTemperatureHistoryScreen extends StatefulWidget {
   const LeptoTemperatureHistoryScreen({super.key});
@@ -23,31 +24,19 @@ class _LeptoTemperatureHistoryScreenState
   }
 
   void _saveEntry() {
-    String formattedTemp = '${_currentTemp.toStringAsFixed(1)}°F';
-    bool isHighFever = _currentTemp >= 100.4;
-    String status = isHighFever ? 'HIGH FEVER' : 'STABLE';
+    final bool isHighFever = _currentTemp >= 100.4;
+    final String status = isHighFever ? 'HIGH FEVER' : 'STABLE';
 
-    final now = DateTime.now();
-    int hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    if (hour > 12) hour -= 12;
-    if (hour == 0) hour = 12;
-    String timeStr = "Today, $hour:$minute $period";
+    // Saves directly to Firebase using the Lepto Provider!
+    // We pass 'null' for the second value because temperature only uses one slider
+    context.read<LeptoHealthDataProvider>().addEntry(
+          'Temperature',
+          _currentTemp,
+          null,
+          _notesController.text.trim(),
+        );
 
     setState(() {
-      // NEW: Saves to the separated Leptospirosis list!
-      globalLeptoTempHistory.insert(
-          0,
-          HealthRecord(
-            formattedTemp,
-            timeStr,
-            status,
-            isHighFever,
-            notes: _notesController.text.trim(),
-            hasVoiceNote: _hasRecordedVoice,
-          ));
-
       _notesController.clear();
       _hasRecordedVoice = false;
     });
@@ -59,29 +48,16 @@ class _LeptoTemperatureHistoryScreenState
     );
   }
 
-  List<double> _getTrendData() {
-    List<double> chartData = List.filled(7, 98.6);
-    // NEW: Reads from the separated Leptospirosis list!
-    if (globalLeptoTempHistory.isNotEmpty) {
-      var recentRecords =
-          globalLeptoTempHistory.take(7).toList().reversed.toList();
-      int startIndex = 7 - recentRecords.length;
-      for (int i = 0; i < recentRecords.length; i++) {
-        String rawVal = recentRecords[i].value.replaceAll('°F', '').trim();
-        chartData[startIndex + i] = double.tryParse(rawVal) ?? 98.6;
-      }
-      for (int i = 0; i < startIndex; i++) {
-        chartData[i] = chartData[startIndex];
-      }
-    }
-    return chartData;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final latestRecord = globalLeptoTempHistory.isNotEmpty
-        ? globalLeptoTempHistory.first
-        : HealthRecord("--", "No data yet", "NONE", false);
+    // Read live data from Firestore via Provider
+    final provider = context.watch<LeptoHealthDataProvider>();
+    final metric = provider.metricsData['Temperature']!;
+
+    // Infer alert state from the latest chart data if available
+    final bool isCurrentlyAlert =
+        metric.chartData.isNotEmpty && metric.chartData.last >= 100.4;
+    final String currentStatus = isCurrentlyAlert ? 'HIGH FEVER' : 'STABLE';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -100,10 +76,11 @@ class _LeptoTemperatureHistoryScreenState
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Current Temperature Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -128,29 +105,29 @@ class _LeptoTemperatureHistoryScreenState
                               color: const Color(0xFF64748B),
                               letterSpacing: 1)),
                       const SizedBox(height: 8),
-                      Text(latestRecord.value,
+                      Text('${metric.currentValue} °F',
                           style: GoogleFonts.nunito(
                               fontSize: 36,
                               fontWeight: FontWeight.w900,
                               color: const Color(0xFF0F172A))),
                       const SizedBox(height: 8),
-                      if (globalLeptoTempHistory.isNotEmpty)
+                      if (metric.history.isNotEmpty)
                         Row(
                           children: [
                             Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981),
                                     shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text(latestRecord.status,
+                            Text(currentStatus,
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF10B981))),
                           ],
@@ -174,6 +151,8 @@ class _LeptoTemperatureHistoryScreenState
               ),
             ),
             const SizedBox(height: 24),
+
+            // Data Entry Form
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -204,8 +183,8 @@ class _LeptoTemperatureHistoryScreenState
                         thumbColor: Colors.white),
                     child: Slider(
                         value: _currentTemp,
-                        min: 95.0,
-                        max: 105.0,
+                        min: 95,
+                        max: 105,
                         onChanged: (value) =>
                             setState(() => _currentTemp = value)),
                   ),
@@ -274,6 +253,8 @@ class _LeptoTemperatureHistoryScreenState
               ),
             ),
             const SizedBox(height: 24),
+
+            // Dynamic Chart
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -300,7 +281,9 @@ class _LeptoTemperatureHistoryScreenState
                     width: double.infinity,
                     child: CustomPaint(
                       painter: AngularTrendChartPainter(
-                          dataPoints: _getTrendData(),
+                          dataPoints: metric.chartData.isNotEmpty
+                              ? metric.chartData
+                              : [98.6],
                           lineColor: const Color(0xFFEF4444),
                           fillColor: const Color(0xFFFEF2F2)),
                     ),
@@ -321,31 +304,42 @@ class _LeptoTemperatureHistoryScreenState
               ),
             ),
             const SizedBox(height: 24),
+
+            // Logs
             Text('Daily Logs',
                 style: GoogleFonts.nunito(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
-            if (globalLeptoTempHistory.isEmpty)
+            if (metric.history.isEmpty)
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Text("No entries yet.",
+                  padding: const EdgeInsets.all(20),
+                  child: Text('No entries yet.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.nunito(color: Colors.grey)),
                 ),
               )
             else
-              ...globalLeptoTempHistory
-                  .map((record) => _buildDailyLogItem(record)),
+              ...metric.history.map((record) => _buildDailyLogItem(record)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDailyLogItem(HealthRecord record) {
+  Widget _buildDailyLogItem(Map<String, dynamic> record) {
+    // Parse value to determine alert status since it's dynamic
+    final String valStr = record['val'] ?? '--';
+    final double tempVal =
+        double.tryParse(valStr.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 98.6;
+    final bool isAlert = tempVal >= 100.4;
+
+    final String notes = record['notes'] ?? '';
+    final bool hasVoiceNote = record['hasVoiceNote'] ?? false;
+    final String statusStr = isAlert ? 'HIGH FEVER' : 'STABLE';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -370,12 +364,12 @@ class _LeptoTemperatureHistoryScreenState
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFFEF2F2)
                             : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(16)),
                     child: Icon(Icons.thermostat,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF10B981)),
                   ),
@@ -383,12 +377,12 @@ class _LeptoTemperatureHistoryScreenState
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(record.value,
+                      Text(valStr,
                           style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1E293B))),
-                      Text(record.time,
+                      Text(record['time'] ?? '--',
                           style: GoogleFonts.nunito(
                               fontSize: 12, color: const Color(0xFF64748B))),
                     ],
@@ -399,33 +393,32 @@ class _LeptoTemperatureHistoryScreenState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: record.isAlert
+                    color: isAlert
                         ? const Color(0xFFFEE2E2)
                         : const Color(0xFFD1FAE5),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text(record.status,
+                child: Text(statusStr,
                     style: GoogleFonts.nunito(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFB91C1C)
                             : const Color(0xFF059669))),
               ),
             ],
           ),
-          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+          if (notes.isNotEmpty || hasVoiceNote) ...[
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Divider(color: Color(0xFFF1F5F9), height: 1)),
-            if (record.notes.isNotEmpty)
-              Text('Note: "${record.notes}"',
+            if (notes.isNotEmpty)
+              Text('Note: "$notes"',
                   style: GoogleFonts.nunito(
                       fontSize: 13,
                       color: const Color(0xFF475569),
                       fontStyle: FontStyle.italic)),
-            if (record.notes.isNotEmpty && record.hasVoiceNote)
-              const SizedBox(height: 8),
-            if (record.hasVoiceNote)
+            if (notes.isNotEmpty && hasVoiceNote) const SizedBox(height: 8),
+            if (hasVoiceNote)
               Row(children: [
                 const Icon(Icons.play_circle_fill,
                     size: 16, color: Color(0xFF14B8A6)),
@@ -444,17 +437,17 @@ class _LeptoTemperatureHistoryScreenState
 }
 
 class AngularTrendChartPainter extends CustomPainter {
-  final Color lineColor;
-  final Color fillColor;
-  final List<double> dataPoints;
-
   AngularTrendChartPainter(
       {required this.lineColor,
       required this.fillColor,
       required this.dataPoints});
+  final Color lineColor;
+  final Color fillColor;
+  final List<double> dataPoints;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
     final paint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
@@ -465,34 +458,39 @@ class AngularTrendChartPainter extends CustomPainter {
       ..shader = LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0.0)])
+              colors: [fillColor.withOpacity(0.8), fillColor.withOpacity(0)])
           .createShader(Rect.fromLTRB(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
-    double minTemp = 96.0;
-    double maxTemp = 104.0;
-    double range = maxTemp - minTemp;
-    List<Offset> points = [];
+    final double minTemp = 96;
+    final double maxTemp = 104;
+    final double range = maxTemp - minTemp;
+    final List<Offset> points = [];
 
-    for (int i = 0; i < 7; i++) {
-      double x = size.width * (i / 6);
-      double temp = dataPoints[i].clamp(minTemp, maxTemp);
-      double normalizedY = 1.0 - ((temp - minTemp) / range);
-      double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
+    final int count = dataPoints.length;
+    for (int i = 0; i < count; i++) {
+      final double x =
+          count == 1 ? size.width / 2 : size.width * (i / (count - 1));
+      final double temp = dataPoints[i].clamp(minTemp, maxTemp);
+      final double normalizedY = 1.0 - ((temp - minTemp) / range);
+      final double y = size.height * 0.1 + (size.height * 0.8 * normalizedY);
       points.add(Offset(x, y));
     }
 
     final path = Path();
     path.moveTo(points[0].dx, points[0].dy);
-    for (int i = 1; i < points.length; i++)
+    for (int i = 1; i < points.length; i++) {
       path.lineTo(points[i].dx, points[i].dy);
+    }
 
-    final fillPath = Path.from(path);
-    fillPath.lineTo(size.width, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
+    if (count > 1) {
+      final fillPath = Path.from(path);
+      fillPath.lineTo(size.width, size.height);
+      fillPath.lineTo(0, size.height);
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+    }
 
-    canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
     final dotPaint = Paint()

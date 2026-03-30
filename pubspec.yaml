@@ -1,8 +1,6 @@
 name: vital_track
-description: A mobile app to monitor your health.
-
+description: A smart health monitoring app for Dengue and Leptospirosis.
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -12,14 +10,32 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  google_sign_in: ^6.1.0
   google_fonts: ^6.1.0
-  intl: ^0.20.2
+  provider: ^6.1.1
+  syncfusion_flutter_maps: ^24.1.41
+  intl: ^0.19.0
+  # Firebase Packages
+  firebase_core: ^4.6.0
+  firebase_auth: ^6.3.0
+  cloud_firestore: ^6.2.0
+  pdf: ^3.10.8
+  printing: ^5.11.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/
+    - assets/images/
+flutter_icons:
+  image_path: "assets/icon/app_icon.png" # Path to your image
+  android: "launcher_icon"
+  ios: true
+  min_sdk_android: 21 # Recommended for modern Android

@@ -1,222 +1,261 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
-// Import your new screens and login screen
+import '../providers/patient_provider.dart';
 import 'personal_information_screen.dart';
 import 'privacy_security_screen.dart';
-import 'login_screen.dart'; // Make sure this matches your login file name!
+import 'login_screen.dart';
+import 'link_caretaker_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // The Sign Out Logic that clears everything (UPDATED TO HARD RESET)
-  void _handleSignOut(BuildContext context) {
-    // 1. Clear all personal information
-    globalUserName = '';
-    globalUserRole = 'Patient';
-    globalUserDOB = '';
-    globalUserWeight = '';
-    globalUserBloodType = '';
+  void _handleSignOut(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
 
-    // 2. Clear all Dengue records (HARD RESET WITH [])
-    globalTempHistory = [];
-    globalPlateletHistory = [];
-    globalFluidHistory = [];
-    globalUrineHistory = [];
+    if (!context.mounted) return;
 
-    // 3. Clear all Leptospirosis records (HARD RESET WITH [])
-    globalLeptoTempHistory = [];
-    globalLeptoUrineHistory = [];
-    globalBPHistory = [];
-    globalSymptomsHistory = [];
-
-    // 4. Navigate back to Login and completely clear the app history
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),
-      (Route<dynamic> route) =>
-          false, // This prevents the user from hitting the "back" button to return
+      (Route<dynamic> route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<PatientProvider>();
+    final currentUser = provider.currentUser;
+
+    final String fullName = currentUser?.fullName ?? 'Loading...';
+    final String role = currentUser?.role ?? 'Patient';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: Text(
-          'My Profile',
+          'Profile',
           style: GoogleFonts.nunito(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: const Color(0xFF1E293B)),
         ),
         centerTitle: true,
-        automaticallyImplyLeading:
-            false, // Hides the back button since this is a main tab
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            // Simple Header
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE6FFFA),
-                      shape: BoxShape.circle,
-                      border:
-                          Border.all(color: const Color(0xFF14B8A6), width: 3),
-                    ),
-                    child: const Icon(Icons.person,
-                        size: 40, color: Color(0xFF14B8A6)),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          // User Profile Header
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    globalUserName.isEmpty ? 'Guest User' : globalUserName,
-                    style: GoogleFonts.nunito(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0F172A)),
-                  ),
-                  Text(
-                    globalUserRole,
-                    style: GoogleFonts.nunito(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF64748B)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
-
-            // Settings Options Menu
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Button 1: Personal Information
-                  _buildMenuButton(
-                    context,
-                    icon: Icons.person_outline,
-                    title: 'Personal Information',
-                    onTap: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  const PersonalInformationScreen()));
-                    },
-                  ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-                  // Button 2: Privacy & Security
-                  _buildMenuButton(
-                    context,
-                    icon: Icons.shield_outlined,
-                    title: 'Privacy & Security',
-                    onTap: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  const PrivacySecurityScreen()));
-                    },
-                  ),
-                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-                  // Button 3: Settings/Preferences (Placeholder)
-                  _buildMenuButton(
-                    context,
-                    icon: Icons.settings_outlined,
-                    title: 'App Preferences',
-                    onTap: () {
-                      // You can add a preferences screen later if you want
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
-
-            // Log Out Button
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFEF2F2),
-                  foregroundColor: const Color(0xFFEF4444),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  child: const Icon(Icons.person,
+                      size: 50, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  fullName,
+                  style: GoogleFonts.nunito(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
                   ),
                 ),
-                onPressed: () {
-                  // Show a quick confirmation dialog before logging out
-                  _showLogoutConfirmation(context);
-                },
-                icon: const Icon(Icons.logout),
-                label: Text('Log Out',
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: role == 'Caretaker'
+                        ? const Color(0xFFFEF3C7)
+                        : const Color(0xFFE0F2F1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    role,
                     style: GoogleFonts.nunito(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: role == 'Caretaker'
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFF20B5A0),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 40),
+
+          // Menu Options
+          Text(
+            'Account Settings',
+            style: GoogleFonts.nunito(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF64748B),
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          _buildMenuTile(
+            icon: Icons.person_outline,
+            title: 'Personal Information',
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const PersonalInformationScreen())),
+          ),
+
+          // DYNAMIC BUTTON: Updated text for the new Manage functionality
+          if (role == 'Patient')
+            _buildMenuTile(
+              icon: Icons.health_and_safety_outlined,
+              title: 'Manage Caretaker',
+              subtitle: 'Add or remove your caretaker connection',
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          const LinkCaretakerScreen(isFromOnboarding: false))),
             ),
 
-            const SizedBox(height: 100), // Padding for bottom navigation bar
+          _buildMenuTile(
+            icon: Icons.lock_outline,
+            title: 'Privacy & Security',
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const PrivacySecurityScreen())),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Log Out Button
+          GestureDetector(
+            onTap: () => _showLogoutDialog(context),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: const Color(0xFFFCA5A5).withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.logout,
+                        color: Color(0xFFEF4444), size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Log Out',
+                    style: GoogleFonts.nunito(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFFEF4444),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuTile(
+      {required IconData icon,
+      required String title,
+      String? subtitle,
+      required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: const Color(0xFF14B8A6), size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.nunito(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
           ],
         ),
       ),
     );
   }
 
-  // Reusable widget for the menu items
-  Widget _buildMenuButton(BuildContext context,
-      {required IconData icon,
-      required String title,
-      required VoidCallback onTap}) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: const Color(0xFF14B8A6), size: 20),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF1E293B)),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
-      onTap: onTap,
-    );
-  }
-
-  // A nice popup to confirm logging out
-  void _showLogoutConfirmation(BuildContext context) {
+  void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -230,7 +269,7 @@ class ProfileScreen extends StatelessWidget {
               style: GoogleFonts.nunito(color: const Color(0xFF475569))),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext), // Close dialog
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text('Cancel',
                   style: GoogleFonts.nunito(
                       color: const Color(0xFF94A3B8),
@@ -243,8 +282,8 @@ class ProfileScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () {
-                Navigator.pop(dialogContext); // Close dialog
-                _handleSignOut(context); // Trigger the actual sign-out logic
+                Navigator.pop(dialogContext);
+                _handleSignOut(context);
               },
               child: Text('Log Out',
                   style: GoogleFonts.nunito(

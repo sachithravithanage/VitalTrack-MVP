@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../globals.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+import '../providers/health_data_provider.dart';
+import '../models/health_log.dart';
 
 class SymptomsHistoryScreen extends StatefulWidget {
   const SymptomsHistoryScreen({super.key});
@@ -28,41 +32,27 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
     super.dispose();
   }
 
-  int get _activeSymptomsCount => _symptoms.values.where((v) => v).length;
-
   void _saveEntry() {
-    int count = _activeSymptomsCount;
-    String formattedVal = count == 1 ? '1 Symptom' : '$count Symptoms';
-    bool isAlert = count >= 3;
-    String status = isAlert ? 'EVALUATE' : 'MONITOR';
-
-    // NEW: Get the actual names of the symptoms that are checked!
-    List<String> activeSymptomsList = _symptoms.entries
+    final List<String> activeSymptomsList = _symptoms.entries
         .where((entry) => entry.value)
         .map((entry) => entry.key)
         .toList();
 
-    final now = DateTime.now();
-    int hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    if (hour > 12) hour -= 12;
-    if (hour == 0) hour = 12;
-    String timeStr = "Today, $hour:$minute $period";
+    final double count = activeSymptomsList.length.toDouble();
+    final String status = count >= 3 ? 'EVALUATE' : 'MONITOR';
+
+    // Save directly to Firebase using the HealthDataProvider
+    // We pass 'count' to value1 so the Bar Chart knows how high to draw the bar!
+    context.read<HealthDataProvider>().addEntry(
+          'Symptoms',
+          value1: count,
+          symptoms: activeSymptomsList,
+          notes: _notesController.text.trim(),
+          status: status,
+          hasVoiceNote: _hasRecordedVoice,
+        );
 
     setState(() {
-      globalSymptomsHistory.insert(
-          0,
-          HealthRecord(
-            formattedVal,
-            timeStr,
-            status,
-            isAlert,
-            notes: _notesController.text.trim(),
-            hasVoiceNote: _hasRecordedVoice,
-            details: activeSymptomsList, // NEW: Save the names!
-          ));
-
       _notesController.clear();
       _hasRecordedVoice = false;
     });
@@ -74,28 +64,21 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
     );
   }
 
-  List<double> _getTrendData() {
-    List<double> chartData = List.filled(7, 0.0);
-    if (globalSymptomsHistory.isNotEmpty) {
-      var recentRecords =
-          globalSymptomsHistory.take(7).toList().reversed.toList();
-      int startIndex = 7 - recentRecords.length;
-      for (int i = 0; i < recentRecords.length; i++) {
-        String rawVal = recentRecords[i].value.split(' ')[0];
-        chartData[startIndex + i] = double.tryParse(rawVal) ?? 0.0;
-      }
-      for (int i = 0; i < startIndex; i++) {
-        chartData[i] = chartData[startIndex];
-      }
-    }
-    return chartData;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final latestRecord = globalSymptomsHistory.isNotEmpty
-        ? globalSymptomsHistory.first
-        : HealthRecord("0 Symptoms", "No data yet", "NONE", false);
+    // Watch live data from Firestore via the unified Provider
+    final provider = context.watch<HealthDataProvider>();
+    final latestLog = provider.getLatestLog('Symptoms');
+    final history = provider.getLogsByType('Symptoms');
+
+    final bool isCurrentlyAlert =
+        latestLog != null && (latestLog.value1 ?? 0) >= 3;
+    final String currentStatus = isCurrentlyAlert ? 'EVALUATE' : 'MONITOR';
+    final String currentValue =
+        latestLog != null ? '${latestLog.value1?.toInt()}/6' : '0/6';
+
+    List<double> chartData = provider.getChartData('Symptoms');
+    if (chartData.isEmpty) chartData = [0.0];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -114,7 +97,7 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -143,29 +126,29 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
                               color: const Color(0xFF64748B),
                               letterSpacing: 1)),
                       const SizedBox(height: 8),
-                      Text(latestRecord.value,
+                      Text(currentValue,
                           style: GoogleFonts.nunito(
                               fontSize: 32,
                               fontWeight: FontWeight.w900,
                               color: const Color(0xFF0F172A))),
                       const SizedBox(height: 8),
-                      if (globalSymptomsHistory.isNotEmpty)
+                      if (latestLog != null)
                         Row(
                           children: [
                             Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFFF59E0B),
                                     shape: BoxShape.circle)),
                             const SizedBox(width: 6),
-                            Text(latestRecord.status,
+                            Text(currentStatus,
                                 style: GoogleFonts.nunito(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: latestRecord.isAlert
+                                    color: isCurrentlyAlert
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFFF59E0B))),
                           ],
@@ -313,8 +296,9 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
                     height: 150,
                     width: double.infinity,
                     child: CustomPaint(
-                      painter:
-                          DynamicBarChartPainter(dataPoints: _getTrendData()),
+                      painter: DynamicBarChartPainter(
+                        dataPoints: chartData,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -341,22 +325,26 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
                     color: const Color(0xFF1E293B))),
             const SizedBox(height: 16),
 
-            if (globalSymptomsHistory.isEmpty)
+            if (history.isEmpty)
               Center(
                   child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text("No entries yet.",
+                      padding: const EdgeInsets.all(20),
+                      child: Text('No entries yet.',
                           style: GoogleFonts.nunito(color: Colors.grey))))
             else
-              ...globalSymptomsHistory
-                  .map((record) => _buildDailyLogItem(record)),
+              ...history.map((log) => _buildDailyLogItem(log)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDailyLogItem(HealthRecord record) {
+  Widget _buildDailyLogItem(HealthLog log) {
+    final bool isAlert = (log.value1 ?? 0) >= 3;
+    final String formattedTime =
+        DateFormat('MMM d, h:mm a').format(log.timestamp);
+    final String statusStr = isAlert ? 'EVALUATE' : 'MONITOR';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -381,12 +369,12 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFFEF2F2)
                             : const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(16)),
                     child: Icon(Icons.sick,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFEF4444)
                             : const Color(0xFFF59E0B)),
                   ),
@@ -394,12 +382,12 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(record.value,
+                      Text('${log.value1?.toInt() ?? 0} Symptoms',
                           style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1E293B))),
-                      Text(record.time,
+                      Text(formattedTime,
                           style: GoogleFonts.nunito(
                               fontSize: 12, color: const Color(0xFF64748B))),
                     ],
@@ -410,28 +398,28 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: record.isAlert
+                    color: isAlert
                         ? const Color(0xFFFEE2E2)
                         : const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(12)),
-                child: Text(record.status,
+                child: Text(statusStr,
                     style: GoogleFonts.nunito(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: record.isAlert
+                        color: isAlert
                             ? const Color(0xFFB91C1C)
                             : const Color(0xFFD97706))),
               ),
             ],
           ),
 
-          // NEW: DYNAMIC SYMPTOM TAGS DISPLAY!
-          if (record.details.isNotEmpty) ...[
+          // DYNAMIC SYMPTOM TAGS DISPLAY
+          if (log.symptoms != null && log.symptoms!.isNotEmpty) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: record.details
+              children: log.symptoms!
                   .map((sym) => Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
@@ -450,19 +438,19 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
             ),
           ],
 
-          if (record.notes.isNotEmpty || record.hasVoiceNote) ...[
+          if (log.notes.isNotEmpty || log.hasVoiceNote) ...[
             const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Divider(color: Color(0xFFF1F5F9), height: 1)),
-            if (record.notes.isNotEmpty)
-              Text('Note: "${record.notes}"',
+            if (log.notes.isNotEmpty)
+              Text('Note: "${log.notes}"',
                   style: GoogleFonts.nunito(
                       fontSize: 13,
                       color: const Color(0xFF475569),
                       fontStyle: FontStyle.italic)),
-            if (record.notes.isNotEmpty && record.hasVoiceNote)
+            if (log.notes.isNotEmpty && log.hasVoiceNote)
               const SizedBox(height: 8),
-            if (record.hasVoiceNote)
+            if (log.hasVoiceNote)
               Row(children: [
                 const Icon(Icons.play_circle_fill,
                     size: 16, color: Color(0xFF14B8A6)),
@@ -481,12 +469,13 @@ class _SymptomsHistoryScreenState extends State<SymptomsHistoryScreen> {
 }
 
 class DynamicBarChartPainter extends CustomPainter {
-  final List<double> dataPoints;
-
   DynamicBarChartPainter({required this.dataPoints});
+  final List<double> dataPoints;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
+
     final defaultBarPaint = Paint()
       ..color = const Color(0xFFF1F5F9)
       ..style = PaintingStyle.fill;
@@ -494,14 +483,20 @@ class DynamicBarChartPainter extends CustomPainter {
       ..color = const Color(0xFFF59E0B)
       ..style = PaintingStyle.fill;
 
-    double maxSymptoms = 6.0;
-    final barWidth = 12.0;
-    final spacing = (size.width - (barWidth * 7)) / 6;
+    final double maxSymptoms = 6;
+    const barWidth = 12.0;
 
-    for (int i = 0; i < 7; i++) {
-      final xOffset = i * (barWidth + spacing);
-      double val = dataPoints[i].clamp(0.0, maxSymptoms);
-      double heightPercent = val == 0 ? 0.05 : (val / maxSymptoms);
+    // Dynamically calculate spacing based on the number of points (up to 7)
+    final int count = dataPoints.length > 7 ? 7 : dataPoints.length;
+    final spacing =
+        count > 1 ? (size.width - (barWidth * count)) / (count - 1) : 0.0;
+
+    for (int i = 0; i < count; i++) {
+      final xOffset = count == 1
+          ? size.width / 2 - (barWidth / 2)
+          : i * (barWidth + spacing);
+      final double val = dataPoints[i].clamp(0.0, maxSymptoms);
+      final double heightPercent = val == 0 ? 0.05 : (val / maxSymptoms);
       final height = size.height * heightPercent;
       final yOffset = size.height - height;
 
