@@ -1,13 +1,13 @@
 import express from "express";
 import * as notificationService from "../services/notificationService.js";
 import * as authService from "../services/authService.js";
-import { verifyFirebaseToken } from "../middleware/auth.js";
+import { verifyAuthToken } from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 
 const router = express.Router();
 
 // Require authentication for all routes
-router.use(verifyFirebaseToken);
+router.use(verifyAuthToken);
 
 /**
  * POST /api/v1/notifications/register-token
@@ -98,7 +98,7 @@ router.put("/:notificationId/read", async (req, res) => {
  * POST /api/v1/notifications/test
  * Send test notification (dev only)
  */
-router.post("/test", verifyFirebaseToken, async (req, res) => {
+router.post("/test", verifyAuthToken, async (req, res) => {
   try {
     if (process.env.NODE_ENV !== "development") {
       return res.status(403).json({

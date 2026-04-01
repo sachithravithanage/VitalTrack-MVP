@@ -8,7 +8,7 @@ const localPdfCache = new Map();
 const LOCAL_PDF_TTL_MS = 15 * 60 * 1000;
 
 function isLocalRuntime() {
-  return config.useFirebaseEmulators || config.nodeEnv !== "production";
+  return config.useLocalDevMode || config.nodeEnv !== "production";
 }
 
 function saveLocalPdf(buffer, fileName) {
@@ -210,7 +210,7 @@ export async function generatePDFReport(patientId, records, userProfile) {
       margin: 50,
     });
 
-    // Create write stream to Firebase Storage
+    // Create write stream to object storage bucket
     const file = bucket.file(filePath);
     const stream = file.createWriteStream({
       metadata: {
@@ -261,10 +261,9 @@ export async function getPDFDownloadUrl(filePath) {
     throw new NotFoundError("PDF file not found");
   }
 
-  if (config.useFirebaseEmulators) {
+  if (config.useLocalDevMode) {
     const encodedPath = encodeURIComponent(filePath);
-    const storageHost =
-      process.env.FIREBASE_STORAGE_EMULATOR_HOST || "127.0.0.1:9199";
+    const storageHost = config.storageEmulatorHost;
     return `http://${storageHost}/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
   }
 

@@ -6,8 +6,9 @@ import '../app/scope.dart';
 import '../app/state.dart';
 import '../widgets/dashboard_shell.dart';
 import 'caregiver.dart';
+import 'heatmap.dart';
 import 'notifications.dart';
-import 'profile_hotspot.dart';
+import 'profile_hotspot.dart' show ProfileScreen;
 import 'records.dart';
 
 class PatientDashboard extends StatefulWidget {

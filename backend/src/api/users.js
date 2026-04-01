@@ -1,7 +1,7 @@
 import express from "express";
 import * as authService from "../services/authService.js";
 import * as emailService from "../services/emailService.js";
-import { verifyFirebaseToken } from "../middleware/auth.js";
+import { verifyAuthToken } from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 import {
   validateName,
@@ -12,7 +12,7 @@ import {
 const router = express.Router();
 
 // Require authentication for all routes
-router.use(verifyFirebaseToken);
+router.use(verifyAuthToken);
 
 /**
  * GET /api/v1/users/profile

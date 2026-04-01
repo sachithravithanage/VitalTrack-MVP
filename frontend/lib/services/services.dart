@@ -180,6 +180,16 @@ class RelationshipService {
       rethrow;
     }
   }
+
+  /// Remove relationship between current user and linked user
+  Future<void> removeRelationship({required String userId}) async {
+    try {
+      await _apiClient.removeRelationship(userId: userId);
+    } catch (e) {
+      debugPrint("Error removing relationship: $e");
+      rethrow;
+    }
+  }
 }
 
 /// Service for notifications

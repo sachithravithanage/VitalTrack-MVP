@@ -1,12 +1,12 @@
 import express from "express";
 import * as relationshipService from "../services/relationshipService.js";
-import { verifyFirebaseToken, requireRole } from "../middleware/auth.js";
+import { verifyAuthToken, requireRole } from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 
 const router = express.Router();
 
 // Require authentication for all routes
-router.use(verifyFirebaseToken);
+router.use(verifyAuthToken);
 
 /**
  * POST /api/v1/relationships/link-code
@@ -141,7 +141,7 @@ router.get("/caregivers", requireRole("patient"), async (req, res) => {
  * DELETE /api/v1/relationships/:userId
  * Remove relationship between patient and caregiver
  */
-router.delete("/:userId", verifyFirebaseToken, async (req, res) => {
+router.delete("/:userId", verifyAuthToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.uid;

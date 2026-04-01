@@ -608,6 +608,18 @@ class ApiClient {
     }
   }
 
+  /// Remove relationship with a linked patient/caregiver user
+  Future<Map<String, dynamic>> removeRelationship({
+    required String userId,
+  }) async {
+    try {
+      final response = await _dio.delete('/relationships/$userId');
+      return _unwrapResponse(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // ============ Notifications ============
 
   /// Register FCM token

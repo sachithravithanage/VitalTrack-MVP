@@ -219,7 +219,7 @@ export async function registerUser({
   const passwordHash = await bcrypt.hash(password, 10);
   let existingAuthUser = null;
 
-  // Parallelize Firebase Auth checks
+  // Parallelize auth-adapter checks
   const authChecks = [];
   if (normalizedEmail) {
     authChecks.push(
@@ -258,7 +258,7 @@ export async function registerUser({
 
   existingAuthUser = emailAuthUser || phoneAuthUser;
 
-  // Parallelize Firestore checks
+  // Parallelize MongoDB checks
   const firestoreChecks = [];
   if (normalizedEmail) {
     firestoreChecks.push(
@@ -307,7 +307,7 @@ export async function registerUser({
   try {
     let userRecord = existingAuthUser;
 
-    // Create user in Firebase Auth if missing, otherwise update profile details.
+    // Create adapter user if missing, otherwise update profile details.
     if (!userRecord) {
       userRecord = await auth.createUser({
         ...(normalizedEmail ? { email: normalizedEmail } : {}),
@@ -580,7 +580,7 @@ export async function resetPasswordByCredential(credential, newPassword) {
 }
 
 /**
- * Create a Firebase custom token for a user ID
+ * Create a signed auth token for a user ID
  */
 export async function createCustomAuthToken(uid) {
   return auth.createCustomToken(uid);

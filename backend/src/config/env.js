@@ -2,8 +2,9 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-function resolveUseFirebaseEmulators() {
-  const raw = process.env.USE_FIREBASE_EMULATORS;
+function resolveUseLocalDevMode() {
+  const raw =
+    process.env.USE_LOCAL_DEV_MODE ?? process.env.USE_FIREBASE_EMULATORS;
 
   if (raw !== undefined) {
     return String(raw).trim().toLowerCase() === "true";
@@ -14,7 +15,7 @@ function resolveUseFirebaseEmulators() {
 
 export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
-  useFirebaseEmulators: resolveUseFirebaseEmulators(),
+  useLocalDevMode: resolveUseLocalDevMode(),
   port: process.env.PORT || 5000,
   apiVersion: process.env.API_VERSION || "v1",
   mongoUri: process.env.MONGO_URI || "mongodb://127.0.0.1:27017",
@@ -30,6 +31,10 @@ export const config = {
 
   // PDF storage (local mode by default)
   pdfStorageBucket: process.env.PDF_STORAGE_BUCKET || null,
+  storageEmulatorHost:
+    process.env.STORAGE_EMULATOR_HOST ||
+    process.env.FIREBASE_STORAGE_EMULATOR_HOST ||
+    "127.0.0.1:9199",
 
   // Email
   sendgridApiKey: process.env.SENDGRID_API_KEY,
@@ -39,9 +44,7 @@ export const config = {
 export function validateConfig() {
   const isProduction = (process.env.NODE_ENV || "development") === "production";
 
-  const required = isProduction
-    ? ["MONGO_URI", "JWT_SECRET"]
-    : [];
+  const required = isProduction ? ["MONGO_URI", "JWT_SECRET"] : [];
 
   const missing = required.filter((key) => !process.env[key]);
 

@@ -302,6 +302,25 @@ localized = <String, Map<String, String>>{
     'en': 'Patient linked successfully',
     'si': 'රෝගියා සफලයෙන් සම්බන්ධ වුණි',
   },
+  'remove': {'en': 'Remove', 'si': 'ඉවත් කරන්න'},
+  'remove_patient': {'en': 'Remove Patient', 'si': 'රෝගියා ඉවත් කරන්න'},
+  'remove_caregiver': {'en': 'Remove Caregiver', 'si': 'භාරකරු ඉවත් කරන්න'},
+  'confirm_remove_patient_message': {
+    'en': 'Remove {name} from your linked patients?',
+    'si': '{name} ඔබගේ සම්බන්ධිත රෝගීන්ගෙන් ඉවත් කරන්නද?',
+  },
+  'confirm_remove_caregiver_message': {
+    'en': 'Remove {name} from your caregivers?',
+    'si': '{name} ඔබගේ භාරකරුවන්ගෙන් ඉවත් කරන්නද?',
+  },
+  'patient_removed': {
+    'en': 'Patient removed successfully',
+    'si': 'රෝගියා සාර්ථකව ඉවත් කරන ලදි',
+  },
+  'caregiver_removed': {
+    'en': 'Caregiver removed successfully',
+    'si': 'භාරකරු සාර්ථකව ඉවත් කරන ලදි',
+  },
   'cancel': {'en': 'Cancel', 'si': 'අවලංගු කරන්න'},
   'link': {'en': 'Link', 'si': 'සම්බන්ධ කරන්න'},
   'error': {'en': 'Error', 'si': 'දෝෂය'},

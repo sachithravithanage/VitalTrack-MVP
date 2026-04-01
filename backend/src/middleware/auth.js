@@ -3,9 +3,9 @@ import { config } from "../config/env.js";
 import { AuthenticationError } from "../utils/errors.js";
 
 /**
- * Verify Firebase ID token and attach user to request
+ * Verify auth token and attach user context to request
  */
-export async function verifyFirebaseToken(req, res, next) {
+export async function verifyAuthToken(req, res, next) {
   try {
     const token = extractToken(req);
 
@@ -13,7 +13,7 @@ export async function verifyFirebaseToken(req, res, next) {
       throw new AuthenticationError("No token provided");
     }
 
-    // Verify the Firebase ID token using the admin SDK
+    // Verify token using the auth adapter provided by the data layer.
     const { auth } = await import("../config/dataLayer.js").then((m) => ({
       auth: m.auth,
     }));
@@ -37,7 +37,7 @@ export async function verifyFirebaseToken(req, res, next) {
       requestIp === "::ffff:127.0.0.1";
 
     const allowFallbackAuth =
-      config.useFirebaseEmulators ||
+      config.useLocalDevMode ||
       config.nodeEnv !== "production" ||
       isLoopbackHost ||
       isLoopbackIp;
@@ -240,7 +240,7 @@ function extractToken(req) {
 }
 
 export default {
-  verifyFirebaseToken,
+  verifyAuthToken,
   verifyJWT,
   requireRole,
   requireStepUp,

@@ -51,6 +51,7 @@ dependencies:
   # Utilities
   shared_preferences: ^2.2.2
   logging: ^1.2.0
+  syncfusion_flutter_maps: ^33.1.45
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +76,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/srilanka_25_districts.json
     - assets/images/vitaltrack_logo_full.png
     - assets/images/vitaltrack_logo_symbol.png
 

@@ -39,6 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserRole? _loadedForRole;
   Timer? _refreshTimer;
   bool _loadingRelationships = false;
+  final Set<String> _removingLinkedUserIds = <String>{};
 
   String _otpTimestampText() {
     final DateTime now = DateTime.now();
@@ -159,6 +160,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    }
+  }
+
+  Future<void> _confirmAndRemoveLinkedUser({
+    required AppState app,
+    required String linkedUserId,
+    required String linkedUserName,
+    required bool isRemovingCaregiver,
+  }) async {
+    if (_removingLinkedUserIds.contains(linkedUserId)) {
+      return;
+    }
+
+    final String dialogTitle = isRemovingCaregiver
+        ? app.t('remove_caregiver')
+        : app.t('remove_patient');
+    final String dialogMessageTemplate = isRemovingCaregiver
+        ? app.t('confirm_remove_caregiver_message')
+        : app.t('confirm_remove_patient_message');
+    final String dialogMessage = dialogMessageTemplate.replaceAll(
+      '{name}',
+      linkedUserName,
+    );
+
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(dialogTitle),
+              content: Text(dialogMessage),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(app.t('cancel')),
+                ),
+                FilledButton.tonal(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: FilledButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFB42318),
+                  ),
+                  child: Text(app.t('remove')),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
+    setState(() => _removingLinkedUserIds.add(linkedUserId));
+    try {
+      await app.removeRelationshipWithUser(linkedUserId);
+      if (!mounted) return;
+
+      if (isRemovingCaregiver) {
+        await _loadRelationships(app, UserRole.patient);
+      } else {
+        await _loadRelationships(app, UserRole.caregiver);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isRemovingCaregiver
+                ? app.t('caregiver_removed')
+                : app.t('patient_removed'),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${app.t('error')}: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _removingLinkedUserIds.remove(linkedUserId));
+      }
     }
   }
 
@@ -920,37 +1005,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   if (linkedCaregivers.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: linkedCaregivers
-                          .map(
-                            (Map<String, dynamic> c) =>
-                                (c['name'] ?? '').toString().trim(),
-                          )
-                          .where((String n) => n.isNotEmpty)
-                          .map(
-                            (String n) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
+                    ...linkedCaregivers.map((Map<String, dynamic> caregiver) {
+                      final String caregiverId = (caregiver['id'] ?? '')
+                          .toString();
+                      final String caregiverName = (caregiver['name'] ?? '')
+                          .toString()
+                          .trim();
+                      final bool isLast = identical(
+                        caregiver,
+                        linkedCaregivers.last,
+                      );
+                      final bool isRemoving = _removingLinkedUserIds.contains(
+                        caregiverId,
+                      );
+
+                      return Container(
+                        margin: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 11,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFD8E3F7)),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 34,
+                              height: 34,
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEAF1FF),
-                                borderRadius: BorderRadius.circular(999),
+                                borderRadius: BorderRadius.circular(10),
                               ),
+                              child: const Icon(
+                                Icons.person_outline,
+                                size: 20,
+                                color: Color(0xFF0A56B0),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
                               child: Text(
-                                n,
-                                style: Theme.of(context).textTheme.bodySmall
+                                caregiverName,
+                                style: Theme.of(context).textTheme.titleSmall
                                     ?.copyWith(
-                                      color: const Color(0xFF0A56B0),
-                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF141B2C),
+                                      fontWeight: FontWeight.w700,
                                     ),
                               ),
                             ),
-                          )
-                          .toList(),
-                    ),
+                            TextButton.icon(
+                              onPressed: isRemoving || caregiverId.isEmpty
+                                  ? null
+                                  : () => _confirmAndRemoveLinkedUser(
+                                      app: app,
+                                      linkedUserId: caregiverId,
+                                      linkedUserName: caregiverName,
+                                      isRemovingCaregiver: true,
+                                    ),
+                              icon: isRemoving
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.person_remove_outlined,
+                                      size: 18,
+                                    ),
+                              label: Text(app.t('remove')),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: const Color(0xFFB42318),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ],
               ),
@@ -999,6 +1135,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 14),
                   ...linkedPatients.map((PatientSummary p) {
                     final bool isLast = identical(p, linkedPatients.last);
+                    final bool isRemoving = _removingLinkedUserIds.contains(
+                      p.id,
+                    );
                     return Container(
                       margin: EdgeInsets.only(bottom: isLast ? 0 : 10),
                       padding: const EdgeInsets.symmetric(
@@ -1034,6 +1173,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: const Color(0xFF141B2C),
                                     fontWeight: FontWeight.w700,
                                   ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: isRemoving
+                                ? null
+                                : () => _confirmAndRemoveLinkedUser(
+                                    app: app,
+                                    linkedUserId: p.id,
+                                    linkedUserName: p.name,
+                                    isRemovingCaregiver: false,
+                                  ),
+                            icon: isRemoving
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.person_remove_outlined,
+                                    size: 18,
+                                  ),
+                            label: Text(app.t('remove')),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFFB42318),
                             ),
                           ),
                         ],

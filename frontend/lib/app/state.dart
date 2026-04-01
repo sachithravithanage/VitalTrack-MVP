@@ -694,6 +694,28 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Remove relationship between current user and a linked user.
+  Future<void> removeRelationshipWithUser(String linkedUserId) async {
+    try {
+      if (currentUser == null) throw Exception('User not logged in');
+
+      await relationshipService.removeRelationship(userId: linkedUserId);
+
+      if (currentUser!.role == UserRole.patient) {
+        final caregivers = _caregiversByPatient[currentUser!.id];
+        caregivers?.removeWhere((c) => (c['id'] ?? '') == linkedUserId);
+      } else {
+        final patients = _caregiverPatients[currentUser!.id];
+        patients?.removeWhere((p) => p.id == linkedUserId);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Remove relationship error: $e');
+      rethrow;
+    }
+  }
+
   // ============ Hotspots ============
 
   /// Submit hotspot data

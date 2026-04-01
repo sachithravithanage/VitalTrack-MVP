@@ -1,13 +1,13 @@
 import express from "express";
 import * as hotspotService from "../services/hotspotService.js";
-import { verifyFirebaseToken, requireRole } from "../middleware/auth.js";
+import { verifyAuthToken, requireRole } from "../middleware/auth.js";
 import { handleError } from "../utils/errors.js";
 import { validateCoordinates } from "../utils/validators.js";
 
 const router = express.Router();
 
 // Require authentication for all routes
-router.use(verifyFirebaseToken);
+router.use(verifyAuthToken);
 
 /**
  * POST /api/v1/hotspot/submit
@@ -106,7 +106,7 @@ router.post(
  */
 router.get(
   "/patient/:patientId",
-  verifyFirebaseToken,
+  verifyAuthToken,
   requireRole("patient", "caregiver"),
   async (req, res) => {
     try {
@@ -149,7 +149,7 @@ router.get(
  * GET /api/v1/hotspot/heatmap
  * Get heatmap data (aggregated hotspot data)
  */
-router.get("/heatmap/data", verifyFirebaseToken, async (req, res) => {
+router.get("/heatmap/data", verifyAuthToken, async (req, res) => {
   try {
     const { disease } = req.query;
 
@@ -168,7 +168,7 @@ router.get("/heatmap/data", verifyFirebaseToken, async (req, res) => {
  * GET /api/v1/hotspot/heatmap/regions
  * Get district-level hotspot risk summary for Sri Lanka
  */
-router.get("/heatmap/regions", verifyFirebaseToken, async (req, res) => {
+router.get("/heatmap/regions", verifyAuthToken, async (req, res) => {
   try {
     const { disease } = req.query;
 
@@ -189,7 +189,7 @@ router.get("/heatmap/regions", verifyFirebaseToken, async (req, res) => {
  */
 router.get(
   "/stats/:patientId",
-  verifyFirebaseToken,
+  verifyAuthToken,
   requireRole("patient", "caregiver"),
   async (req, res) => {
     try {
@@ -232,7 +232,7 @@ router.get(
  * GET /api/v1/hotspot/potential
  * Find potential hotspots (high-frequency disease locations)
  */
-router.get("/potential", verifyFirebaseToken, async (req, res) => {
+router.get("/potential", verifyAuthToken, async (req, res) => {
   try {
     const { disease, minCases } = req.query;
 
@@ -254,7 +254,7 @@ router.get("/potential", verifyFirebaseToken, async (req, res) => {
  * GET /api/v1/hotspot/nearby
  * Get nearby cases within a radius
  */
-router.get("/nearby", verifyFirebaseToken, async (req, res) => {
+router.get("/nearby", verifyAuthToken, async (req, res) => {
   try {
     const { latitude, longitude, radius } = req.query;
 

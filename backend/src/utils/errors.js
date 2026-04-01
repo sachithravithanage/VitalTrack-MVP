@@ -63,7 +63,7 @@ export function handleError(error, res) {
     });
   }
 
-  // Firebase errors
+  // Auth-adapter errors
   if (typeof error.code === "string" && error.code.includes("auth/")) {
     const statusCode = error.code === "auth/user-not-found" ? 404 : 400;
     return res.status(statusCode).json({

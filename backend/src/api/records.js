@@ -6,7 +6,7 @@ import * as authService from "../services/authService.js";
 import * as relationshipService from "../services/relationshipService.js";
 import { config } from "../config/env.js";
 import {
-  verifyFirebaseToken,
+  verifyAuthToken,
   requireRole,
   requireStepUp,
 } from "../middleware/auth.js";
@@ -19,7 +19,7 @@ import {
 const router = express.Router();
 
 const maybeRequireStepUp = (purpose) => {
-  if (config.useFirebaseEmulators) {
+  if (config.useLocalDevMode) {
     return (req, res, next) => next();
   }
 
@@ -32,7 +32,7 @@ const maybeRequireStepUp = (purpose) => {
  */
 router.get("/export/pdf/local/:localPdfId", async (req, res) => {
   try {
-    if (!config.useFirebaseEmulators && config.nodeEnv === "production") {
+    if (!config.useLocalDevMode && config.nodeEnv === "production") {
       throw new AuthenticationError("Local PDF endpoint is not available");
     }
 
@@ -51,7 +51,7 @@ router.get("/export/pdf/local/:localPdfId", async (req, res) => {
 });
 
 // Require authentication for all routes
-router.use(verifyFirebaseToken);
+router.use(verifyAuthToken);
 
 /**
  * POST /api/v1/records
@@ -186,7 +186,7 @@ router.get("/", requireRole("patient", "caregiver"), async (req, res) => {
  * GET /api/v1/records/:recordId
  * Get a specific record
  */
-router.get("/:recordId", verifyFirebaseToken, async (req, res) => {
+router.get("/:recordId", verifyAuthToken, async (req, res) => {
   try {
     const userProfile = await authService.getUserProfile(req.user.uid);
     const record = await recordService.getRecord(req.params.recordId);
@@ -269,7 +269,7 @@ router.delete("/:recordId", requireRole("patient"), async (req, res) => {
  * GET /api/v1/records/stats/:patientId
  * Get record statistics
  */
-router.get("/stats/:patientId", verifyFirebaseToken, async (req, res) => {
+router.get("/stats/:patientId", verifyAuthToken, async (req, res) => {
   try {
     const { timelineFilter } = req.query;
     const userProfile = await authService.getUserProfile(req.user.uid);

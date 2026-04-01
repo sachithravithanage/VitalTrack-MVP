@@ -1,7 +1,7 @@
 import express from "express";
 import * as authService from "../services/authService.js";
 import * as emailService from "../services/emailService.js";
-import { verifyFirebaseToken } from "../middleware/auth.js";
+import { verifyAuthToken } from "../middleware/auth.js";
 import {
   validateEmail,
   validatePhone,
@@ -429,8 +429,8 @@ router.post("/login", async (req, res) => {
  * POST /api/v1/auth/logout
  * Logout user (optional - mainly for client-side)
  */
-router.post("/logout", verifyFirebaseToken, (req, res) => {
-  // Firebase Auth handles logout on client side
+router.post("/logout", verifyAuthToken, (req, res) => {
+  // Token lifecycle is primarily handled on the client side.
   // This endpoint can be used to invalidate tokens or clean up sessions
   res.json({
     success: true,
@@ -442,7 +442,7 @@ router.post("/logout", verifyFirebaseToken, (req, res) => {
  * GET /api/v1/auth/profile
  * Get current user's profile
  */
-router.get("/profile", verifyFirebaseToken, async (req, res) => {
+router.get("/profile", verifyAuthToken, async (req, res) => {
   try {
     const profile = await authService.getUserProfile(req.user.uid);
 
@@ -461,7 +461,7 @@ router.get("/profile", verifyFirebaseToken, async (req, res) => {
  * POST /api/v1/auth/step-up/send-otp
  * Send OTP for step-up verification (authenticated users only)
  */
-router.post("/step-up/send-otp", verifyFirebaseToken, async (req, res) => {
+router.post("/step-up/send-otp", verifyAuthToken, async (req, res) => {
   try {
     const { purpose, channel } = req.body;
     const selectedChannel = channel === "email" ? "email" : "phone";
@@ -536,7 +536,7 @@ router.post("/step-up/send-otp", verifyFirebaseToken, async (req, res) => {
  * POST /api/v1/auth/step-up/verify
  * Verify step-up OTP and issue short-lived action token
  */
-router.post("/step-up/verify", verifyFirebaseToken, async (req, res) => {
+router.post("/step-up/verify", verifyAuthToken, async (req, res) => {
   try {
     const { purpose, otp, channel } = req.body;
     const selectedChannel = channel === "email" ? "email" : "phone";
