@@ -24,6 +24,9 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   late TextEditingController _phoneController;
   String? _selectedBloodType;
 
+  // FIXED: Added a dedicated variable for the REAL caretaker code
+  String? _caretakerCode;
+
   final List<String> _bloodTypes = [
     'A+',
     'A-',
@@ -47,6 +50,9 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     _phoneController = TextEditingController(text: currentUser?.phone ?? '');
     _selectedBloodType = currentUser?.bloodType;
 
+    // FIXED: Load initial real code
+    _caretakerCode = currentUser?.caretakerCode;
+
     // 2. BULLETPROOF FIX: Always force the app to pull the absolute newest data straight from Firebase!
     _fetchFreshData();
   }
@@ -69,6 +75,9 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                 data['weight']?.toString() ?? _weightController.text;
             _phoneController.text = data['phone'] ?? _phoneController.text;
             _selectedBloodType = data['bloodType'] ?? _selectedBloodType;
+
+            // FIXED: Fetch the REAL Caretaker code from the database
+            _caretakerCode = data['caretakerCode'] ?? _caretakerCode;
           });
         }
       } catch (e) {
@@ -270,10 +279,10 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
+
+                    // FIXED: Display the real Caretaker code from Firebase
                     Text(
-                      currentUser?.uid != null && currentUser!.uid.length >= 6
-                          ? currentUser.uid.substring(0, 6).toUpperCase()
-                          : '------',
+                      _caretakerCode ?? '------',
                       style: GoogleFonts.nunito(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
@@ -281,6 +290,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                         color: const Color(0xFF0F172A),
                       ),
                     ),
+
                     const SizedBox(height: 12),
                     Text(
                       'Share this code with patients to link accounts.',

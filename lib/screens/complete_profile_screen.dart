@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math'
-    as math; // FIXED: Added 'as math' to prevent naming collisions
+import 'dart:math' as math;
 
 import 'medical_profile_screen.dart';
 import 'main_layout.dart';
@@ -62,11 +61,30 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
   }
 
-  // FIXED: Using math.Random() to guarantee we use the correct library
   String generateCaretakerCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     math.Random rnd = math.Random();
     return List.generate(6, (index) => chars[rnd.nextInt(chars.length)]).join();
+  }
+
+  // FIXED: New function to guarantee the generated code is 100% unique in Firestore
+  Future<String> _generateUniqueCaretakerCode() async {
+    bool isUnique = false;
+    String newCode = '';
+
+    while (!isUnique) {
+      newCode = generateCaretakerCode();
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('caretakerCode', isEqualTo: newCode)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        isUnique = true;
+      }
+    }
+    return newCode;
   }
 
   Future<void> _saveProfile() async {
@@ -89,7 +107,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       if (user != null) {
         String? generatedCode;
         if (selectedRole == 'Caretaker') {
-          generatedCode = generateCaretakerCode();
+          // FIXED: We now await the unique code generator
+          generatedCode = await _generateUniqueCaretakerCode();
         }
 
         final userProfile = UserProfile(
@@ -120,7 +139,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     const MedicalProfileScreen(userRole: 'Patient')),
           );
         } else {
-          // If Caretaker, route to MainLayout so navigation bar appears!
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const MainLayout()),

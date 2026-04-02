@@ -13,6 +13,13 @@ import 'symptoms_history_screen.dart';
 class LeptospirosisPatientHistoryScreen extends StatelessWidget {
   const LeptospirosisPatientHistoryScreen({super.key});
 
+  // FIXED: Safe ID generator to prevent RangeError crashes
+  String _getSafeId(String? uid) {
+    if (uid == null || uid.isEmpty) return '...';
+    if (uid.length < 8) return uid.toUpperCase();
+    return uid.substring(0, 8).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final healthProvider = context.watch<HealthDataProvider>();
@@ -20,7 +27,9 @@ class LeptospirosisPatientHistoryScreen extends StatelessWidget {
 
     final activePatient = patientProvider.activePatient;
     final patientName = activePatient?.fullName ?? 'Loading...';
-    final patientId = activePatient?.uid.substring(0, 8).toUpperCase() ?? '...';
+
+    // FIXED: Using the safe ID generator
+    final patientId = _getSafeId(activePatient?.uid);
 
     final HealthLog? tempLog = healthProvider.getLatestLog('Temperature');
     final HealthLog? bpLog = healthProvider.getLatestLog('Blood Pressure');

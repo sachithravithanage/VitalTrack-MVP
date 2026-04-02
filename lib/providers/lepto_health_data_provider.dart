@@ -94,7 +94,40 @@ class LeptoHealthDataProvider extends ChangeNotifier {
       chartData: [],
       history: [],
     ),
-    // ... [Add your original Urine Output and Temperature configs here with empty history/chartData]
+    'Temperature': LeptoMetricConfig(
+      title: 'Current Temperature',
+      currentValue: '--',
+      unit: '°C',
+      status: 'WAITING',
+      statusSub: '',
+      icon: Icons.thermostat,
+      baseColor: const Color(0xFFEF4444), // Red for temperature
+      iconBgColor: const Color(0xFFFEF2F2),
+      gradient: const [Color(0xFFF87171), Color(0xFFDC2626)],
+      inputType: InputType.singleSlider,
+      chartType: ChartType.curve,
+      sliderMin1: 35.0, // Shock/Hypothermia limit
+      sliderMax1: 42.0, // High fever limit
+      chartData: [],
+      history: [],
+    ),
+    'Urine Output': LeptoMetricConfig(
+      title: '24h Urine Output',
+      currentValue: '--',
+      unit: 'ml',
+      status: 'WAITING',
+      statusSub: '',
+      icon: Icons.water_drop_outlined,
+      baseColor: const Color(0xFFEAB308), // Amber/Yellow for urine
+      iconBgColor: const Color(0xFFFEFCE8),
+      gradient: const [Color(0xFFFACC15), Color(0xFFCA8A04)],
+      inputType: InputType.singleSlider,
+      chartType: ChartType.curve,
+      sliderMin1: 0, // Anuria (kidney failure)
+      sliderMax1: 5000, // Polyuria (fluid recovery)
+      chartData: [],
+      history: [],
+    ),
   };
 
   void setTargetUser(String uid) {
@@ -174,8 +207,12 @@ class LeptoHealthDataProvider extends ChangeNotifier {
 
   Future<void> addEntry(String tabName, dynamic val1,
       [dynamic val2, String notes = '']) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    // FIXED: Now we check for _targetUid first. If a Caretaker is viewing a patient,
+    // it will use the Patient's UID. If a Patient is logged in, it uses their own UID.
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final uidToSave = _targetUid ?? currentUser?.uid;
+
+    if (uidToSave == null) return;
 
     final metric = metricsData[tabName]!;
     Map<String, dynamic> payload = {
@@ -195,9 +232,10 @@ class LeptoHealthDataProvider extends ChangeNotifier {
       payload['count'] = (val1 as List).length;
     }
 
+    // FIXED: Save to uidToSave instead of user.uid
     await FirebaseFirestore.instance
         .collection('users')
-        .doc(user.uid)
+        .doc(uidToSave)
         .collection('lepto_logs')
         .add(payload);
   }

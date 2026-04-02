@@ -7,6 +7,8 @@ import 'firebase_options.dart';
 // Providers
 import 'providers/health_data_provider.dart';
 import 'providers/patient_provider.dart';
+// FIXED: Added import for LeptoHealthDataProvider
+import 'providers/lepto_health_data_provider.dart';
 
 // Screens
 import 'screens/splash_screen.dart';
@@ -24,11 +26,15 @@ void main() async {
     debugPrint('Firebase initialization error: $e');
   }
 
-  // 3. Run the app wrapped in Praveen's Providers
+  // 3. Run the app wrapped in Providers
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => PatientProvider()),
+
+        // FIXED: Registered LeptoHealthDataProvider so Lepto screens don't crash
+        ChangeNotifierProvider(create: (_) => LeptoHealthDataProvider()),
+
         ChangeNotifierProxyProvider<PatientProvider, HealthDataProvider>(
           create: (context) => HealthDataProvider(
             patientProvider:

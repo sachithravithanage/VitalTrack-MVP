@@ -11,10 +11,12 @@ import '../models/health_log.dart';
 import '../screens/activity_log.dart';
 
 class PdfGenerator {
-  static String _getUnit(String category) {
+  static String _getUnit(String category, double? value) {
     switch (category) {
       case 'Temperature':
-        return '°F';
+        // Detect if the app is using Celsius (e.g. 37) or Fahrenheit (e.g. 98)
+        if (value != null && value > 60) return '°F';
+        return '°C';
       case 'Fluid Intake':
         return 'L';
       case 'Urine Output':
@@ -96,7 +98,7 @@ class PdfGenerator {
               chartData.forEach((category, values) {
                 if (values.isNotEmpty) {
                   gridChildren.add(pw.Container(
-                      width: 240, // Width for the 2x2 grid
+                      width: 240,
                       child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
@@ -105,8 +107,8 @@ class PdfGenerator {
                                     fontSize: 12,
                                     fontWeight: pw.FontWeight.bold)),
                             pw.SizedBox(height: 4),
-                            // Pass 240 as the container width
-                            _buildGraph(values, _getUnit(category), 240),
+                            _buildGraph(
+                                values, _getUnit(category, values.last), 240),
                           ])));
                 }
               });
@@ -121,9 +123,8 @@ class PdfGenerator {
                   style: pw.TextStyle(
                       fontSize: 14, fontWeight: pw.FontWeight.bold)));
               graphWidgets.add(pw.SizedBox(height: 10));
-              // Pass 530 as the container width for the full-width single graph
-              graphWidgets
-                  .add(_buildGraph(chartData[filter]!, _getUnit(filter), 530));
+              graphWidgets.add(_buildGraph(chartData[filter]!,
+                  _getUnit(filter, chartData[filter]!.last), 530));
               graphWidgets.add(pw.SizedBox(height: 30));
             }
           }
@@ -179,6 +180,11 @@ class PdfGenerator {
 
   static pw.Widget _buildPatientAndCaretakerInfo(
       UserProfile patient, String age, Map<String, dynamic>? caretaker) {
+    // FIXED: Safe ID generation
+    final safeId = patient.uid.length >= 8
+        ? patient.uid.substring(0, 8).toUpperCase()
+        : patient.uid.toUpperCase();
+
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -201,6 +207,7 @@ class PdfGenerator {
                     style: pw.TextStyle(
                         fontSize: 16, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 4),
+                pw.Text('Patient ID: $safeId'),
                 pw.Text(
                     'Age: $age | Blood Type: ${patient.bloodType ?? 'N/A'}'),
                 pw.Text('Weight: ${patient.weight ?? 'N/A'} kg'),
@@ -247,7 +254,6 @@ class PdfGenerator {
     );
   }
 
-  // FIXED: We now calculate width and height manually instead of using LayoutBuilder!
   static pw.Widget _buildGraph(
       List<double> dataPoints, String unit, double containerWidth) {
     if (dataPoints.isEmpty) return pw.SizedBox();
@@ -255,12 +261,11 @@ class PdfGenerator {
     double minVal = dataPoints.reduce(math.min);
     double maxVal = dataPoints.reduce(math.max);
 
-    // Smart padding ensures the lines never hit the ceiling/floor, showing pure variation
     double padding = (maxVal - minVal).abs();
     if (padding == 0) {
       padding = maxVal == 0 ? 5.0 : (maxVal * 0.1).abs();
     } else {
-      padding = padding * 0.4; // 40% padding for a beautiful zoom effect
+      padding = padding * 0.4;
     }
 
     minVal -= padding;
@@ -268,21 +273,18 @@ class PdfGenerator {
     double range = maxVal - minVal;
     if (range <= 0) range = 1;
 
-    // We mathematically calculate the exact available chart space
     double chartWidth = containerWidth - 65;
-    if (chartWidth < 50) chartWidth = 50; // Fallback
+    if (chartWidth < 50) chartWidth = 50;
     double chartHeight = 86;
     double stepX =
         chartWidth / (dataPoints.length > 1 ? dataPoints.length - 1 : 1);
 
     List<pw.Widget> stackChildren = [];
 
-    // 1. Draw the continuous lines using CustomPaint
     stackChildren.add(
       pw.CustomPaint(
         size: PdfPoint(chartWidth, chartHeight),
         painter: (PdfGraphics canvas, PdfPoint size) {
-          // Background Grid Lines
           canvas.setStrokeColor(PdfColors.grey200);
           canvas.setLineWidth(1);
           for (int i = 0; i <= 4; i++) {
@@ -291,7 +293,6 @@ class PdfGenerator {
             canvas.strokePath();
           }
 
-          // Connect the dots mathematically
           canvas.setStrokeColor(PdfColors.teal);
           canvas.setLineWidth(2);
           for (int i = 0; i < dataPoints.length; i++) {
@@ -310,7 +311,6 @@ class PdfGenerator {
       ),
     );
 
-    // 2. Draw EXACT Value Labels & Dots exactly where they belong
     for (int i = 0; i < dataPoints.length; i++) {
       double val = dataPoints[i];
       double x = i * stepX;
@@ -320,11 +320,9 @@ class PdfGenerator {
       String valStr =
           val == val.toInt() ? val.toInt().toString() : val.toStringAsFixed(1);
 
-      // Smart shifting: If it's the last point, shift text left so it isn't cut off
       bool isLastPoint = i == dataPoints.length - 1 && dataPoints.length > 1;
       double textOffsetX = isLastPoint ? x - 12 : x - 6;
 
-      // The Circular Dot
       stackChildren.add(
         pw.Positioned(
           left: x - 3,
@@ -338,7 +336,6 @@ class PdfGenerator {
         ),
       );
 
-      // The Number Label Hovering Above
       stackChildren.add(
         pw.Positioned(
           left: textOffsetX,
@@ -363,7 +360,6 @@ class PdfGenerator {
       ),
       child: pw.Row(
         children: [
-          // Y-Axis Labels
           pw.Container(
             width: 45,
             padding: const pw.EdgeInsets.only(
@@ -382,8 +378,6 @@ class PdfGenerator {
               }),
             ),
           ),
-
-          // Data Area
           pw.Expanded(
             child: pw.Padding(
               padding: const pw.EdgeInsets.only(top: 16, bottom: 16, right: 16),
@@ -436,7 +430,7 @@ class PdfGenerator {
         ),
         ...logs.map((item) {
           final log = item.log;
-          String unit = _getUnit(item.category);
+          String unit = _getUnit(item.category, log.value1);
           String valueStr = '';
 
           if (item.category == 'Blood Pressure' && log.value2 != null) {

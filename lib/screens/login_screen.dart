@@ -39,7 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          // FIXED: This is the magic line that makes it work on Mobile!
+          'origin': 'http://localhost',
+        },
         body: json.encode({
           'service_id': 'service_d0uwmd5',
           'template_id': 'template_i7r6a0e',
@@ -414,7 +418,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        // FIX 2: Now points directly to your SignUpScreen!
                         Navigator.push(
                           context,
                           MaterialPageRoute(

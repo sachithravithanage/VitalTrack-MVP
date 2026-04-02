@@ -44,23 +44,25 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
           .collection('users')
           .doc(user.uid)
           .get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
 
-        // If they have a linked caretaker, fetch that caretaker's name
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data() as Map<String, dynamic>;
+
         if (data.containsKey('linkedCaretakerId') &&
-            data['linkedCaretakerId'] != null) {
+            data['linkedCaretakerId'] != null &&
+            data['linkedCaretakerId'].toString().isNotEmpty) {
           final caretakerId = data['linkedCaretakerId'];
           final caretakerDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(caretakerId)
               .get();
 
-          if (caretakerDoc.exists) {
+          if (caretakerDoc.exists && caretakerDoc.data() != null) {
+            final caretakerData = caretakerDoc.data() as Map<String, dynamic>;
             setState(() {
               _connectedCaretakerId = caretakerId;
               _connectedCaretakerName =
-                  caretakerDoc.data()?['fullName'] ?? 'Unknown Caretaker';
+                  caretakerData['fullName'] ?? 'Unknown Caretaker';
             });
           }
         }
@@ -76,7 +78,9 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
 
   // 2. LOGIC TO LINK A NEW CARETAKER
   Future<void> _linkCaretaker() async {
-    final code = codeController.text.trim().toUpperCase();
+    // Strips out spaces and invisible characters securely
+    final rawCode = codeController.text.toUpperCase();
+    final code = rawCode.replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
     if (code.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,29 +99,35 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
 
       final caretakerQuery = await FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'Caretaker')
           .where('caretakerCode', isEqualTo: code)
-          .get();
+          .get(const GetOptions(source: Source.server));
 
+      // SECURE FIX: Removed the diagnostic engine. If the code is wrong, it just says so. No leaks!
       if (caretakerQuery.docs.isEmpty) {
-        throw Exception("Invalid Caretaker Code.");
+        throw Exception(
+            "Invalid Caretaker Code. Please check the code and try again.");
       }
 
       final caretakerDoc = caretakerQuery.docs.first;
 
-      // Link Patient -> Caretaker
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(patient.uid)
-          .update({'linkedCaretakerId': caretakerDoc.id});
+      if (caretakerDoc.id == patient.uid) {
+        throw Exception("You cannot link your own account.");
+      }
 
-      // Link Caretaker -> Patient
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(caretakerDoc.id)
-          .update({
+      // Firebase Batch Write guarantees both accounts link at the exact same millisecond
+      final batch = FirebaseFirestore.instance.batch();
+
+      final patientRef =
+          FirebaseFirestore.instance.collection('users').doc(patient.uid);
+      final caretakerRef =
+          FirebaseFirestore.instance.collection('users').doc(caretakerDoc.id);
+
+      batch.update(patientRef, {'linkedCaretakerId': caretakerDoc.id});
+      batch.update(caretakerRef, {
         'linkedPatients': FieldValue.arrayUnion([patient.uid])
       });
+
+      await batch.commit();
 
       if (!mounted) return;
 
@@ -127,7 +137,8 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
             backgroundColor: Colors.green),
       );
 
-      // Route based on where they came from
+      final caretakerData = caretakerDoc.data() as Map<String, dynamic>;
+
       if (widget.isFromOnboarding) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -135,24 +146,24 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
           (route) => false,
         );
       } else {
-        // If from settings, just refresh the screen to show the Linked UI
         setState(() {
           _connectedCaretakerId = caretakerDoc.id;
-          _connectedCaretakerName = caretakerDoc.data()['fullName'];
+          _connectedCaretakerName = caretakerData['fullName'];
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red),
       );
     }
   }
 
   // 3. LOGIC TO REMOVE AN EXISTING CARETAKER
   Future<void> _removeCaretaker() async {
-    // Show a confirmation dialog first!
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -190,21 +201,19 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
     try {
       final patientId = FirebaseAuth.instance.currentUser!.uid;
 
-      // Remove Caretaker from Patient
-      await FirebaseFirestore.instance
+      final batch = FirebaseFirestore.instance.batch();
+      final patientRef =
+          FirebaseFirestore.instance.collection('users').doc(patientId);
+      final caretakerRef = FirebaseFirestore.instance
           .collection('users')
-          .doc(patientId)
-          .update({
-        'linkedCaretakerId': FieldValue.delete(),
+          .doc(_connectedCaretakerId);
+
+      batch.update(patientRef, {'linkedCaretakerId': FieldValue.delete()});
+      batch.update(caretakerRef, {
+        'linkedPatients': FieldValue.arrayRemove([patientId])
       });
 
-      // Remove Patient from Caretaker
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_connectedCaretakerId)
-          .update({
-        'linkedPatients': FieldValue.arrayRemove([patientId]),
-      });
+      await batch.commit();
 
       setState(() {
         _connectedCaretakerId = null;
@@ -252,13 +261,12 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: _connectedCaretakerId != null
-                  ? _buildLinkedUI() // Show Linked UI
-                  : _buildUnlinkedUI(), // Show Entry Form UI
+                  ? _buildLinkedUI()
+                  : _buildUnlinkedUI(),
             ),
     );
   }
 
-  // --- UI FOR WHEN THEY ARE ALREADY CONNECTED ---
   Widget _buildLinkedUI() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,8 +300,6 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
                   fontSize: 16, color: const Color(0xFF64748B), height: 1.5)),
         ),
         const SizedBox(height: 32),
-
-        // Caretaker Info Card
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -339,8 +345,6 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
           ),
         ),
         const SizedBox(height: 40),
-
-        // Remove Button
         SizedBox(
           width: double.infinity,
           height: 56,
@@ -364,7 +368,6 @@ class _LinkCaretakerScreenState extends State<LinkCaretakerScreen> {
     );
   }
 
-  // --- UI FOR WHEN THEY NEED TO ENTER A CODE ---
   Widget _buildUnlinkedUI() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -13,6 +13,13 @@ import 'urine_output_history_screen.dart';
 class DenguePatientHistoryScreen extends StatelessWidget {
   const DenguePatientHistoryScreen({super.key});
 
+  // FIXED: Safe ID generator to prevent RangeError crashes
+  String _getSafeId(String? uid) {
+    if (uid == null || uid.isEmpty) return '...';
+    if (uid.length < 8) return uid.toUpperCase();
+    return uid.substring(0, 8).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Watch our providers for LIVE data
@@ -22,7 +29,9 @@ class DenguePatientHistoryScreen extends StatelessWidget {
     // Securely get the active patient's correct details!
     final activePatient = patientProvider.activePatient;
     final patientName = activePatient?.fullName ?? 'Loading...';
-    final patientId = activePatient?.uid.substring(0, 8).toUpperCase() ?? '...';
+
+    // FIXED: Using the safe ID generator
+    final patientId = _getSafeId(activePatient?.uid);
 
     final HealthLog? tempLog = healthProvider.getLatestLog('Temperature');
     final HealthLog? plateletsLog = healthProvider.getLatestLog('Platelets');
