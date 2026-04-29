@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'link_caretaker_screen.dart';
-import 'main_layout.dart'; // REQUIRED TO SHOW THE NAVIGATION BAR!
+// REQUIRED TO SHOW THE NAVIGATION BAR!
 
 class MedicalProfileScreen extends StatefulWidget {
   const MedicalProfileScreen({super.key, required this.userRole});

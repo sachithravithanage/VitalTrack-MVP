@@ -535,7 +535,7 @@ class DualLineChartPainter extends CustomPainter {
 
     const double minY = 40;
     const double maxY = 220;
-    final double range = maxY - minY;
+    const double range = maxY - minY;
 
     final List<Offset> sysPoints = [];
     final List<Offset> diaPoints = [];

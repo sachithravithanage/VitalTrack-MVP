@@ -464,7 +464,7 @@ class AngularTrendChartPainter extends CustomPainter {
 
     const double minTemp = 96;
     const double maxTemp = 104;
-    final double range = maxTemp - minTemp;
+    const double range = maxTemp - minTemp;
     final List<Offset> points = [];
 
     final int count = dataPoints.length;

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/health_data_provider.dart';
-import '../models/health_log.dart';
 
 // --- LOCAL UI CONFIGURATION ---
 // This holds your beautiful colors, icons, and slider limits for each tab

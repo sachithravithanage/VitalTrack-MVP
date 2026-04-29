@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/user_profile.dart';
-import '../models/health_log.dart';
 import '../screens/activity_log.dart';
 
 class PdfGenerator {
@@ -275,7 +274,7 @@ class PdfGenerator {
 
     double chartWidth = containerWidth - 65;
     if (chartWidth < 50) chartWidth = 50;
-    final double chartHeight = 86;
+    const double chartHeight = 86;
     final double stepX =
         chartWidth / (dataPoints.length > 1 ? dataPoints.length - 1 : 1);
 

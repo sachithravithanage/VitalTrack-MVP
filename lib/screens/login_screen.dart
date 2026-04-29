@@ -45,9 +45,9 @@ class _LoginScreenState extends State<LoginScreen> {
           'origin': 'http://localhost',
         },
         body: json.encode({
-          'service_id': 'service_d0uwmd5',
-          'template_id': 'template_i7r6a0e',
-          'user_id': 'tcwnalo5WFrjJOX0y',
+          'service_id': 'service_pm50v4o',
+          'template_id': 'template_qbucwvf',
+          'user_id': 'G8r2h3EFKJLkV_A7J',
           'template_params': {
             'email': patientEmail,
             'verification_code': code,
@@ -72,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final TextEditingController resetEmailController =
         TextEditingController(text: _emailController.text.trim());
 
-    showDialog(
+    await showDialog(
         context: context,
         builder: (BuildContext dialogContext) {
           bool isSendingReset = false;
@@ -219,11 +219,19 @@ class _LoginScreenState extends State<LoginScreen> {
       if (requires2FA) {
         final String generatedCode =
             (Random().nextInt(900000) + 100000).toString();
+        final DateTime expiresAt =
+            DateTime.now().add(const Duration(minutes: 10));
 
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredential.user!.uid)
-            .update({'twoFactorCode': generatedCode});
+            .update({
+          'twoFactorCode': generatedCode,
+          'twoFactorPending': true,
+          'twoFactorCodeCreatedAt': FieldValue.serverTimestamp(),
+          'twoFactorCodeExpiresAt': Timestamp.fromDate(expiresAt),
+          'twoFactorAttemptCount': 0,
+        });
 
         final bool emailSent = await _sendRealEmail2FA(
             _emailController.text.trim(), generatedCode);
@@ -231,6 +239,20 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
 
         if (!emailSent) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .update({
+            'twoFactorCode': FieldValue.delete(),
+            'twoFactorPending': false,
+            'twoFactorCodeCreatedAt': FieldValue.delete(),
+            'twoFactorCodeExpiresAt': FieldValue.delete(),
+            'twoFactorAttemptCount': FieldValue.delete(),
+          });
+          await FirebaseAuth.instance.signOut();
+
+          if (!mounted) return;
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content:
@@ -241,11 +263,18 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
 
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const TwoFactorScreen()));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TwoFactorScreen()),
+        );
       } else {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set({'twoFactorPending': false}, SetOptions(merge: true));
+
         if (!mounted) return;
-        Navigator.pushReplacement(
+        await Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainLayout()),
         );

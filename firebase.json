@@ -1,1 +1,24 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"vitaltrack-ce9e1","appId":"1:214909467704:android:b6c3a083b415e732d03acd","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"vitaltrack-ce9e1","configurations":{"android":"1:214909467704:android:b6c3a083b415e732d03acd","ios":"1:214909467704:ios:ef811e037b4a1ef2d03acd","macos":"1:214909467704:ios:ef811e037b4a1ef2d03acd","web":"1:214909467704:web:927edf1503b2d189d03acd","windows":"1:214909467704:web:1e09c963b81ba5a2d03acd"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vitaltrack-92f93",
+          "appId": "1:970889451531:android:7afdba6071c4fea396cf0e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vitaltrack-92f93",
+          "configurations": {
+            "android": "1:970889451531:android:7afdba6071c4fea396cf0e"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

@@ -53,7 +53,55 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
           .collection('users')
           .doc(user.uid)
           .get();
-      final savedCode = doc.data()?['twoFactorCode'];
+      final userData = doc.data() ?? <String, dynamic>{};
+      final savedCode = userData['twoFactorCode'];
+      final bool isPending = userData['twoFactorPending'] == true;
+      final Timestamp? expiresAtTs =
+          userData['twoFactorCodeExpiresAt'] as Timestamp?;
+      final int attemptCount = (userData['twoFactorAttemptCount'] ?? 0) as int;
+
+      if (!isPending || savedCode == null) {
+        setState(() => _isLoading = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'No active verification code found. Please log in again.',
+                style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        await FirebaseAuth.instance.signOut();
+        return;
+      }
+
+      if (expiresAtTs != null &&
+          expiresAtTs.toDate().isBefore(DateTime.now())) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'twoFactorCode': FieldValue.delete(),
+          'twoFactorPending': false,
+          'twoFactorCodeCreatedAt': FieldValue.delete(),
+          'twoFactorCodeExpiresAt': FieldValue.delete(),
+          'twoFactorAttemptCount': FieldValue.delete(),
+        });
+        await FirebaseAuth.instance.signOut();
+
+        setState(() => _isLoading = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification code expired. Please log in again.',
+                style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
 
       if (savedCode == code) {
         // SUCCESS! Delete the code so it cannot be reused
@@ -62,22 +110,61 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
             .doc(user.uid)
             .update({
           'twoFactorCode': FieldValue.delete(),
+          'twoFactorPending': false,
+          'twoFactorCodeCreatedAt': FieldValue.delete(),
+          'twoFactorCodeExpiresAt': FieldValue.delete(),
+          'twoFactorAttemptCount': FieldValue.delete(),
+          'twoFactorVerifiedAt': FieldValue.serverTimestamp(),
         });
 
         if (!mounted) return;
 
-        Navigator.pushAndRemoveUntil(
+        await Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainLayout()),
           (route) => false,
         );
       } else {
+        final int updatedAttempts = attemptCount + 1;
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'twoFactorAttemptCount': updatedAttempts,
+        });
+
+        if (updatedAttempts >= 5) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({
+            'twoFactorCode': FieldValue.delete(),
+            'twoFactorPending': false,
+            'twoFactorCodeCreatedAt': FieldValue.delete(),
+            'twoFactorCodeExpiresAt': FieldValue.delete(),
+            'twoFactorAttemptCount': FieldValue.delete(),
+          });
+          await FirebaseAuth.instance.signOut();
+
+          setState(() => _isLoading = false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Too many attempts. Please log in again.',
+                  style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+
         setState(() => _isLoading = false);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Incorrect code. Please check your email and try again.',
+                'Incorrect code. ${5 - updatedAttempts} attempts remaining.',
                 style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,

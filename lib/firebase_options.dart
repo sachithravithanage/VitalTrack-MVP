@@ -41,49 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyByljrj6be523aJx7dPPu7YiTGpI6y7vW0',
-    appId: '1:214909467704:web:927edf1503b2d189d03acd',
-    messagingSenderId: '214909467704',
-    projectId: 'vitaltrack-ce9e1',
-    authDomain: 'vitaltrack-ce9e1.firebaseapp.com',
-    storageBucket: 'vitaltrack-ce9e1.firebasestorage.app',
-    measurementId: 'G-2XSC4X7Q4W',
+    apiKey: 'AIzaSyC7DtcmiMBRkU1qd4Bq5s7vKxaS1fU38kc',
+    appId: '1:970889451531:web:your_web_app_id',
+    messagingSenderId: '970889451531',
+    projectId: 'vitaltrack-92f93',
+    authDomain: 'vitaltrack-92f93.firebaseapp.com',
+    storageBucket: 'vitaltrack-92f93.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyACcoK3NzLkEAApcLyumCr2wAN-87_QBH4',
-    appId: '1:214909467704:android:b6c3a083b415e732d03acd',
-    messagingSenderId: '214909467704',
-    projectId: 'vitaltrack-ce9e1',
-    storageBucket: 'vitaltrack-ce9e1.firebasestorage.app',
+    apiKey: 'AIzaSyC7DtcmiMBRkU1qd4Bq5s7vKxaS1fU38kc',
+    appId: '1:970889451531:android:7afdba6071c4fea396cf0e',
+    messagingSenderId: '970889451531',
+    projectId: 'vitaltrack-92f93',
+    storageBucket: 'vitaltrack-92f93.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyB2yYGWIemGy6vjOO8_CzubV4Msq6xOegE',
-    appId: '1:214909467704:ios:ef811e037b4a1ef2d03acd',
-    messagingSenderId: '214909467704',
-    projectId: 'vitaltrack-ce9e1',
-    storageBucket: 'vitaltrack-ce9e1.firebasestorage.app',
+    apiKey: 'AIzaSyC7DtcmiMBRkU1qd4Bq5s7vKxaS1fU38kc',
+    appId: '1:970889451531:ios:your_ios_app_id',
+    messagingSenderId: '970889451531',
+    projectId: 'vitaltrack-92f93',
+    storageBucket: 'vitaltrack-92f93.firebasestorage.app',
     iosBundleId: 'com.example.vitalTrack',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyB2yYGWIemGy6vjOO8_CzubV4Msq6xOegE',
-    appId: '1:214909467704:ios:ef811e037b4a1ef2d03acd',
-    messagingSenderId: '214909467704',
-    projectId: 'vitaltrack-ce9e1',
-    storageBucket: 'vitaltrack-ce9e1.firebasestorage.app',
+    apiKey: 'AIzaSyC7DtcmiMBRkU1qd4Bq5s7vKxaS1fU38kc',
+    appId: '1:970889451531:ios:your_ios_app_id',
+    messagingSenderId: '970889451531',
+    projectId: 'vitaltrack-92f93',
+    storageBucket: 'vitaltrack-92f93.firebasestorage.app',
     iosBundleId: 'com.example.vitalTrack',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyByljrj6be523aJx7dPPu7YiTGpI6y7vW0',
-    appId: '1:214909467704:web:1e09c963b81ba5a2d03acd',
-    messagingSenderId: '214909467704',
-    projectId: 'vitaltrack-ce9e1',
-    authDomain: 'vitaltrack-ce9e1.firebaseapp.com',
-    storageBucket: 'vitaltrack-ce9e1.firebasestorage.app',
-    measurementId: 'G-1VWQWBDDZW',
+    apiKey: 'AIzaSyC7DtcmiMBRkU1qd4Bq5s7vKxaS1fU38kc',
+    appId: '1:970889451531:web:your_windows_app_id',
+    messagingSenderId: '970889451531',
+    projectId: 'vitaltrack-92f93',
+    authDomain: 'vitaltrack-92f93.firebaseapp.com',
+    storageBucket: 'vitaltrack-92f93.firebasestorage.app',
   );
-
 }

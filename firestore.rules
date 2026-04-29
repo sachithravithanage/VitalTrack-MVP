@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isCaretakerOf(userId) {
+      return isSignedIn() &&
+          get(/databases/$(database)/documents/users/$(userId)).data.linkedCaretakerId == request.auth.uid;
+    }
+
+    function canAccessPatientData(userId) {
+      return isOwner(userId) || isCaretakerOf(userId);
+    }
+
+    function isCaretakerLinkUpdate(userId) {
+      return isSignedIn() &&
+          request.auth.uid != userId &&
+          resource.data.role == 'Caretaker' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['linkedPatients']) &&
+          (
+            resource.data.linkedPatients.hasAny([request.auth.uid]) ||
+            request.resource.data.linkedPatients.hasAny([request.auth.uid])
+          );
+    }
+
+    // User profiles and linkage metadata.
+    match /users/{userId} {
+      // Authenticated users need read access for caretaker lookup and patient listing.
+      allow read: if isSignedIn();
+
+      // Users can create their own profile document.
+      allow create: if isOwner(userId);
+
+      // Users can update/delete their own profile.
+      // Additionally, allow patients to only add/remove themselves from a caretaker's linkedPatients.
+      allow update: if isOwner(userId) || isCaretakerLinkUpdate(userId);
+      allow delete: if isOwner(userId);
+
+      // Dengue/general episodes and logs.
+      match /episodes/{episodeId} {
+        allow read, write: if canAccessPatientData(userId);
+
+        match /logs/{logId} {
+          allow read, write: if canAccessPatientData(userId);
+        }
+      }
+
+      // Leptospirosis logs.
+      match /lepto_logs/{logId} {
+        allow read, write: if canAccessPatientData(userId);
+      }
+    }
+  }
+}

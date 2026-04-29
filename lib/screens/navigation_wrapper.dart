@@ -5,6 +5,7 @@ import 'dengue_dashboard_screen.dart';
 import 'leptospirosis_dashboard_screen.dart';
 import 'dashboard_no_data_screen.dart';
 import 'patient_connections_screen.dart';
+import 'two_factor_screen.dart';
 
 class MainNavigationWrapper extends StatefulWidget {
   const MainNavigationWrapper({super.key});
@@ -30,6 +31,12 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final String role = userData['role'] ?? 'Patient';
         final String? illness = userData['currentIllness'];
+        final bool requires2FA = userData['twoFactorEnabled'] == true;
+        final bool twoFactorPending = userData['twoFactorPending'] == true;
+
+        if (requires2FA && twoFactorPending) {
+          return const TwoFactorScreen();
+        }
 
         // Logic for "Home"
         Widget homeScreen;
