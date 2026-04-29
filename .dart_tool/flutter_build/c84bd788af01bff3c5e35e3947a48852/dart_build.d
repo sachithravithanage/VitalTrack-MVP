@@ -1,0 +1,1 @@
+ C:\\VitalTrack\\.dart_tool\\flutter_build\\c84bd788af01bff3c5e35e3947a48852\\dart_build_result.json:  C:\\VitalTrack\\.dart_tool\\package_config.json C:\\VitalTrack\\pubspec.yaml C:\\src\\flutter\\bin\\cache\\dart-sdk\\version c:\\vitaltrack\\.dart_tool\\package_config.json
