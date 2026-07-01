@@ -7,7 +7,9 @@ import '../providers/patient_provider.dart';
 import 'personal_information_screen.dart';
 import 'privacy_security_screen.dart';
 import 'login_screen.dart';
+import 'add_patient_screen.dart';
 import 'link_caretaker_screen.dart';
+import 'patient_connections_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -28,8 +30,13 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<PatientProvider>();
     final currentUser = provider.currentUser;
+    final authUser = FirebaseAuth.instance.currentUser;
 
-    final String fullName = currentUser?.fullName ?? 'Loading...';
+    final String fullName = currentUser?.fullName.trim().isNotEmpty == true
+        ? currentUser!.fullName
+        : (authUser?.displayName?.trim().isNotEmpty == true
+            ? authUser!.displayName!
+            : (authUser?.email?.split('@').first ?? ''));
     final String role = currentUser?.role ?? 'Patient';
 
     return Scaffold(
@@ -139,6 +146,28 @@ class ProfileScreen extends StatelessWidget {
                   MaterialPageRoute(
                       builder: (context) =>
                           const LinkCaretakerScreen(isFromOnboarding: false))),
+            ),
+
+          if (role == 'Caretaker')
+            _buildMenuTile(
+              icon: Icons.person_add_alt_1_outlined,
+              title: 'Add Patient',
+              subtitle: 'Create a patient profile from this account',
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AddPatientScreen())),
+            ),
+
+          if (role == 'Caretaker')
+            _buildMenuTile(
+              icon: Icons.people_outline,
+              title: 'My Patients',
+              subtitle: 'View linked and added patients',
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const PatientConnectionsScreen())),
             ),
 
           _buildMenuTile(

@@ -70,6 +70,42 @@ class PatientProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshCurrentUser() async {
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (authUser == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(authUser.uid)
+          .get();
+
+      if (!doc.exists || doc.data() == null) return;
+
+      final data = Map<String, dynamic>.from(doc.data()!);
+      final tokenResult = await authUser.getIdTokenResult(true);
+      final roleFromClaim = tokenResult.claims?['role'];
+      if (roleFromClaim is String && roleFromClaim.isNotEmpty) {
+        data['role'] = roleFromClaim;
+      }
+
+      currentUser = UserProfile.fromFirestore(data, authUser.uid);
+
+      if (currentUser!.role == 'Patient') {
+        await setActivePatient(currentUser!);
+        return;
+      }
+
+      if (activePatient == null) {
+        activeEpisode = null;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error refreshing current user: $e');
+    }
+  }
+
   // Caretakers call this when they click on a patient card
   Future<void> setActivePatientById(String patientUid) async {
     isLoading = true;
@@ -118,6 +154,12 @@ class PatientProvider extends ChangeNotifier {
     }
 
     isLoading = false;
+    notifyListeners();
+  }
+
+  void clearActivePatient() {
+    activePatient = null;
+    activeEpisode = null;
     notifyListeners();
   }
 

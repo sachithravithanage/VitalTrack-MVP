@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/patient_provider.dart';
 import 'dengue_dashboard_screen.dart';
 import 'leptospirosis_dashboard_screen.dart';
 import 'dashboard_no_data_screen.dart';
@@ -17,6 +20,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final patientProvider = context.watch<PatientProvider>();
 
     return StreamBuilder<DocumentSnapshot>(
       stream:
@@ -32,12 +36,15 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
 
         // Logic for "Home"
         Widget homeScreen;
-        if (role == 'Caretaker') {
+        if (role == 'Caretaker' && patientProvider.activePatient == null) {
           homeScreen = const PatientConnectionsScreen();
         } else {
-          if (illness == 'Dengue') {
+          final activeEpisode = patientProvider.activeEpisode;
+          final activeIllness = activeEpisode?.diseaseName ?? illness;
+
+          if (activeIllness == 'Dengue') {
             homeScreen = const DengueDashboardScreen();
-          } else if (illness == 'Leptospirosis') {
+          } else if (activeIllness == 'Leptospirosis') {
             homeScreen = const LeptospirosisDashboardScreen();
           } else {
             homeScreen = const DashboardNoDataScreen();

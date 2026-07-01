@@ -27,9 +27,18 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if canReadUser(uid);
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid);
-      allow delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+        || (signedIn()
+          && request.resource.data.role == 'Patient'
+          && request.resource.data.linkedCaretakerId == request.auth.uid);
+      allow update: if isOwner(uid)
+        || (signedIn()
+          && userDoc(uid).exists()
+          && userDoc(uid).data.linkedCaretakerId == request.auth.uid);
+      allow delete: if isOwner(uid)
+        || (signedIn()
+          && userDoc(uid).exists()
+          && userDoc(uid).data.linkedCaretakerId == request.auth.uid);
 
       match /episodes/{episodeId} {
         allow read, write: if canReadUser(uid);

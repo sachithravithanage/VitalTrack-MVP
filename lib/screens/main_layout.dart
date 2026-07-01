@@ -31,6 +31,8 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     final patientProvider = context.watch<PatientProvider>();
     final isCaretaker = patientProvider.currentUser?.role == 'Caretaker';
+    final showPatientActions =
+        !isCaretaker || patientProvider.activePatient != null;
 
     return Scaffold(
       // IndexedStack keeps all tabs alive in memory without rebuilding them!
@@ -40,9 +42,8 @@ class _MainLayoutState extends State<MainLayout> {
       ),
 
       // Floating Action Button logic kept entirely here
-      floatingActionButton: isCaretaker
-          ? null
-          : FloatingActionButton(
+      floatingActionButton: showPatientActions
+          ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
                   context,
@@ -54,7 +55,8 @@ class _MainLayoutState extends State<MainLayout> {
               backgroundColor: const Color(0xFF26A69A),
               shape: const CircleBorder(),
               child: const Icon(Icons.add, color: Colors.white, size: 32),
-            ),
+            )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
       // The Persistent Bottom Navigation Bar
@@ -70,7 +72,8 @@ class _MainLayoutState extends State<MainLayout> {
               _buildNavItem(Icons.home, 'Home', 0),
               _buildNavItem(Icons.assignment, 'Log', 1),
 
-              if (!isCaretaker) const SizedBox(width: 40), // Space for FAB
+              if (showPatientActions)
+                const SizedBox(width: 40), // Space for FAB
 
               _buildNavItem(Icons.location_on, 'Map', 2),
               _buildNavItem(Icons.person, 'Profile', 3),

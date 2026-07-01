@@ -23,12 +23,7 @@ class HomeWrapper extends StatelessWidget {
       );
     }
 
-    // 2. Route Caretakers to their specific screen
-    if (provider.currentUser?.role == 'Caretaker') {
-      return const PatientConnectionsScreen();
-    }
-
-    // 3. Route Patients based on their active episode
+    // 2. Route the active patient context based on episode state
     final episode = provider.activeEpisode;
 
     if (episode == null || !episode.isActive) {

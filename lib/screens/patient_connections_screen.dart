@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'add_patient_screen.dart';
 import '../providers/patient_provider.dart';
 import '../models/user_profile.dart';
 import 'dengue_patient_history_screen.dart';
@@ -52,6 +54,131 @@ class _PatientConnectionsScreenState extends State<PatientConnectionsScreen> {
             content: Text('This patient currently has no active illness.'),
             backgroundColor: Colors.blueGrey),
       );
+    }
+  }
+
+  Future<void> _editPatient(UserProfile patient) async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddPatientScreen(patient: patient),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _deletePatientTree(String patientId) async {
+    final firestore = FirebaseFirestore.instance;
+
+    final episodesSnapshot = await firestore
+        .collection('users')
+        .doc(patientId)
+        .collection('episodes')
+        .get();
+
+    for (final episodeDoc in episodesSnapshot.docs) {
+      final logsSnapshot = await episodeDoc.reference.collection('logs').get();
+      for (final logDoc in logsSnapshot.docs) {
+        await logDoc.reference.delete();
+      }
+      await episodeDoc.reference.delete();
+    }
+
+    final leptoLogsSnapshot = await firestore
+        .collection('users')
+        .doc(patientId)
+        .collection('lepto_logs')
+        .get();
+
+    for (final logDoc in leptoLogsSnapshot.docs) {
+      await logDoc.reference.delete();
+    }
+  }
+
+  Future<void> _deletePatient(UserProfile patient) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Delete Patient?',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.bold)),
+          content: Text(
+            'This will permanently remove the patient profile, logs, and episodes from your account.',
+            style: GoogleFonts.nunito(color: const Color(0xFF475569)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text('Cancel',
+                  style: GoogleFonts.nunito(
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text('Delete',
+                  style: GoogleFonts.nunito(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final caretaker = FirebaseAuth.instance.currentUser;
+      if (caretaker == null) {
+        throw Exception('You must be signed in to delete a patient.');
+      }
+
+      await _deletePatientTree(patient.uid);
+
+      final batch = FirebaseFirestore.instance.batch();
+      final caretakerRef =
+          FirebaseFirestore.instance.collection('users').doc(caretaker.uid);
+      final patientRef =
+          FirebaseFirestore.instance.collection('users').doc(patient.uid);
+
+      batch.update(caretakerRef, {
+        'linkedPatients': FieldValue.arrayRemove([patient.uid]),
+      });
+      batch.delete(patientRef);
+      await batch.commit();
+
+      final provider = context.read<PatientProvider>();
+      if (provider.activePatient?.uid == patient.uid) {
+        provider.clearActivePatient();
+      }
+      await provider.refreshCurrentUser();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Patient deleted successfully.'),
+          backgroundColor: Colors.blueGrey,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -296,7 +423,7 @@ class _PatientConnectionsScreenState extends State<PatientConnectionsScreen> {
                     color: const Color(0xFF0F172A))),
             const SizedBox(height: 12),
             Text(
-                'To monitor a patient, give them your unique Caretaker Code from your Profile settings.',
+                'You can link an existing patient with your Caretaker Code or add a new patient from your Profile settings.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.nunito(
                     fontSize: 16, color: const Color(0xFF64748B), height: 1.5)),
@@ -373,7 +500,6 @@ class _PatientConnectionsScreenState extends State<PatientConnectionsScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      // Beautiful Disease Badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
@@ -398,8 +524,35 @@ class _PatientConnectionsScreenState extends State<PatientConnectionsScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded,
-                    color: Color(0xFFCBD5E1)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      icon:
+                          const Icon(Icons.more_vert, color: Color(0xFF94A3B8)),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _editPatient(patientProfile);
+                        } else if (value == 'delete') {
+                          _deletePatient(patientProfile);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Text('Edit Patient'),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Text('Delete Patient'),
+                        ),
+                      ],
+                    ),
+                    const Icon(Icons.chevron_right_rounded,
+                        color: Color(0xFFCBD5E1)),
+                  ],
+                ),
               ],
             ),
             const Padding(
