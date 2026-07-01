@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:math';
 
+import '../services/app_auth_service.dart';
+import 'complete_profile_screen.dart';
+import 'email_verification_screen.dart';
 import 'main_layout.dart';
-import 'two_factor_screen.dart';
-// FIX 1: We now import your exact file name!
 import 'sign_up_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -30,41 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // --- THE REAL EMAIL SENDER ENGINE ---
-  Future<bool> _sendRealEmail2FA(String patientEmail, String code) async {
-    final url = Uri.parse('https://api.emailjs.com/api/v1.0/email/send');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          // FIXED: This is the magic line that makes it work on Mobile!
-          'origin': 'http://localhost',
-        },
-        body: json.encode({
-          'service_id': 'service_d0uwmd5',
-          'template_id': 'template_i7r6a0e',
-          'user_id': 'tcwnalo5WFrjJOX0y',
-          'template_params': {
-            'email': patientEmail,
-            'verification_code': code,
-          }
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        debugPrint("EmailJS Error: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      debugPrint("Email sending failed: $e");
-      return false;
-    }
   }
 
   // --- FORGOT PASSWORD POPUP ENGINE ---
@@ -202,51 +164,38 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await AppAuthService.instance.signInWithEmailPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-      final bool requires2FA = doc.data()?['twoFactorEnabled'] ?? false;
+      await AppAuthService.instance.reloadCurrentUser();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'user-not-found');
+      }
 
-      if (requires2FA) {
-        String generatedCode = (Random().nextInt(900000) + 100000).toString();
+      if (!user.emailVerified) {
+        await AppAuthService.instance.resendVerificationEmail();
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .update({'twoFactorCode': generatedCode});
-
-        bool emailSent = await _sendRealEmail2FA(
-            _emailController.text.trim(), generatedCode);
-
-        if (!mounted) return;
-
-        if (!emailSent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Could not send 2FA email. Please contact support.'),
-                backgroundColor: Colors.red),
-          );
-          setState(() => _isLoading = false);
-          return;
-        }
-
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const TwoFactorScreen()));
-      } else {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainLayout()),
+          MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
         );
+        return;
       }
+
+      final hasProfile = await AppAuthService.instance.currentUserHasProfile();
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              hasProfile ? const MainLayout() : const CompleteProfileScreen(),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 

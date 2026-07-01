@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../services/app_auth_service.dart';
 import 'onboarding_screen.dart';
 import 'main_layout.dart'; // CHANGED: We now import MainLayout instead of the dashboard
 import 'complete_profile_screen.dart';
+import 'email_verification_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,23 +31,32 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (currentUser == null) {
       // Not logged in -> Go to Onboarding
-      Navigator.pushReplacement(
+      await Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const OnboardingScreen()),
       );
     } else {
-      // Logged in! Let's check if they have a Firestore profile yet
       try {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUser.uid)
-            .get();
+        await AppAuthService.instance.reloadCurrentUser();
+        final verified = await AppAuthService.instance.isCurrentUserVerified();
 
         if (!mounted) return;
 
-        if (userDoc.exists) {
+        if (!verified) {
+          await Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const EmailVerificationScreen()),
+          );
+          return;
+        }
+
+        final hasProfile =
+            await AppAuthService.instance.currentUserHasProfile();
+
+        if (hasProfile) {
           // Profile exists! Route directly to the MainLayout (which holds the Bottom Nav Bar).
-          Navigator.pushReplacement(
+          await Navigator.pushReplacement(
             context,
             MaterialPageRoute(
                 builder: (context) =>
@@ -54,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen> {
           );
         } else {
           // They signed up with Firebase Auth, but didn't finish the profile setup
-          Navigator.pushReplacement(
+          await Navigator.pushReplacement(
             context,
             MaterialPageRoute(
                 builder: (context) => const CompleteProfileScreen()),
@@ -62,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       } catch (e) {
         // Fallback if network fails
-        Navigator.pushReplacement(
+        await Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         );

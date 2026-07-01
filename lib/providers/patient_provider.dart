@@ -33,10 +33,21 @@ class PatientProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final authUser = FirebaseAuth.instance.currentUser;
       final doc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        currentUser = UserProfile.fromFirestore(doc.data()!, uid);
+        final data = Map<String, dynamic>.from(doc.data()!);
+
+        if (authUser != null) {
+          final tokenResult = await authUser.getIdTokenResult(true);
+          final roleFromClaim = tokenResult.claims?['role'];
+          if (roleFromClaim is String && roleFromClaim.isNotEmpty) {
+            data['role'] = roleFromClaim;
+          }
+        }
+
+        currentUser = UserProfile.fromFirestore(data, uid);
 
         // If the logged-in user is a Patient, they are their own active patient
         if (currentUser!.role == 'Patient') {

@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function canReadUser(uid) {
+      return isOwner(uid)
+        || (signedIn()
+          && userDoc(uid).exists()
+          && userDoc(uid).data.linkedCaretakerId == request.auth.uid)
+        || (signedIn()
+          && userDoc(request.auth.uid).exists()
+          && userDoc(request.auth.uid).data.linkedPatients is list
+          && userDoc(request.auth.uid).data.linkedPatients.hasAny([uid]));
+    }
+
+    match /users/{uid} {
+      allow read: if canReadUser(uid);
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if isOwner(uid);
+
+      match /episodes/{episodeId} {
+        allow read, write: if canReadUser(uid);
+
+        match /logs/{logId} {
+          allow read, write: if canReadUser(uid);
+        }
+      }
+
+      match /lepto_logs/{logId} {
+        allow read, write: if canReadUser(uid);
+      }
+    }
+  }
+}

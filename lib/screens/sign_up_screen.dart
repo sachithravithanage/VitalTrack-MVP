@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'complete_profile_screen.dart';
+import '../services/app_auth_service.dart';
+import 'email_verification_screen.dart';
 import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -52,20 +53,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => isLoading = true);
 
     try {
-      // 1. Create the user in Firebase Authentication
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await AppAuthService.instance.signUpWithEmailPassword(
         email: email,
         password: password,
       );
 
-      // 2. On success, navigate to Complete Profile Screen to save their specific details
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const CompleteProfileScreen()),
-        );
-      }
+      if (!mounted) return;
+
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) => const EmailVerificationScreen()),
+      );
     } on FirebaseAuthException catch (e) {
       String message = 'An error occurred. Please try again.';
       if (e.code == 'weak-password') {
