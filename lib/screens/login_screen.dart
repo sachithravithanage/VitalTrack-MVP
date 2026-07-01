@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:math';
+import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -6,6 +11,7 @@ import '../services/app_auth_service.dart';
 import 'complete_profile_screen.dart';
 import 'email_verification_screen.dart';
 import 'main_layout.dart';
+import 'two_factor_screen.dart';
 import 'sign_up_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -22,11 +28,71 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  static const String _emailJsServiceId = String.fromEnvironment(
+    'EMAILJS_SERVICE_ID',
+    defaultValue: 'service_82bvoic',
+  );
+  static const String _emailJsTemplateId = String.fromEnvironment(
+    'EMAILJS_TEMPLATE_ID',
+    defaultValue: 'template_qbucwvf',
+  );
+  static const String _emailJsPublicKey = String.fromEnvironment(
+    'EMAILJS_PUBLIC_KEY',
+    defaultValue: 'G8r2h3EFKJLkV_A7J',
+  );
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _sendRealEmail2FA(String patientEmail, String code) async {
+    if (_emailJsServiceId.isEmpty ||
+        _emailJsTemplateId.isEmpty ||
+        _emailJsPublicKey.isEmpty) {
+      debugPrint(
+        'EmailJS is not configured. Provide EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, and EMAILJS_PUBLIC_KEY.',
+      );
+      return false;
+    }
+
+    final url = Uri.parse('https://api.emailjs.com/api/v1.0/email/send');
+    final validUntil = DateFormat('hh:mm a').format(
+      DateTime.now().add(const Duration(minutes: 15)),
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'service_id': _emailJsServiceId,
+          'template_id': _emailJsTemplateId,
+          'user_id': _emailJsPublicKey,
+          'template_params': {
+            'email': patientEmail,
+            'passcode': code,
+            'time': validUntil,
+            'verification_code': code,
+          }
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          'EmailJS rejected 2FA email: ${response.statusCode} ${response.body}',
+        );
+      }
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('EmailJS send failed: $e');
+      return false;
+    }
   }
 
   // --- FORGOT PASSWORD POPUP ENGINE ---
@@ -182,6 +248,51 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
+        );
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final bool requires2FA = doc.data()?['twoFactorEnabled'] ?? false;
+
+      if (requires2FA) {
+        final generatedCode = (Random().nextInt(900000) + 100000).toString();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'twoFactorCode': generatedCode});
+
+        final emailSent = await _sendRealEmail2FA(
+          _emailController.text.trim(),
+          generatedCode,
+        );
+
+        if (!mounted) return;
+
+        if (!emailSent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _emailJsServiceId.isEmpty ||
+                        _emailJsTemplateId.isEmpty ||
+                        _emailJsPublicKey.isEmpty
+                    ? '2FA email is not configured. Add EmailJS credentials and rebuild.'
+                    : 'Could not send 2FA email. Check EmailJS credentials and template settings.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TwoFactorScreen()),
         );
         return;
       }

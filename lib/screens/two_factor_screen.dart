@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../services/app_auth_service.dart';
+import 'complete_profile_screen.dart';
 import 'main_layout.dart';
 
 class TwoFactorScreen extends StatefulWidget {
@@ -66,9 +68,16 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
 
         if (!mounted) return;
 
+        final hasProfile =
+            await AppAuthService.instance.currentUserHasProfile();
+        if (!mounted) return;
+
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const MainLayout()),
+          MaterialPageRoute(
+            builder: (context) =>
+                hasProfile ? const MainLayout() : const CompleteProfileScreen(),
+          ),
           (route) => false,
         );
       } else {
@@ -139,7 +148,7 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'To protect your account, please enter the 6-digit code we sent to your email address.',
+                'To protect your account, please enter the 6-digit code we sent to your email address when you signed in.',
                 style: GoogleFonts.nunito(
                     fontSize: 16, color: const Color(0xFF64748B), height: 1.5),
               ),

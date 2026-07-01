@@ -13,7 +13,64 @@ class PrivacySecurityScreen extends StatefulWidget {
 }
 
 class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
+  bool _is2FAEnabled = false;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSecuritySettings();
+  }
+
+  Future<void> _loadSecuritySettings() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists && doc.data()!.containsKey('twoFactorEnabled')) {
+          setState(() {
+            _is2FAEnabled = doc.data()!['twoFactorEnabled'] ?? false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error loading 2FA setting: $e');
+      }
+    }
+  }
+
+  Future<void> _toggle2FA(bool value) async {
+    setState(() => _is2FAEnabled = value);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'twoFactorEnabled': value});
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(value
+                ? 'Two-Factor Authentication Enabled'
+                : 'Two-Factor Authentication Disabled'),
+            backgroundColor: const Color(0xFF20B5A0),
+          ),
+        );
+      } catch (e) {
+        setState(() => _is2FAEnabled = !value);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update setting: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   // Sends a secure Firebase password reset email
   Future<void> _changePassword() async {
@@ -176,12 +233,15 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
 
                 _buildActionTile(
                   icon: Icons.verified_user_outlined,
-                  title: 'Email verification',
+                  title: 'Two-Factor Authentication',
                   subtitle:
-                      'Account access now requires a verified email address. Additional MFA should be enforced in Firebase or Cloud Functions.',
-                  onTap: () {},
-                  trailing:
-                      const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+                      'Add an extra layer of security to your account during sign-in.',
+                  onTap: () => _toggle2FA(!_is2FAEnabled),
+                  trailing: Switch(
+                    value: _is2FAEnabled,
+                    activeColor: const Color(0xFF20B5A0),
+                    onChanged: _toggle2FA,
+                  ),
                 ),
 
                 const SizedBox(height: 32),
