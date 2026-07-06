@@ -1,0 +1,263 @@
+import 'firebase_service.dart';
+import 'api_client.dart';
+import 'storage_service.dart';
+
+/// Authentication Service - coordinates Firebase Auth and backend API
+class AuthService {
+  final ApiClient _apiClient = apiClient;
+  final FirebaseAuthService _firebaseAuth = firebaseAuthService;
+  final StorageService _storage = storageService;
+
+  /// Send OTP for phone or email
+  Future<bool> sendOtp({
+    required String credential,
+    required String type, // 'phone' or 'email'
+  }) async {
+    try {
+      final response = await _apiClient.sendOtp(
+        credential: credential,
+        type: type,
+      );
+      return response['success'] ?? false;
+    } catch (e) {
+      print("Error sending OTP: $e");
+      rethrow;
+    }
+  }
+
+  /// Verify OTP
+  Future<Map<String, dynamic>> verifyOtp({
+    required String credential,
+    required String otp,
+  }) async {
+    try {
+      final response = await _apiClient.verifyOtp(
+        credential: credential,
+        otp: otp,
+      );
+
+      // Store user data locally
+      if (response['user'] != null) {
+        await _storage.saveCurrentUser(
+          response['user'] as Map<String, dynamic>,
+        );
+      }
+
+      return response;
+    } catch (e) {
+      print("Error verifying OTP: $e");
+      rethrow;
+    }
+  }
+
+  /// Sign up with email and password
+  Future<Map<String, dynamic>> signUp({
+    String? email,
+    required String phone,
+    required String password,
+    required String name,
+    required String role, // 'patient' or 'caregiver'
+  }) async {
+    try {
+      // Register with backend
+      final response = await _apiClient.signup(
+        email: email,
+        phone: phone,
+        password: password,
+        name: name,
+        role: role,
+      );
+
+      final customToken = response['customToken'] as String?;
+      if (customToken != null && customToken.isNotEmpty) {
+        await _firebaseAuth.signInWithCustomToken(customToken);
+      }
+
+      // Store user data locally
+      if (response['user'] is Map<String, dynamic>) {
+        await _storage.saveCurrentUser(
+          response['user'] as Map<String, dynamic>,
+        );
+      }
+
+      // Register FCM token
+      await _registerFCMToken();
+
+      return response;
+    } catch (e) {
+      print("Error signing up: $e");
+      rethrow;
+    }
+  }
+
+  /// Login with email and password
+  Future<Map<String, dynamic>> login({
+    required String credential, // email or phone
+    required String password,
+  }) async {
+    try {
+      // Call backend to validate credentials and obtain custom token.
+      final response = await _apiClient.login(
+        credential: credential,
+        password: password,
+      );
+
+      final customToken = response['customToken'] as String?;
+      if (customToken != null && customToken.isNotEmpty) {
+        await _firebaseAuth.signInWithCustomToken(customToken);
+      }
+
+      // Store user data locally
+      if (response['user'] is Map<String, dynamic>) {
+        await _storage.saveCurrentUser(
+          response['user'] as Map<String, dynamic>,
+        );
+      }
+
+      // Register FCM token
+      await _registerFCMToken();
+
+      return response;
+    } catch (e) {
+      print("Error logging in: $e");
+      rethrow;
+    }
+  }
+
+  /// Get user profile
+  Future<Map<String, dynamic>> getUserProfile() async {
+    try {
+      final response = await _apiClient.getUserProfile();
+
+      // Update local storage
+      final user = response['profile'] ?? response['user'];
+      if (user is Map<String, dynamic>) {
+        await _storage.saveCurrentUser(user);
+      }
+
+      return response;
+    } catch (e) {
+      print("Error getting user profile: $e");
+      rethrow;
+    }
+  }
+
+  /// Update user profile
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? phone,
+    String? email,
+  }) async {
+    try {
+      final response = await _apiClient.updateProfile(
+        name: name,
+        phone: phone,
+        email: email,
+      );
+
+      // Update local storage
+      final user = response['profile'] ?? response['user'];
+      if (user is Map<String, dynamic>) {
+        await _storage.saveCurrentUser(user);
+      }
+
+      return response;
+    } catch (e) {
+      print("Error updating profile: $e");
+      rethrow;
+    }
+  }
+
+  /// Request email verification OTP for the currently stored profile email
+  Future<Map<String, dynamic>> verifyEmail() async {
+    try {
+      return await _apiClient.verifyEmail();
+    } catch (e) {
+      print("Error requesting email verification: $e");
+      rethrow;
+    }
+  }
+
+  /// Confirm email verification OTP
+  Future<Map<String, dynamic>> confirmEmailVerification({
+    required String otp,
+  }) async {
+    try {
+      final response = await _apiClient.confirmEmailVerification(otp: otp);
+
+      final currentUser = _storage.getCurrentUser();
+      if (currentUser != null) {
+        currentUser['emailVerified'] = true;
+        await _storage.saveCurrentUser(currentUser);
+      }
+
+      return response;
+    } catch (e) {
+      print("Error confirming email verification: $e");
+      rethrow;
+    }
+  }
+
+  /// Get current user from local storage
+  Map<String, dynamic>? getCurrentUser() {
+    return _storage.getCurrentUser();
+  }
+
+  /// Get current user ID
+  String? getCurrentUserId() {
+    return _storage.getCurrentUser()?['id'] as String?;
+  }
+
+  /// Get current user role
+  String? getCurrentUserRole() {
+    return _storage.getCurrentUser()?['role'] as String?;
+  }
+
+  /// Log out
+  Future<void> logout() async {
+    try {
+      await _firebaseAuth.signOut();
+      await _storage.clearCurrentUser();
+      await _storage.clearFCMToken();
+    } catch (e) {
+      print("Error logging out: $e");
+      rethrow;
+    }
+  }
+
+  /// Register FCM token with backend
+  Future<void> _registerFCMToken() async {
+    try {
+      final fcmToken = await _firebaseAuth.getFCMToken();
+      if (fcmToken != null) {
+        await _apiClient.registerFCMToken(token: fcmToken, platform: 'flutter');
+        await _storage.saveFCMToken(fcmToken);
+
+        // Listen to token refresh
+        _firebaseAuth.listenToFCMTokenChanges((newToken) {
+          _onFCMTokenRefresh(newToken);
+        });
+      }
+    } catch (e) {
+      print("Error registering FCM token: $e");
+    }
+  }
+
+  /// Handle FCM token refresh
+  Future<void> _onFCMTokenRefresh(String newToken) async {
+    try {
+      await _apiClient.registerFCMToken(token: newToken, platform: 'flutter');
+      await _storage.saveFCMToken(newToken);
+    } catch (e) {
+      print("Error updating FCM token: $e");
+    }
+  }
+
+  /// Check if user is authenticated
+  bool isAuthenticated() {
+    return getCurrentUser() != null && _firebaseAuth.isAuthenticated();
+  }
+}
+
+/// Singleton instance of Auth Service
+final authService = AuthService();
