@@ -1,0 +1,24 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vitaltrack-92f93",
+          "appId": "1:970889451531:android:7afdba6071c4fea396cf0e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vitaltrack-92f93",
+          "configurations": {
+            "android": "1:970889451531:android:7afdba6071c4fea396cf0e"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

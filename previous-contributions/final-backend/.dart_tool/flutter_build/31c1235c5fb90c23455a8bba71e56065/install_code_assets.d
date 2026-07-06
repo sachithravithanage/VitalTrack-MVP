@@ -1,0 +1,1 @@
+ C:\\dev\\new\\test_ipa_build\\.dart_tool\\flutter_build\\31c1235c5fb90c23455a8bba71e56065\\native_assets.json: 

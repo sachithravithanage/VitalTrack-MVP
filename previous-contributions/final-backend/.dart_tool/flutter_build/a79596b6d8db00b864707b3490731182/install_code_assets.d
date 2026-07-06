@@ -1,0 +1,1 @@
+ C:\\VitalTrack\\.dart_tool\\flutter_build\\a79596b6d8db00b864707b3490731182\\native_assets.json: 
